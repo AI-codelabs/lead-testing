@@ -19,12 +19,12 @@ const contacts = [
 ];
 
 const stageColor: Record<string, string> = {
-  New: "text-stage-new bg-stage-new/10",
-  Contacted: "text-stage-contacted bg-stage-contacted/10",
-  Qualified: "text-stage-qualified bg-stage-qualified/10",
-  "Closed-Won": "text-stage-closed-won bg-stage-closed-won/10",
-  Lost: "text-stage-lost bg-stage-lost/10",
-  Disqualified: "text-stage-disqualified bg-stage-disqualified/10",
+  New: "text-sky-700 bg-sky-100",
+  Contacted: "text-emerald-700 bg-emerald-100",
+  Qualified: "text-amber-700 bg-amber-100",
+  "Closed-Won": "text-orange-700 bg-orange-100",
+  Lost: "text-rose-700 bg-rose-100",
+  Disqualified: "text-violet-700 bg-violet-100",
 };
 
 function CrmPage() {
