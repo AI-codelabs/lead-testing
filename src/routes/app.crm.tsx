@@ -125,12 +125,12 @@ function CrmPage() {
             {filtered.map((c) => (
               <tr
                 key={c.id}
-                onClick={() => openEdit(c)}
-                className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
+                onClick={() => access.canSeeDetails && openEdit(c)}
+                className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${access.canSeeDetails ? "cursor-pointer" : ""}`}
               >
                 <td className="px-5 py-3.5">
                   <div className="font-medium">{c.name}</div>
-                  <div className="text-xs text-muted-foreground">{c.email}</div>
+                  <div className="text-xs text-muted-foreground">{access.canSeeDetails ? c.email : "•••"}</div>
                 </td>
                 <td className="px-5 py-3.5 text-muted-foreground">{c.company || "—"}</td>
                 <td className="px-5 py-3.5">
@@ -139,9 +139,11 @@ function CrmPage() {
                   </span>
                 </td>
                 <td className="px-5 py-3.5 text-muted-foreground">{c.source}</td>
-                <td className="px-5 py-3.5 text-right font-mono">{formatValue(c.value, c.currency)}</td>
+                <td className="px-5 py-3.5 text-right font-mono">
+                  {access.canSeeDetails ? formatValue(c.value, c.currency) : "•••"}
+                </td>
                 <td className="px-5 py-3.5 text-xs text-muted-foreground">
-                  {new Date(c.updatedAt).toLocaleDateString()}
+                  {new Date(c.updatedAt).toLocaleDateString("en-CA")}
                 </td>
               </tr>
             ))}
@@ -156,14 +158,30 @@ function CrmPage() {
         </table>
       </div>
 
-      <LeadDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        lead={editing}
-        mode="edit"
-        onSave={handleSave}
-        stages={[...new Set(leads.map((l) => l.stage))]}
-      />
+      {access.canSeeDetails && (
+        <LeadDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          lead={editing}
+          mode="edit"
+          onSave={handleSave}
+          stages={[...new Set(leads.map((l) => l.stage))]}
+        />
+      )}
     </>
+  );
+}
+
+function RestrictedNotice({ leadsCount }: { leadsCount: number }) {
+  return (
+    <div className="bg-card ring-1 ring-border rounded-lg p-10 text-center">
+      <Lock className="size-6 text-muted-foreground mx-auto mb-3" />
+      <h3 className="font-semibold">Restricted by client</h3>
+      <p className="text-sm text-muted-foreground mt-1.5 max-w-md mx-auto">
+        This client has granted read-only metrics access. Individual lead records are not visible.
+      </p>
+      <div className="text-3xl font-semibold tracking-tight mt-6">{leadsCount.toLocaleString()}</div>
+      <div className="text-xs text-muted-foreground mt-1">total leads in workspace</div>
+    </div>
   );
 }
