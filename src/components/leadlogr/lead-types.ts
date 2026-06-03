@@ -2,6 +2,16 @@ export type Priority = "Low" | "Medium" | "High";
 export type Qualification = "Unqualified" | "Qualified" | "Customer";
 export type Consent = "Unknown" | "Accepted" | "Declined";
 export type Source = "Google" | "Meta" | "Direct" | "LinkedIn" | "Microsoft";
+export type LeadLabel = "Hot Lead" | "Spam Lead" | "Quotation Sent" | "No label";
+
+export const LEAD_LABELS: LeadLabel[] = ["Hot Lead", "Spam Lead", "Quotation Sent", "No label"];
+
+export const LABEL_STYLES: Record<LeadLabel, string> = {
+  "Hot Lead": "bg-stage-orange-soft text-stage-orange-ink ring-stage-orange-line",
+  "Spam Lead": "bg-stage-red-soft text-stage-red-ink ring-stage-red-line",
+  "Quotation Sent": "bg-stage-purple-soft text-stage-purple-ink ring-stage-purple-line",
+  "No label": "bg-muted/40 text-muted-foreground ring-border",
+};
 
 export type PaletteKey =
   | "blue"
@@ -104,13 +114,19 @@ export interface Lead {
   referrerUrl: string;
   // Consent
   consent: Consent;
+  // Lifecycle
+  label: LeadLabel;
+  /** ISO date when this lead expires (auto-closes if no activity). */
+  expiresAt: string;
   // Meta
   createdAt: string;
   updatedAt: string;
 }
 
 export function emptyLead(stage: string = "New"): Lead {
-  const now = new Date().toISOString();
+  const now = new Date();
+  const expires = new Date(now);
+  expires.setDate(expires.getDate() + 30);
   return {
     id: crypto.randomUUID(),
     stage,
