@@ -16,11 +16,12 @@ export interface StageDef {
  * or removed by users.
  */
 export const DEFAULT_STAGES: StageDef[] = [
-  { id: "new", name: "New", locked: false, dot: "bg-muted-foreground/60" },
-  { id: "contacted", name: "Contacted", locked: false, dot: "bg-warning" },
-  { id: "qualified", name: "Qualified", locked: true, dot: "bg-brand-accent" },
-  { id: "closed-won", name: "Closed-Won", locked: false, dot: "bg-success" },
-  { id: "lost", name: "Lost", locked: true, dot: "bg-destructive" },
+  { id: "new", name: "New", locked: false, dot: "bg-stage-new/45" },
+  { id: "contacted", name: "Contacted", locked: false, dot: "bg-stage-contacted/45" },
+  { id: "qualified", name: "Qualified", locked: true, dot: "bg-stage-qualified/45" },
+  { id: "closed-won", name: "Closed-Won", locked: false, dot: "bg-stage-closed-won/45" },
+  { id: "lost", name: "Lost", locked: true, dot: "bg-stage-lost/45" },
+  { id: "disqualified", name: "Disqualified", locked: true, dot: "bg-stage-disqualified/45" },
 ];
 
 export const CUSTOM_STAGE_DOT = "bg-foreground/40";
