@@ -254,6 +254,7 @@ export const SEED_LEADS: Lead[] = [
     gclid: "Cj0KCQjw...EALw_wcB", websiteUrl: "https://leadlogr.com",
     landingPageUrl: "https://leadlogr.com/enterprise", pagePath: "/enterprise",
     referrerUrl: "https://google.com", consent: "Accepted", tags: ["enterprise", "hot"],
+    expiresAt: daysFromNow(5),
   },
   {
     ...emptyLead("New"),
