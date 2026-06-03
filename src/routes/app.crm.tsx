@@ -1,13 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/leadlogr/page-header";
-import { Download, Search } from "lucide-react";
+import { Download, Lock, Search } from "lucide-react";
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
 import { SEED_LEADS, type Lead } from "@/components/leadlogr/lead-types";
+import { useAccess } from "@/lib/account-context";
 
 export const Route = createFileRoute("/app/crm")({
   head: () => ({ meta: [{ title: "CRM — Leadlogr" }] }),
+  ssr: false,
   component: CrmPage,
 });
 
@@ -27,10 +29,20 @@ function formatValue(value: number, currency: string) {
 }
 
 function CrmPage() {
+  const access = useAccess();
   const [leads, setLeads] = useState<Lead[]>(SEED_LEADS);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
+
+  if (access.metricsOnly) {
+    return (
+      <>
+        <PageHeader eyebrow="Contacts" title="CRM" description="Individual leads are hidden by the client." />
+        <RestrictedNotice leadsCount={SEED_LEADS.length} />
+      </>
+    );
+  }
 
   const filtered = leads.filter((l) => {
     const q = search.toLowerCase();
