@@ -298,6 +298,7 @@ export const SEED_LEADS: Lead[] = [
     utmSource: "google", utmMedium: "cpc", utmCampaign: "solutions-ent-us",
     gclid: "Cj0KCQjw...HHH", consent: "Accepted", tags: ["high-intent", "enterprise"],
     notes: "CFO involved. Targeting close by EOQ.",
+    qualifiedAt: daysFromNow(-3),
   },
   {
     ...emptyLead("Qualified"),
@@ -305,6 +306,7 @@ export const SEED_LEADS: Lead[] = [
     company: "Vertex Labs", source: "Meta", value: 3100, priority: "Medium",
     qualification: "Qualified", description: "Trial active. Weekly check-ins.",
     fbclid: "IwAR3z...ghi", consent: "Accepted",
+    qualifiedAt: daysFromNow(-10),
   },
   {
     ...emptyLead("Won"),
