@@ -16,11 +16,15 @@ import { Download, Lock, Plus, X } from "lucide-react";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
 import {
   CUSTOM_STAGE_DOT,
+  CUSTOM_STAGE_INK,
+  CUSTOM_STAGE_LINE,
+  CUSTOM_STAGE_SOFT,
   DEFAULT_STAGES,
   SEED_LEADS,
   type Lead,
   type StageDef,
 } from "@/components/leadlogr/lead-types";
+
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 
 export const Route = createFileRoute("/app/pipeline")({
