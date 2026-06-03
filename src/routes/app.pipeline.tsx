@@ -28,7 +28,7 @@ import {
 
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { useAccess } from "@/lib/account-context";
-import { PageHeader as _PH } from "@/components/leadlogr/page-header"; // ensure no-op import dedup
+
 
 export const Route = createFileRoute("/app/pipeline")({
   head: () => ({ meta: [{ title: "Lead Pipeline — Leadlogr" }] }),
