@@ -266,52 +266,49 @@ function PerformanceCard({ perf }: { perf: Performance }) {
   const spendPct = (perf.spend / perf.wonValue) * 100;
 
   return (
-    <section className="lg:col-span-2 rounded-lg p-5 flex flex-col gap-5 bg-foreground text-background relative overflow-hidden">
-      {/* subtle accent */}
-      <div className="absolute -top-12 -right-12 size-40 rounded-full bg-brand-accent/20 blur-2xl pointer-events-none" />
-
-      <header className="flex items-start justify-between gap-2 relative">
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-background/60">
+    <section className="lg:col-span-2 bg-card ring-1 ring-border rounded-lg p-5 flex flex-col gap-5">
+      <header className="flex items-start justify-between gap-2">
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Performance
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-success/20 text-success px-2 py-0.5 text-[10px] font-semibold">
+        <span className="inline-flex items-center gap-1 rounded-full bg-success/10 text-success px-2 py-0.5 text-[10px] font-semibold">
           <ArrowUpRight className="size-3" strokeWidth={2.5} />
           {perf.roiDelta}
         </span>
       </header>
 
-      <div className="relative">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-background/50">Return on investment</div>
+      <div>
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Return on investment</div>
         <div className="flex items-baseline gap-1.5 mt-1">
           <span className="text-5xl font-semibold tracking-tight tabular-nums">{perf.roi.toFixed(2)}</span>
-          <span className="text-2xl font-light text-background/60">×</span>
+          <span className="text-2xl font-light text-muted-foreground">×</span>
         </div>
-        <div className="text-xs text-background/60 mt-1.5">
+        <div className="text-xs text-muted-foreground mt-1.5">
           Net profit{" "}
-          <span className="text-background font-medium tabular-nums">{cf.format(netProfit)}</span>
+          <span className="text-foreground font-medium tabular-nums">{cf.format(netProfit)}</span>
         </div>
       </div>
 
       {/* Spend vs Won proportional bar */}
-      <div className="space-y-2 relative">
-        <div className="flex h-1.5 rounded-full overflow-hidden bg-background/15">
+      <div className="space-y-2">
+        <div className="flex h-1.5 rounded-full overflow-hidden bg-muted ring-1 ring-border">
           <div className="bg-destructive/80" style={{ width: `${spendPct}%` }} />
           <div className="bg-success" style={{ width: `${100 - spendPct}%` }} />
         </div>
 
         <div className="grid grid-cols-2 gap-3 pt-2">
           <div>
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-background/60">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
               <span className="size-2 rounded-sm bg-destructive/80" /> Spend
             </div>
             <div className="text-base font-semibold tabular-nums mt-0.5">{cf.format(perf.spend)}</div>
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-destructive/90 tabular-nums">
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-destructive tabular-nums">
               <ArrowUpRight className="size-3" strokeWidth={2.25} />
               {perf.spendDelta}
             </span>
           </div>
           <div>
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-background/60">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
               <span className="size-2 rounded-sm bg-success" /> Won Value
             </div>
             <div className="text-base font-semibold tabular-nums mt-0.5">{cf.format(perf.wonValue)}</div>
