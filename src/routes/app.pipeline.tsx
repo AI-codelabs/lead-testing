@@ -579,6 +579,10 @@ function DraggableCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
 }
 
 function LeadCard({ lead, dragging }: { lead: Lead; dragging?: boolean }) {
+  // Won/Lost leads have completed their lifecycle — don't show expiry urgency.
+  const showUrgency = lead.stage !== "Won" && lead.stage !== "Lost" && lead.stage !== "Disqualified";
+  const urgency = showUrgency ? expiryUrgency(lead.expiresAt) : "ok";
+  const daysLeft = daysUntilExpiry(lead.expiresAt);
   return (
     <div
       className={`bg-card ring-1 ring-border rounded-md p-3 cursor-pointer hover:ring-foreground/20 transition-all ${
@@ -608,6 +612,33 @@ function LeadCard({ lead, dragging }: { lead: Lead; dragging?: boolean }) {
         {lead.qualification === "Customer" && (
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-border text-muted-foreground">
             Customer
+          </span>
+        )}
+        {urgency === "expired" && (
+          <span
+            title="Lead expired — outside the 90-day conversion window"
+            className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-destructive/40 bg-destructive/10 text-destructive inline-flex items-center gap-1"
+          >
+            <AlertTriangle className="size-3" />
+            Expired
+          </span>
+        )}
+        {urgency === "critical" && (
+          <span
+            title={`${daysLeft} day${daysLeft === 1 ? "" : "s"} left before this lead expires`}
+            className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-destructive/40 bg-destructive/10 text-destructive inline-flex items-center gap-1 animate-pulse"
+          >
+            <Clock className="size-3" />
+            {daysLeft}d left
+          </span>
+        )}
+        {urgency === "warn" && (
+          <span
+            title={`${daysLeft} days left before this lead expires`}
+            className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-stage-amber-line bg-stage-amber-soft text-stage-amber-ink inline-flex items-center gap-1"
+          >
+            <Clock className="size-3" />
+            {daysLeft}d left
           </span>
         )}
       </div>
