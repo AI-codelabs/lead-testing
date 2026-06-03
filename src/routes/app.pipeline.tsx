@@ -106,7 +106,15 @@ function PipelinePage() {
     setStages((prev) => {
       // insert custom stages before the locked "Lost" terminal stage if present
       const lostIdx = prev.findIndex((s) => s.locked && s.name === "Lost");
-      const next: StageDef = { id, name, locked: false, dot: CUSTOM_STAGE_DOT };
+      const next: StageDef = {
+        id,
+        name,
+        locked: false,
+        dot: CUSTOM_STAGE_DOT,
+        soft: CUSTOM_STAGE_SOFT,
+        ink: CUSTOM_STAGE_INK,
+        line: CUSTOM_STAGE_LINE,
+      };
       if (lostIdx === -1) return [...prev, next];
       return [...prev.slice(0, lostIdx), next, ...prev.slice(lostIdx)];
     });
