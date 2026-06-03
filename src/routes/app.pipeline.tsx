@@ -87,6 +87,44 @@ function PipelinePage() {
 
   const activeLead = activeId ? leads.find((l) => l.id === activeId) ?? null : null;
 
+  const applyStageChange = (leadId: string, targetStage: string, extra?: Partial<Lead>) => {
+    setLeads((prev) =>
+      prev.map((l) => {
+        if (l.id !== leadId) return l;
+        const fromStage = l.stage;
+        const now = new Date().toISOString();
+        let next: Lead = { ...l, ...extra, stage: targetStage, updatedAt: now };
+        next = addHistory(next, {
+          kind:
+            targetStage === "Qualified"
+              ? "qualified"
+              : targetStage === "Won"
+                ? "won"
+                : targetStage === "Lost"
+                  ? "lost"
+                  : fromStage === "Lost" || fromStage === "Disqualified"
+                    ? "reopened"
+                    : "stage_changed",
+          message:
+            targetStage === "Won" && typeof extra?.value === "number"
+              ? `Moved ${fromStage} → Won · €${extra.value!.toLocaleString()} synced to ad platforms`
+              : targetStage === "Lost" && extra?.lossReason
+                ? `Moved ${fromStage} → Lost · ${extra.lossReason}`
+                : targetStage === "Qualified"
+                  ? `Qualified · synced to ad platforms`
+                  : `Moved ${fromStage} → ${targetStage}`,
+        });
+        if (targetStage === "Qualified" && !next.qualifiedAt) {
+          next = { ...next, qualifiedAt: now, qualification: "Qualified" };
+        }
+        if (targetStage === "Won") {
+          next = { ...next, qualification: "Customer" };
+        }
+        return next;
+      }),
+    );
+  };
+
   const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
   const handleDragEnd = (e: DragEndEvent) => {
     setActiveId(null);
@@ -94,14 +132,33 @@ function PipelinePage() {
     if (!over) return;
     const targetStage = String(over.id);
     if (!stageNames.includes(targetStage)) return;
-    setLeads((prev) =>
-      prev.map((l) =>
-        l.id === e.active.id && l.stage !== targetStage
-          ? { ...l, stage: targetStage, updatedAt: new Date().toISOString() }
-          : l,
-      ),
-    );
+    const leadId = String(e.active.id);
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead || lead.stage === targetStage) return;
+
+    // Lifecycle rules
+    // Qualified is one-way — block regression to New / Contacted.
+    if (lead.qualifiedAt && (targetStage === "New" || targetStage === "Contacted")) {
+      return;
+    }
+    // Won requires a revenue value.
+    if (targetStage === "Won") {
+      if (lead.value > 0) {
+        applyStageChange(leadId, targetStage);
+      } else {
+        setPendingWon({ leadId, fromStage: lead.stage });
+      }
+      return;
+    }
+    // Lost prompts for a reason.
+    if (targetStage === "Lost") {
+      setPendingLost({ leadId, fromStage: lead.stage });
+      return;
+    }
+    applyStageChange(leadId, targetStage);
   };
+
+
 
   const openCreate = () => {
     setEditing(null);
