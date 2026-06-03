@@ -188,4 +188,11 @@ export const SEED_LEADS: Lead[] = [
     utmSource: "google", utmMedium: "cpc", utmCampaign: "solutions-mm",
     gclid: "Cj0KCQjw...LST", consent: "Declined", tags: ["lost"],
   },
+  {
+    ...emptyLead("Disqualified"),
+    id: "l11", name: "Fake User", email: "fake@example.com", phone: "+1 000 000 0000",
+    company: "N/A", source: "Meta", priority: "Low", qualification: "Unqualified",
+    description: "Invalid contact info and spam submission — synced as poor-quality signal to Meta.",
+    fbclid: "IwAR0x...spam", consent: "Declined", tags: ["disqualified"],
+  },
 ];
