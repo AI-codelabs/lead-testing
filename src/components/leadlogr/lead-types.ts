@@ -118,9 +118,79 @@ export interface Lead {
   label: LeadLabel;
   /** ISO date when this lead expires (auto-closes if no activity). */
   expiresAt: string;
+  /** Reason captured when a lead is moved to Lost. */
+  lossReason?: string;
+  /** ISO timestamp when the lead first transitioned to Qualified (one-way). */
+  qualifiedAt?: string;
+  /** Auto-logged activity timeline (newest first). */
+  history: ActivityEntry[];
   // Meta
   createdAt: string;
   updatedAt: string;
+}
+
+export type ActivityKind =
+  | "created"
+  | "stage_changed"
+  | "qualified"
+  | "won"
+  | "lost"
+  | "reopened"
+  | "value_changed"
+  | "label_changed"
+  | "note"
+  | "edited";
+
+export interface ActivityEntry {
+  id: string;
+  kind: ActivityKind;
+  at: string;
+  message: string;
+  actor?: string;
+}
+
+export type LossReason =
+  | "Budget constraints"
+  | "Went with competitor"
+  | "Bad timing"
+  | "No response"
+  | "Not a good fit";
+
+export const DEFAULT_LOSS_REASONS: LossReason[] = [
+  "Budget constraints",
+  "Went with competitor",
+  "Bad timing",
+  "No response",
+  "Not a good fit",
+];
+
+/** Days until expiry. Negative when already expired. */
+export function daysUntilExpiry(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.ceil(ms / 86_400_000);
+}
+
+export type Urgency = "expired" | "critical" | "warn" | "ok";
+export function expiryUrgency(iso: string): Urgency {
+  const d = daysUntilExpiry(iso);
+  if (d < 0) return "expired";
+  if (d <= 7) return "critical";
+  if (d <= 30) return "warn";
+  return "ok";
+}
+
+export function addHistory(
+  lead: Lead,
+  entry: Omit<ActivityEntry, "id" | "at"> & { at?: string },
+): Lead {
+  const next: ActivityEntry = {
+    id: crypto.randomUUID(),
+    at: entry.at ?? new Date().toISOString(),
+    kind: entry.kind,
+    message: entry.message,
+    actor: entry.actor,
+  };
+  return { ...lead, history: [next, ...(lead.history ?? [])] };
 }
 
 export function emptyLead(stage: string = "New"): Lead {
