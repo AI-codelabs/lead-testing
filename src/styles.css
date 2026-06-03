@@ -43,6 +43,13 @@
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-border: var(--sidebar-border);
+
+  --color-stage-new: var(--stage-new);
+  --color-stage-contacted: var(--stage-contacted);
+  --color-stage-qualified: var(--stage-qualified);
+  --color-stage-closed-won: var(--stage-closed-won);
+  --color-stage-lost: var(--stage-lost);
+  --color-stage-disqualified: var(--stage-disqualified);
 }
 
 :root {
