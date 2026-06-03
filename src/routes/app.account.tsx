@@ -94,3 +94,44 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
     </div>
   );
 }
+
+function ThemeSwitcher() {
+  const { theme, resolved, setTheme } = useTheme();
+  const options: { value: Theme; label: string; icon: typeof Sun; hint: string }[] = [
+    { value: "light", label: "Light", icon: Sun, hint: "Bright surfaces for daytime." },
+    { value: "dark", label: "Dark", icon: Moon, hint: "Deep ink — default experience." },
+    { value: "system", label: "System", icon: Monitor, hint: "Follow your OS preference." },
+  ];
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {options.map(({ value, label, icon: Icon, hint }) => {
+          const active = theme === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTheme(value)}
+              aria-pressed={active}
+              className={`text-left rounded-md p-3 ring-1 transition-colors ${
+                active
+                  ? "ring-foreground bg-muted"
+                  : "ring-border bg-card hover:bg-muted/60"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Icon className="size-4" />
+                <span className="text-sm font-semibold">{label}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{hint}</p>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Currently using <span className="font-medium text-foreground">{resolved}</span> theme.
+      </p>
+    </div>
+  );
+}
+
