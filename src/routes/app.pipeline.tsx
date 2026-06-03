@@ -254,8 +254,15 @@ function PipelinePage() {
           </div>
         </div>
         <DragOverlay>
-          {activeLead ? <LeadCard lead={activeLead} dragging /> : null}
+          {activeLead ? (
+            <LeadCard
+              lead={activeLead}
+              stage={stages.find((s) => s.name === activeLead.stage) ?? stages[0]}
+              dragging
+            />
+          ) : null}
         </DragOverlay>
+
       </DndContext>
 
       <LeadDialog
