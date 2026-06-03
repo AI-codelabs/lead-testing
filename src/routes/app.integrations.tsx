@@ -11,7 +11,6 @@ export const Route = createFileRoute("/app/integrations")({
 type IntegrationItem = {
   id: string;
   name: string;
-  initials: string;
   description: string;
   comingSoon?: boolean;
 };
