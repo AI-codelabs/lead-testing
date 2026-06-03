@@ -19,7 +19,7 @@ const columns = [
     ],
   },
   {
-    title: "Closed-Won",
+    title: "Won",
     count: 24,
     dot: "bg-success",
     cards: [

@@ -12,16 +12,17 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { PageHeader } from "@/components/leadlogr/page-header";
-import { Download, Lock, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Download, Lock, Palette, Plus, X } from "lucide-react";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
 import {
-  CUSTOM_STAGE_DOT,
-  CUSTOM_STAGE_INK,
-  CUSTOM_STAGE_LINE,
-  CUSTOM_STAGE_SOFT,
+  CUSTOM_STAGE_INSERT_BEFORE,
   DEFAULT_STAGES,
+  PALETTES,
+  PALETTE_ORDER,
   SEED_LEADS,
   type Lead,
+  type Palette as PaletteDef,
+  type PaletteKey,
   type StageDef,
 } from "@/components/leadlogr/lead-types";
 
@@ -42,6 +43,7 @@ function PipelinePage() {
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [newStageName, setNewStageName] = useState("");
   const [addingStage, setAddingStage] = useState(false);
+  const [pickerOpenFor, setPickerOpenFor] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -95,6 +97,11 @@ function PipelinePage() {
     });
   };
 
+  const pickNextPalette = (): PaletteKey => {
+    const used = new Set(stages.map((s) => s.palette));
+    return PALETTE_ORDER.find((k) => !used.has(k)) ?? "slate";
+  };
+
   const handleAddStage = () => {
     const name = newStageName.trim();
     if (!name) return;
@@ -104,19 +111,10 @@ function PipelinePage() {
     }
     const id = name.toLowerCase().replace(/\s+/g, "-");
     setStages((prev) => {
-      // insert custom stages before the locked "Lost" terminal stage if present
-      const lostIdx = prev.findIndex((s) => s.locked && s.name === "Lost");
-      const next: StageDef = {
-        id,
-        name,
-        locked: false,
-        dot: CUSTOM_STAGE_DOT,
-        soft: CUSTOM_STAGE_SOFT,
-        ink: CUSTOM_STAGE_INK,
-        line: CUSTOM_STAGE_LINE,
-      };
-      if (lostIdx === -1) return [...prev, next];
-      return [...prev.slice(0, lostIdx), next, ...prev.slice(lostIdx)];
+      const insertIdx = prev.findIndex((s) => s.name === CUSTOM_STAGE_INSERT_BEFORE);
+      const next: StageDef = { id, name, locked: false, palette: pickNextPalette() };
+      if (insertIdx === -1) return [...prev, next];
+      return [...prev.slice(0, insertIdx), next, ...prev.slice(insertIdx)];
     });
     setNewStageName("");
     setAddingStage(false);
@@ -129,6 +127,27 @@ function PipelinePage() {
     setLeads((prev) =>
       prev.map((l) => (l.stage === stage.name ? { ...l, stage: fallback } : l)),
     );
+  };
+
+  const handleRecolor = (stageId: string, palette: PaletteKey) => {
+    setStages((prev) => prev.map((s) => (s.id === stageId ? { ...s, palette } : s)));
+    setPickerOpenFor(null);
+  };
+
+  const handleMove = (stageId: string, dir: -1 | 1) => {
+    setStages((prev) => {
+      const idx = prev.findIndex((s) => s.id === stageId);
+      if (idx === -1) return prev;
+      const stage = prev[idx];
+      if (stage.locked) return prev;
+      const target = idx + dir;
+      if (target < 0 || target >= prev.length) return prev;
+      // Don't allow swapping with a locked stage — keeps fixed stages anchored.
+      if (prev[target].locked) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
   };
 
   const handleExport = () => {
@@ -175,7 +194,7 @@ function PipelinePage() {
       <PageHeader
         eyebrow="Sales"
         title="Lead Pipeline"
-        description="Drag leads between stages. Qualified, Lost, and Disqualified are system stages used to send conversion signals back to Google Ads and Meta Ads."
+        description="Drag leads between stages. New, Contacted, Qualified, Won, Lost, and Disqualified are fixed system stages used to send conversion signals to Google Ads and Meta Ads. Their colors can still be changed."
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -198,15 +217,27 @@ function PipelinePage() {
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-          {stages.map((stage) => (
-            <Column
-              key={stage.id}
-              stage={stage}
-              leads={grouped[stage.name] ?? []}
-              onCardClick={openEdit}
-              onRemove={() => handleRemoveStage(stage)}
-            />
-          ))}
+          {stages.map((stage, idx) => {
+            const prev = stages[idx - 1];
+            const next = stages[idx + 1];
+            return (
+              <Column
+                key={stage.id}
+                stage={stage}
+                palette={PALETTES[stage.palette]}
+                leads={grouped[stage.name] ?? []}
+                onCardClick={openEdit}
+                onRemove={() => handleRemoveStage(stage)}
+                onRecolor={(p) => handleRecolor(stage.id, p)}
+                onMoveLeft={prev && !prev.locked && !stage.locked ? () => handleMove(stage.id, -1) : undefined}
+                onMoveRight={next && !next.locked && !stage.locked ? () => handleMove(stage.id, 1) : undefined}
+                pickerOpen={pickerOpenFor === stage.id}
+                onTogglePicker={() =>
+                  setPickerOpenFor((cur) => (cur === stage.id ? null : stage.id))
+                }
+              />
+            );
+          })}
 
           <div className="bg-muted/20 ring-1 ring-dashed ring-border rounded-lg p-3 min-h-[200px] flex flex-col">
             <div className="flex items-center justify-between px-1 pb-3">
@@ -254,15 +285,8 @@ function PipelinePage() {
           </div>
         </div>
         <DragOverlay>
-          {activeLead ? (
-            <LeadCard
-              lead={activeLead}
-              stage={stages.find((s) => s.name === activeLead.stage) ?? stages[0]}
-              dragging
-            />
-          ) : null}
+          {activeLead ? <LeadCard lead={activeLead} dragging /> : null}
         </DragOverlay>
-
       </DndContext>
 
       <LeadDialog
@@ -279,42 +303,79 @@ function PipelinePage() {
 
 function Column({
   stage,
+  palette,
   leads,
   onCardClick,
   onRemove,
+  onRecolor,
+  onMoveLeft,
+  onMoveRight,
+  pickerOpen,
+  onTogglePicker,
 }: {
   stage: StageDef;
+  palette: PaletteDef;
   leads: Lead[];
   onCardClick: (l: Lead) => void;
   onRemove: () => void;
+  onRecolor: (p: PaletteKey) => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
+  pickerOpen: boolean;
+  onTogglePicker: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.name });
   return (
     <div
       ref={setNodeRef}
-      className={`${stage.soft} ring-1 ${stage.line} rounded-lg p-3 transition-all min-h-[200px] ${
+      className={`${palette.soft} ring-1 ${palette.line} rounded-lg p-3 transition-all min-h-[200px] ${
         isOver ? "ring-2 ring-foreground/30 scale-[1.005]" : ""
       }`}
     >
       <div
-        className={`flex items-center justify-between px-2 py-2 mb-3 rounded-md bg-card/60 ring-1 ${stage.line} gap-2`}
+        className={`relative flex items-center justify-between px-2 py-2 mb-3 rounded-md bg-card/60 ring-1 ${palette.line} gap-2`}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`size-2 rounded-full shrink-0 ${stage.dot}`} />
+          <button
+            type="button"
+            onClick={onTogglePicker}
+            title="Change color"
+            className={`size-3 rounded-full shrink-0 ${palette.dot} ring-1 ring-foreground/10 hover:ring-foreground/40 transition`}
+          />
           <span
-            className={`text-[10px] font-semibold tracking-widest uppercase truncate ${stage.ink}`}
+            className={`text-[10px] font-semibold tracking-widest uppercase truncate ${palette.ink}`}
           >
             {stage.name}
           </span>
           {stage.locked && (
-            <span title="System stage — used for ad platform conversion sync">
-              <Lock className={`size-3 shrink-0 ${stage.ink} opacity-60`} />
+            <span title="System stage — fixed position, used for ad platform conversion sync">
+              <Lock className={`size-3 shrink-0 ${palette.ink} opacity-60`} />
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
+          {!stage.locked && (
+            <>
+              <button
+                onClick={onMoveLeft}
+                disabled={!onMoveLeft}
+                title="Move left"
+                className="text-muted-foreground/60 hover:text-foreground transition-colors disabled:opacity-30 disabled:hover:text-muted-foreground/60"
+              >
+                <ArrowLeft className="size-3" />
+              </button>
+              <button
+                onClick={onMoveRight}
+                disabled={!onMoveRight}
+                title="Move right"
+                className="text-muted-foreground/60 hover:text-foreground transition-colors disabled:opacity-30 disabled:hover:text-muted-foreground/60"
+              >
+                <ArrowRight className="size-3" />
+              </button>
+            </>
+          )}
           <span
-            className={`text-[10px] font-mono px-1.5 py-0.5 rounded bg-background/60 ${stage.ink}`}
+            className={`text-[10px] font-mono px-1.5 py-0.5 rounded bg-background/60 ${palette.ink}`}
           >
             {leads.length}
           </span>
@@ -328,26 +389,69 @@ function Column({
             </button>
           )}
         </div>
+
+        {pickerOpen && (
+          <ColorPicker active={stage.palette} onPick={onRecolor} onClose={onTogglePicker} />
+        )}
       </div>
 
       <div className="space-y-2">
         {leads.map((l) => (
-          <DraggableCard key={l.id} lead={l} stage={stage} onClick={() => onCardClick(l)} />
+          <DraggableCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
         ))}
       </div>
     </div>
   );
 }
 
-function DraggableCard({
-  lead,
-  stage,
-  onClick,
+function ColorPicker({
+  active,
+  onPick,
+  onClose,
 }: {
-  lead: Lead;
-  stage: StageDef;
-  onClick: () => void;
+  active: PaletteKey;
+  onPick: (p: PaletteKey) => void;
+  onClose: () => void;
 }) {
+  return (
+    <>
+      {/* click-outside */}
+      <button
+        type="button"
+        aria-label="Close color picker"
+        onClick={onClose}
+        className="fixed inset-0 z-40 cursor-default"
+      />
+      <div className="absolute top-full left-0 mt-1 z-50 bg-popover text-popover-foreground rounded-md ring-1 ring-border shadow-lg p-2 w-44">
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 pb-1.5 flex items-center gap-1.5">
+          <Palette className="size-3" />
+          Stage color
+        </div>
+        <div className="grid grid-cols-5 gap-1.5">
+          {PALETTE_ORDER.map((key) => {
+            const p = PALETTES[key];
+            const isActive = key === active;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onPick(key)}
+                title={p.label}
+                className={`relative size-7 rounded-md ${p.dot} ring-1 ring-foreground/10 hover:scale-110 transition`}
+              >
+                {isActive && (
+                  <Check className="absolute inset-0 m-auto size-3.5 text-foreground" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function DraggableCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: lead.id });
   return (
     <div
@@ -357,34 +461,22 @@ function DraggableCard({
       onClick={onClick}
       className={isDragging ? "opacity-30" : ""}
     >
-      <LeadCard lead={lead} stage={stage} />
+      <LeadCard lead={lead} />
     </div>
   );
 }
 
-function LeadCard({
-  lead,
-  stage,
-  dragging,
-}: {
-  lead: Lead;
-  stage: StageDef;
-  dragging?: boolean;
-}) {
+function LeadCard({ lead, dragging }: { lead: Lead; dragging?: boolean }) {
   return (
     <div
-      className={`relative bg-card ring-1 ring-border rounded-md p-3 pl-3.5 cursor-pointer hover:ring-foreground/20 transition-all overflow-hidden ${
+      className={`bg-card ring-1 ring-border rounded-md p-3 cursor-pointer hover:ring-foreground/20 transition-all ${
         dragging ? "shadow-lg rotate-1 ring-foreground/30" : ""
       }`}
     >
-      <span
-        aria-hidden
-        className={`absolute left-0 top-0 bottom-0 w-1 ${stage.dot}`}
-      />
       <div className="flex items-start justify-between gap-2">
         <span className="text-sm font-semibold truncate">{lead.name || "Untitled"}</span>
         {lead.value > 0 && (
-          <span className="text-[10px] font-mono text-foreground shrink-0">
+          <span className="text-[10px] font-mono text-muted-foreground shrink-0">
             €{lead.value.toLocaleString()}
           </span>
         )}
@@ -393,31 +485,20 @@ function LeadCard({
         {lead.company || lead.email || "—"}
       </p>
       <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-        <span
-          className={`text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ${stage.line} ${stage.ink} ${stage.soft}`}
-        >
-          {stage.name}
-        </span>
         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-border text-muted-foreground">
           {lead.source}
         </span>
         {lead.priority === "High" && (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-warning/10 text-warning">
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-border text-muted-foreground">
             High priority
           </span>
         )}
         {lead.qualification === "Customer" && (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-success/10 text-success">
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-border text-muted-foreground">
             Customer
-          </span>
-        )}
-        {lead.qualification === "Qualified" && lead.priority !== "High" && (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-brand-accent/10 text-brand-accent">
-            Qualified
           </span>
         )}
       </div>
     </div>
   );
 }
-

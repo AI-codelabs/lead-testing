@@ -44,43 +44,57 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-border: var(--sidebar-border);
 
-  /* Stage dot colors (saturated pastel) */
-  --color-stage-new: var(--stage-new);
-  --color-stage-contacted: var(--stage-contacted);
-  --color-stage-qualified: var(--stage-qualified);
-  --color-stage-closed-won: var(--stage-closed-won);
-  --color-stage-lost: var(--stage-lost);
-  --color-stage-disqualified: var(--stage-disqualified);
+  /* Stage palette tokens — base / soft / ink / line per hue */
+  --color-stage-blue: var(--stage-blue);
+  --color-stage-blue-soft: var(--stage-blue-soft);
+  --color-stage-blue-ink: var(--stage-blue-ink);
+  --color-stage-blue-line: var(--stage-blue-line);
 
-  /* Stage soft surface tints (column backgrounds) */
-  --color-stage-new-soft: var(--stage-new-soft);
-  --color-stage-contacted-soft: var(--stage-contacted-soft);
-  --color-stage-qualified-soft: var(--stage-qualified-soft);
-  --color-stage-closed-won-soft: var(--stage-closed-won-soft);
-  --color-stage-lost-soft: var(--stage-lost-soft);
-  --color-stage-disqualified-soft: var(--stage-disqualified-soft);
+  --color-stage-green: var(--stage-green);
+  --color-stage-green-soft: var(--stage-green-soft);
+  --color-stage-green-ink: var(--stage-green-ink);
+  --color-stage-green-line: var(--stage-green-line);
 
-  /* Stage ink (label / badge text) */
-  --color-stage-new-ink: var(--stage-new-ink);
-  --color-stage-contacted-ink: var(--stage-contacted-ink);
-  --color-stage-qualified-ink: var(--stage-qualified-ink);
-  --color-stage-closed-won-ink: var(--stage-closed-won-ink);
-  --color-stage-lost-ink: var(--stage-lost-ink);
-  --color-stage-disqualified-ink: var(--stage-disqualified-ink);
+  --color-stage-amber: var(--stage-amber);
+  --color-stage-amber-soft: var(--stage-amber-soft);
+  --color-stage-amber-ink: var(--stage-amber-ink);
+  --color-stage-amber-line: var(--stage-amber-line);
 
-  /* Stage line (subtle border / ring) */
-  --color-stage-new-line: var(--stage-new-line);
-  --color-stage-contacted-line: var(--stage-contacted-line);
-  --color-stage-qualified-line: var(--stage-qualified-line);
-  --color-stage-closed-won-line: var(--stage-closed-won-line);
-  --color-stage-lost-line: var(--stage-lost-line);
-  --color-stage-disqualified-line: var(--stage-disqualified-line);
+  --color-stage-orange: var(--stage-orange);
+  --color-stage-orange-soft: var(--stage-orange-soft);
+  --color-stage-orange-ink: var(--stage-orange-ink);
+  --color-stage-orange-line: var(--stage-orange-line);
+
+  --color-stage-red: var(--stage-red);
+  --color-stage-red-soft: var(--stage-red-soft);
+  --color-stage-red-ink: var(--stage-red-ink);
+  --color-stage-red-line: var(--stage-red-line);
+
+  --color-stage-purple: var(--stage-purple);
+  --color-stage-purple-soft: var(--stage-purple-soft);
+  --color-stage-purple-ink: var(--stage-purple-ink);
+  --color-stage-purple-line: var(--stage-purple-line);
+
+  --color-stage-teal: var(--stage-teal);
+  --color-stage-teal-soft: var(--stage-teal-soft);
+  --color-stage-teal-ink: var(--stage-teal-ink);
+  --color-stage-teal-line: var(--stage-teal-line);
+
+  --color-stage-pink: var(--stage-pink);
+  --color-stage-pink-soft: var(--stage-pink-soft);
+  --color-stage-pink-ink: var(--stage-pink-ink);
+  --color-stage-pink-line: var(--stage-pink-line);
+
+  --color-stage-slate: var(--stage-slate);
+  --color-stage-slate-soft: var(--stage-slate-soft);
+  --color-stage-slate-ink: var(--stage-slate-ink);
+  --color-stage-slate-line: var(--stage-slate-line);
 }
 
 :root {
   --radius: 0.5rem;
 
-  /* Light theme — Swiss minimal: warm zinc surface, near-black ink, teal accent */
+  /* Light theme — Swiss minimal */
   --background: oklch(0.985 0.002 247);
   --foreground: oklch(0.18 0.012 264);
   --surface: oklch(0.985 0.002 247);
@@ -119,41 +133,55 @@
   --sidebar-foreground: oklch(0.18 0.012 264);
   --sidebar-border: oklch(0.92 0.006 256);
 
-  /* Pipeline stage dots — pastel */
-  --stage-new: oklch(0.78 0.05 250);
-  --stage-contacted: oklch(0.80 0.055 150);
-  --stage-qualified: oklch(0.83 0.065 85);
-  --stage-closed-won: oklch(0.79 0.06 55);
-  --stage-lost: oklch(0.78 0.055 25);
-  --stage-disqualified: oklch(0.78 0.05 300);
+  /* Stage palettes (light) — base dot / soft surface / ink text / line border */
+  --stage-blue: oklch(0.78 0.05 250);
+  --stage-blue-soft: oklch(0.972 0.018 250);
+  --stage-blue-ink: oklch(0.38 0.10 250);
+  --stage-blue-line: oklch(0.90 0.035 250);
 
-  /* Soft surface tints — high lightness, very low chroma */
-  --stage-new-soft: oklch(0.972 0.018 250);
-  --stage-contacted-soft: oklch(0.972 0.022 150);
-  --stage-qualified-soft: oklch(0.975 0.028 85);
-  --stage-closed-won-soft: oklch(0.972 0.025 55);
-  --stage-lost-soft: oklch(0.972 0.022 25);
-  --stage-disqualified-soft: oklch(0.972 0.020 300);
+  --stage-green: oklch(0.80 0.055 150);
+  --stage-green-soft: oklch(0.972 0.022 150);
+  --stage-green-ink: oklch(0.38 0.10 150);
+  --stage-green-line: oklch(0.90 0.04 150);
 
-  /* Ink — readable on soft tints */
-  --stage-new-ink: oklch(0.38 0.10 250);
-  --stage-contacted-ink: oklch(0.38 0.10 150);
-  --stage-qualified-ink: oklch(0.40 0.11 85);
-  --stage-closed-won-ink: oklch(0.40 0.12 55);
-  --stage-lost-ink: oklch(0.40 0.12 25);
-  --stage-disqualified-ink: oklch(0.40 0.10 300);
+  --stage-amber: oklch(0.83 0.065 85);
+  --stage-amber-soft: oklch(0.975 0.028 85);
+  --stage-amber-ink: oklch(0.40 0.11 85);
+  --stage-amber-line: oklch(0.91 0.045 85);
 
-  /* Lines — subtle borders */
-  --stage-new-line: oklch(0.90 0.035 250);
-  --stage-contacted-line: oklch(0.90 0.04 150);
-  --stage-qualified-line: oklch(0.91 0.045 85);
-  --stage-closed-won-line: oklch(0.90 0.04 55);
-  --stage-lost-line: oklch(0.90 0.04 25);
-  --stage-disqualified-line: oklch(0.90 0.035 300);
+  --stage-orange: oklch(0.79 0.06 55);
+  --stage-orange-soft: oklch(0.972 0.025 55);
+  --stage-orange-ink: oklch(0.40 0.12 55);
+  --stage-orange-line: oklch(0.90 0.04 55);
+
+  --stage-red: oklch(0.78 0.055 25);
+  --stage-red-soft: oklch(0.972 0.022 25);
+  --stage-red-ink: oklch(0.40 0.12 25);
+  --stage-red-line: oklch(0.90 0.04 25);
+
+  --stage-purple: oklch(0.78 0.05 300);
+  --stage-purple-soft: oklch(0.972 0.020 300);
+  --stage-purple-ink: oklch(0.40 0.10 300);
+  --stage-purple-line: oklch(0.90 0.035 300);
+
+  --stage-teal: oklch(0.79 0.06 195);
+  --stage-teal-soft: oklch(0.972 0.022 195);
+  --stage-teal-ink: oklch(0.40 0.10 195);
+  --stage-teal-line: oklch(0.90 0.04 195);
+
+  --stage-pink: oklch(0.80 0.06 350);
+  --stage-pink-soft: oklch(0.975 0.022 350);
+  --stage-pink-ink: oklch(0.42 0.12 350);
+  --stage-pink-line: oklch(0.91 0.04 350);
+
+  --stage-slate: oklch(0.76 0.012 257);
+  --stage-slate-soft: oklch(0.965 0.006 257);
+  --stage-slate-ink: oklch(0.40 0.012 257);
+  --stage-slate-line: oklch(0.90 0.008 257);
 }
 
 .dark {
-  /* Dark theme — deep ink surfaces, soft cool foreground, same teal accent */
+  /* Dark theme — deep ink surfaces */
   --background: oklch(0.16 0.012 260);
   --foreground: oklch(0.96 0.004 247);
   --surface: oklch(0.16 0.012 260);
@@ -192,35 +220,51 @@
   --sidebar-foreground: oklch(0.96 0.004 247);
   --sidebar-border: oklch(0.26 0.014 260);
 
-  /* Stage dots remain pastel — readable on dark cards */
-  --stage-new: oklch(0.72 0.10 250);
-  --stage-contacted: oklch(0.74 0.10 150);
-  --stage-qualified: oklch(0.80 0.12 85);
-  --stage-closed-won: oklch(0.76 0.12 55);
-  --stage-lost: oklch(0.72 0.12 25);
-  --stage-disqualified: oklch(0.74 0.10 300);
+  /* Stage palettes (dark) */
+  --stage-blue: oklch(0.72 0.10 250);
+  --stage-blue-soft: oklch(0.26 0.04 250);
+  --stage-blue-ink: oklch(0.86 0.06 250);
+  --stage-blue-line: oklch(0.34 0.05 250);
 
-  /* Dark soft tints — low-lightness saturated wash */
-  --stage-new-soft: oklch(0.26 0.04 250);
-  --stage-contacted-soft: oklch(0.26 0.045 150);
-  --stage-qualified-soft: oklch(0.27 0.05 85);
-  --stage-closed-won-soft: oklch(0.27 0.05 55);
-  --stage-lost-soft: oklch(0.27 0.05 25);
-  --stage-disqualified-soft: oklch(0.27 0.045 300);
+  --stage-green: oklch(0.74 0.10 150);
+  --stage-green-soft: oklch(0.26 0.045 150);
+  --stage-green-ink: oklch(0.88 0.07 150);
+  --stage-green-line: oklch(0.34 0.055 150);
 
-  --stage-new-ink: oklch(0.86 0.06 250);
-  --stage-contacted-ink: oklch(0.88 0.07 150);
-  --stage-qualified-ink: oklch(0.90 0.09 85);
-  --stage-closed-won-ink: oklch(0.88 0.09 55);
-  --stage-lost-ink: oklch(0.86 0.09 25);
-  --stage-disqualified-ink: oklch(0.86 0.07 300);
+  --stage-amber: oklch(0.80 0.12 85);
+  --stage-amber-soft: oklch(0.27 0.05 85);
+  --stage-amber-ink: oklch(0.90 0.09 85);
+  --stage-amber-line: oklch(0.36 0.06 85);
 
-  --stage-new-line: oklch(0.34 0.05 250);
-  --stage-contacted-line: oklch(0.34 0.055 150);
-  --stage-qualified-line: oklch(0.36 0.06 85);
-  --stage-closed-won-line: oklch(0.35 0.06 55);
-  --stage-lost-line: oklch(0.35 0.06 25);
-  --stage-disqualified-line: oklch(0.34 0.05 300);
+  --stage-orange: oklch(0.76 0.12 55);
+  --stage-orange-soft: oklch(0.27 0.05 55);
+  --stage-orange-ink: oklch(0.88 0.09 55);
+  --stage-orange-line: oklch(0.35 0.06 55);
+
+  --stage-red: oklch(0.72 0.12 25);
+  --stage-red-soft: oklch(0.27 0.05 25);
+  --stage-red-ink: oklch(0.86 0.09 25);
+  --stage-red-line: oklch(0.35 0.06 25);
+
+  --stage-purple: oklch(0.74 0.10 300);
+  --stage-purple-soft: oklch(0.27 0.045 300);
+  --stage-purple-ink: oklch(0.86 0.07 300);
+  --stage-purple-line: oklch(0.34 0.05 300);
+
+  --stage-teal: oklch(0.74 0.10 195);
+  --stage-teal-soft: oklch(0.27 0.045 195);
+  --stage-teal-ink: oklch(0.86 0.07 195);
+  --stage-teal-line: oklch(0.34 0.05 195);
+
+  --stage-pink: oklch(0.76 0.11 350);
+  --stage-pink-soft: oklch(0.27 0.05 350);
+  --stage-pink-ink: oklch(0.88 0.09 350);
+  --stage-pink-line: oklch(0.35 0.06 350);
+
+  --stage-slate: oklch(0.74 0.014 257);
+  --stage-slate-soft: oklch(0.25 0.012 257);
+  --stage-slate-ink: oklch(0.86 0.012 257);
+  --stage-slate-line: oklch(0.33 0.014 257);
 }
 
 @layer base {

@@ -13,19 +13,20 @@ const contacts = [
   { name: "Elena Rodríguez", email: "elena@helio.studio", company: "Helio Studio", stage: "Qualified", source: "Meta", value: "$3.1k", updated: "1h ago" },
   { name: "Ava Lin", email: "ava@brightholdings.com", company: "Bright Holdings", stage: "Qualified", source: "Google", value: "$8.4k", updated: "3h ago" },
   { name: "Priya Shah", email: "priya@northwind.co", company: "Northwind Co.", stage: "Contacted", source: "Google", value: "—", updated: "Yesterday" },
-  { name: "Tom Becker", email: "tom@falcongroup.io", company: "Falcon Group", stage: "Closed-Won", source: "Meta", value: "$6.2k", updated: "2d ago" },
+  { name: "Tom Becker", email: "tom@falcongroup.io", company: "Falcon Group", stage: "Won", source: "Meta", value: "$6.2k", updated: "2d ago" },
   { name: "Noah Patel", email: "noah@vertexlabs.ai", company: "Vertex Labs", stage: "Qualified", source: "Meta", value: "$3.1k", updated: "3d ago" },
   { name: "Liam O'Connor", email: "liam@apex.io", company: "Apex Solutions", stage: "New", source: "Direct", value: "—", updated: "4d ago" },
 ];
 
 const stageColor: Record<string, string> = {
-  New: "text-stage-new-ink bg-stage-new-soft ring-stage-new-line",
-  Contacted: "text-stage-contacted-ink bg-stage-contacted-soft ring-stage-contacted-line",
-  Qualified: "text-stage-qualified-ink bg-stage-qualified-soft ring-stage-qualified-line",
-  "Closed-Won": "text-stage-closed-won-ink bg-stage-closed-won-soft ring-stage-closed-won-line",
-  Lost: "text-stage-lost-ink bg-stage-lost-soft ring-stage-lost-line",
-  Disqualified: "text-stage-disqualified-ink bg-stage-disqualified-soft ring-stage-disqualified-line",
+  New: "text-stage-blue-ink bg-stage-blue-soft ring-stage-blue-line",
+  Contacted: "text-stage-green-ink bg-stage-green-soft ring-stage-green-line",
+  Qualified: "text-stage-amber-ink bg-stage-amber-soft ring-stage-amber-line",
+  Won: "text-stage-orange-ink bg-stage-orange-soft ring-stage-orange-line",
+  Lost: "text-stage-red-ink bg-stage-red-soft ring-stage-red-line",
+  Disqualified: "text-stage-purple-ink bg-stage-purple-soft ring-stage-purple-line",
 };
+
 
 
 function CrmPage() {
