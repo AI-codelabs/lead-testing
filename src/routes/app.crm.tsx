@@ -1,22 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { Download, Search } from "lucide-react";
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
+import { LeadDialog } from "@/components/leadlogr/lead-dialog";
+import { SEED_LEADS, type Lead } from "@/components/leadlogr/lead-types";
 
 export const Route = createFileRoute("/app/crm")({
   head: () => ({ meta: [{ title: "CRM — Leadlogr" }] }),
   component: CrmPage,
 });
-
-const contacts = [
-  { name: "Marcus Thorne", email: "marcus@thornecap.com", company: "Thorne Capital", stage: "New", source: "Google", value: "—", updated: "2m ago" },
-  { name: "Elena Rodríguez", email: "elena@helio.studio", company: "Helio Studio", stage: "Qualified", source: "Meta", value: "$3.1k", updated: "1h ago" },
-  { name: "Ava Lin", email: "ava@brightholdings.com", company: "Bright Holdings", stage: "Qualified", source: "Google", value: "$8.4k", updated: "3h ago" },
-  { name: "Priya Shah", email: "priya@northwind.co", company: "Northwind Co.", stage: "Contacted", source: "Google", value: "—", updated: "Yesterday" },
-  { name: "Tom Becker", email: "tom@falcongroup.io", company: "Falcon Group", stage: "Won", source: "Meta", value: "$6.2k", updated: "2d ago" },
-  { name: "Noah Patel", email: "noah@vertexlabs.ai", company: "Vertex Labs", stage: "Qualified", source: "Meta", value: "$3.1k", updated: "3d ago" },
-  { name: "Liam O'Connor", email: "liam@apex.io", company: "Apex Solutions", stage: "New", source: "Direct", value: "—", updated: "4d ago" },
-];
 
 const stageColor: Record<string, string> = {
   New: "text-stage-blue-ink bg-stage-blue-soft ring-stage-blue-line",
@@ -27,11 +20,53 @@ const stageColor: Record<string, string> = {
   Disqualified: "text-stage-purple-ink bg-stage-purple-soft ring-stage-purple-line",
 };
 
-
+function formatValue(value: number, currency: string) {
+  if (!value || value <= 0) return "—";
+  const sym = currency === "USD" ? "$" : currency === "GBP" ? "£" : "€";
+  return `${sym}${value.toLocaleString()}`;
+}
 
 function CrmPage() {
+  const [leads, setLeads] = useState<Lead[]>(SEED_LEADS);
+  const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Lead | null>(null);
+
+  const filtered = leads.filter((l) => {
+    const q = search.toLowerCase();
+    return (
+      l.name.toLowerCase().includes(q) ||
+      l.email.toLowerCase().includes(q) ||
+      (l.company ?? "").toLowerCase().includes(q)
+    );
+  });
+
   const handleExport = () => {
-    downloadCsv(`leadlogr-crm-${timestamp()}.csv`, toCsv(contacts));
+    const rows = filtered.map((l) => ({
+      id: l.id,
+      name: l.name,
+      email: l.email,
+      phone: l.phone,
+      company: l.company ?? "",
+      stage: l.stage,
+      source: l.source,
+      value: l.value > 0 ? `${l.currency} ${l.value}` : "—",
+      priority: l.priority,
+      qualification: l.qualification,
+      updated_at: l.updatedAt,
+    }));
+    downloadCsv(`leadlogr-crm-${timestamp()}.csv`, toCsv(rows));
+  };
+
+  const openEdit = (lead: Lead) => {
+    setEditing(lead);
+    setDialogOpen(true);
+  };
+
+  const handleSave = (lead: Lead) => {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === lead.id ? lead : l)),
+    );
   };
 
   return (
@@ -46,6 +81,8 @@ function CrmPage() {
               <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 placeholder="Search contacts..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 className="bg-card ring-1 ring-border rounded-md text-sm pl-8 pr-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
@@ -60,7 +97,6 @@ function CrmPage() {
         }
       />
 
-
       <div className="bg-card ring-1 ring-border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 border-b border-border">
@@ -74,26 +110,48 @@ function CrmPage() {
             </tr>
           </thead>
           <tbody>
-            {contacts.map((c) => (
-              <tr key={c.email} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+            {filtered.map((c) => (
+              <tr
+                key={c.id}
+                onClick={() => openEdit(c)}
+                className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
+              >
                 <td className="px-5 py-3.5">
                   <div className="font-medium">{c.name}</div>
                   <div className="text-xs text-muted-foreground">{c.email}</div>
                 </td>
-                <td className="px-5 py-3.5 text-muted-foreground">{c.company}</td>
+                <td className="px-5 py-3.5 text-muted-foreground">{c.company || "—"}</td>
                 <td className="px-5 py-3.5">
                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded ring-1 ${stageColor[c.stage]}`}>
                     {c.stage}
                   </span>
                 </td>
                 <td className="px-5 py-3.5 text-muted-foreground">{c.source}</td>
-                <td className="px-5 py-3.5 text-right font-mono">{c.value}</td>
-                <td className="px-5 py-3.5 text-xs text-muted-foreground">{c.updated}</td>
+                <td className="px-5 py-3.5 text-right font-mono">{formatValue(c.value, c.currency)}</td>
+                <td className="px-5 py-3.5 text-xs text-muted-foreground">
+                  {new Date(c.updatedAt).toLocaleDateString()}
+                </td>
               </tr>
             ))}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground text-sm">
+                  No leads match your search.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
+
+      <LeadDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        lead={editing}
+        mode="edit"
+        onSave={handleSave}
+        stages={[...new Set(leads.map((l) => l.stage))]}
+      />
     </>
   );
 }
