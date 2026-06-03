@@ -1,6 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useState } from "react";
+import {
+  Users,
+  Inbox,
+  Clock,
+  UserCheck,
+  Trophy,
+  PiggyBank,
+  Receipt,
+  TrendingUp,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+  type LucideIcon,
+} from "lucide-react";
 
 type Range = 7 | 30 | 90;
 
@@ -10,24 +24,55 @@ const rangeLabel: Record<Range, string> = {
   90: "Last 90 days",
 };
 
-const metricsData: Record<Range, { label: string; value: string; delta: string; positive: boolean }[]> = {
+type Trend = "up" | "down" | "flat";
+type Metric = {
+  label: string;
+  value: string;
+  delta: string;
+  trend: Trend;
+  icon: LucideIcon;
+  note?: string;
+};
+
+const leadOverview: Record<Range, Metric[]> = {
   7: [
-    { label: "New leads (7d)", value: "98", delta: "+8.2%", positive: true },
-    { label: "Qualified rate", value: "36.7%", delta: "+1.4%", positive: true },
-    { label: "Conversions synced", value: "42", delta: "+6", positive: true },
-    { label: "Match rate", value: "93.5%", delta: "−0.2%", positive: false },
+    { label: "Total", value: "284", delta: "+14%", trend: "up", icon: Users },
+    { label: "Open", value: "72", delta: "New", trend: "up", icon: Inbox },
+    { label: "Expired", value: "0", delta: "No change", trend: "flat", icon: Clock },
+    { label: "Qualified", value: "164", delta: "+22%", trend: "up", icon: UserCheck },
+    { label: "Won", value: "58", delta: "+112%", trend: "up", icon: Trophy },
   ],
   30: [
-    { label: "New leads (30d)", value: "428", delta: "+12.4%", positive: true },
-    { label: "Qualified rate", value: "38.2%", delta: "+3.1%", positive: true },
-    { label: "Conversions synced", value: "164", delta: "+24", positive: true },
-    { label: "Match rate", value: "94.1%", delta: "−0.4%", positive: false },
+    { label: "Total", value: "1,026", delta: "+20%", trend: "up", icon: Users },
+    { label: "Open", value: "257", delta: "New", trend: "up", icon: Inbox },
+    { label: "Expired", value: "0", delta: "No change", trend: "flat", icon: Clock },
+    { label: "Qualified", value: "601", delta: "+46%", trend: "up", icon: UserCheck },
+    { label: "Won", value: "234", delta: "+378%", trend: "up", icon: Trophy },
   ],
   90: [
-    { label: "New leads (90d)", value: "1,284", delta: "+18.6%", positive: true },
-    { label: "Qualified rate", value: "37.5%", delta: "+4.2%", positive: true },
-    { label: "Conversions synced", value: "482", delta: "+71", positive: true },
-    { label: "Match rate", value: "93.8%", delta: "+0.1%", positive: true },
+    { label: "Total", value: "3,184", delta: "+28%", trend: "up", icon: Users },
+    { label: "Open", value: "612", delta: "New", trend: "up", icon: Inbox },
+    { label: "Expired", value: "0", delta: "No change", trend: "flat", icon: Clock },
+    { label: "Qualified", value: "1,842", delta: "+58%", trend: "up", icon: UserCheck },
+    { label: "Won", value: "726", delta: "+412%", trend: "up", icon: Trophy },
+  ],
+};
+
+const performance: Record<Range, Metric[]> = {
+  7: [
+    { label: "Won Value", value: "€812,420.55", delta: "+184%", trend: "up", icon: PiggyBank },
+    { label: "Spend", value: "€48,210.40", delta: "+12%", trend: "down", icon: Receipt },
+    { label: "ROI", value: "16.85", delta: "+148%", trend: "up", icon: TrendingUp, note: "ROI*" },
+  ],
+  30: [
+    { label: "Won Value", value: "€2,933,450.99", delta: "+199%", trend: "up", icon: PiggyBank },
+    { label: "Spend", value: "€182,040.99", delta: "+18%", trend: "down", icon: Receipt },
+    { label: "ROI", value: "16.11", delta: "+152%", trend: "up", icon: TrendingUp, note: "ROI*" },
+  ],
+  90: [
+    { label: "Won Value", value: "€8,142,920.10", delta: "+212%", trend: "up", icon: PiggyBank },
+    { label: "Spend", value: "€524,310.22", delta: "+24%", trend: "down", icon: Receipt },
+    { label: "ROI", value: "15.53", delta: "+161%", trend: "up", icon: TrendingUp, note: "ROI*" },
   ],
 };
 
@@ -76,7 +121,8 @@ export const Route = createFileRoute("/app/dashboard")({
 function DashboardPage() {
   const [range, setRange] = useState<Range>(30);
 
-  const metrics = metricsData[range];
+  const overview = leadOverview[range];
+  const perf = performance[range];
   const sources = sourcesData[range];
 
   return (
@@ -104,18 +150,9 @@ function DashboardPage() {
         }
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {metrics.map((m) => (
-          <div key={m.label} className="bg-card ring-1 ring-border rounded-lg p-5">
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              {m.label}
-            </div>
-            <div className="text-3xl font-semibold tracking-tight mt-3">{m.value}</div>
-            <div className={`text-xs font-medium mt-1 ${m.positive ? "text-success" : "text-destructive"}`}>
-              {m.delta} vs prev period
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 xl:grid-cols-[1.65fr_1fr] gap-4 mb-8">
+        <MetricGroup title="Lead Overview" metrics={overview} cols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" />
+        <MetricGroup title="Performance" metrics={perf} cols="grid-cols-1 sm:grid-cols-3" />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
@@ -156,6 +193,47 @@ function DashboardPage() {
         </div>
       </div>
     </>
+  );
+}
+
+function MetricGroup({ title, metrics, cols }: { title: string; metrics: Metric[]; cols: string }) {
+  return (
+    <section>
+      <h2 className="text-sm font-semibold mb-3">{title}</h2>
+      <div className={`bg-card ring-1 ring-border rounded-lg p-2 grid ${cols} gap-2`}>
+        {metrics.map((m) => (
+          <MetricCard key={m.label} metric={m} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MetricCard({ metric }: { metric: Metric }) {
+  const Icon = metric.icon;
+  const TrendIcon =
+    metric.trend === "up" ? ArrowUpRight : metric.trend === "down" ? ArrowDownRight : Minus;
+  const trendClass =
+    metric.trend === "up"
+      ? "bg-success/10 text-success"
+      : metric.trend === "down"
+        ? "bg-destructive/10 text-destructive"
+        : "bg-muted text-muted-foreground";
+
+  return (
+    <div className="rounded-md p-4 flex flex-col gap-3 hover:bg-muted/40 transition-colors">
+      <Icon className="size-4 text-muted-foreground" strokeWidth={1.75} />
+      <div>
+        <div className="text-2xl font-semibold tracking-tight tabular-nums">{metric.value}</div>
+        <div className="text-xs text-muted-foreground mt-0.5">{metric.note ?? metric.label}</div>
+      </div>
+      <div
+        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium w-fit ${trendClass}`}
+      >
+        <TrendIcon className="size-3" strokeWidth={2} />
+        {metric.delta}
+      </div>
+    </div>
   );
 }
 
