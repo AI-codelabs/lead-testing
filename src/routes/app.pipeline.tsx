@@ -66,6 +66,8 @@ function PipelinePage() {
   const [newStageName, setNewStageName] = useState("");
   const [addingStage, setAddingStage] = useState(false);
   const [pickerOpenFor, setPickerOpenFor] = useState<string | null>(null);
+  const [pendingWon, setPendingWon] = useState<{ leadId: string; fromStage: string } | null>(null);
+  const [pendingLost, setPendingLost] = useState<{ leadId: string; fromStage: string } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
