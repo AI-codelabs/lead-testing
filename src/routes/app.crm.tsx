@@ -56,13 +56,45 @@ const toneDot: Record<"red" | "amber" | "green" | "muted", string> = {
   muted: "bg-muted-foreground/40",
 };
 
+function BrandSvg({ icon }: { icon: { path: string; hex: string } }) {
+  return (
+    <svg viewBox="0 0 24 24" className="size-3.5" style={{ fill: `#${icon.hex}` }} aria-hidden>
+      <path d={icon.path} />
+    </svg>
+  );
+}
+
 function ChannelIcon({ source }: { source: Source }) {
-  const base = "size-5 rounded flex items-center justify-center text-[10px] font-bold";
-  if (source === "Google") return <span className={`${base} bg-stage-amber-soft text-stage-amber-ink ring-1 ring-stage-amber-line`}>G</span>;
-  if (source === "Meta") return <span className={`${base} bg-stage-blue-soft text-stage-blue-ink ring-1 ring-stage-blue-line`}>∞</span>;
-  if (source === "LinkedIn") return <span className={`${base} bg-stage-blue-soft text-stage-blue-ink ring-1 ring-stage-blue-line`}><Linkedin className="size-3" /></span>;
-  if (source === "Microsoft") return <span className={`${base} bg-stage-orange-soft text-stage-orange-ink ring-1 ring-stage-orange-line`}>⊞</span>;
-  return <span className={`${base} bg-muted text-muted-foreground ring-1 ring-border`}><Globe className="size-3" /></span>;
+  const base = "size-6 rounded flex items-center justify-center";
+  if (source === "Google")
+    return (
+      <span title="Google Ads" className={`${base} bg-card ring-1 ring-border`}>
+        <BrandSvg icon={siGoogleads} />
+      </span>
+    );
+  if (source === "Meta")
+    return (
+      <span title="Meta Ads" className={`${base} bg-card ring-1 ring-border`}>
+        <BrandSvg icon={siMeta} />
+      </span>
+    );
+  if (source === "LinkedIn")
+    return (
+      <span title="LinkedIn Ads" className={`${base} bg-card ring-1 ring-border text-[#0A66C2]`}>
+        <Linkedin className="size-3.5" fill="currentColor" stroke="none" />
+      </span>
+    );
+  if (source === "Microsoft")
+    return (
+      <span title="Microsoft Ads" className={`${base} bg-card ring-1 ring-border text-foreground`}>
+        <Monitor className="size-3.5" />
+      </span>
+    );
+  return (
+    <span title="Direct" className={`${base} bg-card ring-1 ring-border text-muted-foreground`}>
+      <Globe className="size-3.5" />
+    </span>
+  );
 }
 
 function matchesTab(lead: Lead, tab: Tab): boolean {
