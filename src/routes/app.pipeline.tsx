@@ -233,7 +233,7 @@ function PipelinePage() {
       />
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {stages.map((stage, idx) => {
             const prev = stages[idx - 1];
             const next = stages[idx + 1];
@@ -255,52 +255,53 @@ function PipelinePage() {
               />
             );
           })}
-
-          <div className="bg-muted/20 ring-1 ring-dashed ring-border rounded-lg p-3 min-h-[200px] flex flex-col">
-            <div className="flex items-center justify-between px-1 pb-3">
-              <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
-                Custom stage
-              </span>
-            </div>
-            {addingStage ? (
-              <div className="space-y-2">
-                <input
-                  autoFocus
-                  value={newStageName}
-                  onChange={(e) => setNewStageName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAddStage();
-                    if (e.key === "Escape") { setAddingStage(false); setNewStageName(""); }
-                  }}
-                  placeholder="Stage name…"
-                  className="w-full bg-card ring-1 ring-border rounded-md text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={handleAddStage}
-                    className="flex-1 text-xs font-medium px-2 py-1.5 rounded-md bg-primary text-primary-foreground"
-                  >
-                    Add stage
-                  </button>
-                  <button
-                    onClick={() => { setAddingStage(false); setNewStageName(""); }}
-                    className="text-xs font-medium px-2 py-1.5 rounded-md ring-1 ring-border text-muted-foreground"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAddingStage(true)}
-                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors min-h-[100px]"
-              >
-                <Plus className="size-3.5" />
-                Add custom stage
-              </button>
-            )}
-          </div>
         </div>
+
+        <div className="mt-5 bg-muted/20 ring-1 ring-dashed ring-border rounded-xl p-4 flex flex-col">
+          <div className="flex items-center justify-between px-1 pb-3">
+            <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
+              Custom stage
+            </span>
+          </div>
+          {addingStage ? (
+            <div className="space-y-2 max-w-sm">
+              <input
+                autoFocus
+                value={newStageName}
+                onChange={(e) => setNewStageName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddStage();
+                  if (e.key === "Escape") { setAddingStage(false); setNewStageName(""); }
+                }}
+                placeholder="Stage name…"
+                className="w-full bg-card ring-1 ring-border rounded-md text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <div className="flex gap-1.5">
+                <button
+                  onClick={handleAddStage}
+                  className="flex-1 text-xs font-medium px-2 py-1.5 rounded-md bg-primary text-primary-foreground"
+                >
+                  Add stage
+                </button>
+                <button
+                  onClick={() => { setAddingStage(false); setNewStageName(""); }}
+                  className="text-xs font-medium px-2 py-1.5 rounded-md ring-1 ring-border text-muted-foreground"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAddingStage(true)}
+              className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-md transition-colors min-h-[80px] max-w-sm"
+            >
+              <Plus className="size-3.5" />
+              Add custom stage
+            </button>
+          )}
+        </div>
+
         <DragOverlay>
           {activeLead ? <LeadCard lead={activeLead} dragging /> : null}
         </DragOverlay>
@@ -345,7 +346,7 @@ function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`${palette.soft} ring-1 ${palette.line} rounded-lg p-3 transition-all min-h-[200px] ${
+      className={`${palette.soft} ring-1 ${palette.line} rounded-xl p-4 transition-all min-h-[240px] ${
         isOver ? "ring-2 ring-foreground/30 scale-[1.005]" : ""
       }`}
     >
