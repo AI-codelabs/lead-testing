@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -24,6 +24,7 @@ import {
 
 export const Route = createFileRoute("/app/pipeline")({
   head: () => ({ meta: [{ title: "Lead Pipeline — Leadlogr" }] }),
+  ssr: false,
   component: PipelinePage,
 });
 
