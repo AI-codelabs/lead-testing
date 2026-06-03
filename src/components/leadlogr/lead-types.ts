@@ -1,12 +1,33 @@
-export type Stage = "New" | "Contacted" | "Qualified" | "Closed-Won";
 export type Priority = "Low" | "Medium" | "High";
 export type Qualification = "Unqualified" | "Qualified" | "Customer";
 export type Consent = "Unknown" | "Accepted" | "Declined";
 export type Source = "Google" | "Meta" | "Direct" | "LinkedIn" | "Microsoft";
 
+export interface StageDef {
+  id: string;
+  name: string;
+  locked: boolean;
+  dot: string;
+}
+
+/**
+ * Stages flagged `locked: true` are system stages used by Leadlogr to send
+ * conversion outcomes back to Google Ads / Meta Ads. They cannot be edited
+ * or removed by users.
+ */
+export const DEFAULT_STAGES: StageDef[] = [
+  { id: "new", name: "New", locked: false, dot: "bg-muted-foreground/60" },
+  { id: "contacted", name: "Contacted", locked: false, dot: "bg-warning" },
+  { id: "qualified", name: "Qualified", locked: true, dot: "bg-brand-accent" },
+  { id: "closed-won", name: "Closed-Won", locked: false, dot: "bg-success" },
+  { id: "lost", name: "Lost", locked: true, dot: "bg-destructive" },
+];
+
+export const CUSTOM_STAGE_DOT = "bg-foreground/40";
+
 export interface Lead {
   id: string;
-  stage: Stage;
+  stage: string;
   // Contact
   name: string;
   email: string;
@@ -41,19 +62,12 @@ export interface Lead {
   // Consent
   consent: Consent;
   // Meta
+  createdAt: string;
   updatedAt: string;
 }
 
-export const STAGES: Stage[] = ["New", "Contacted", "Qualified", "Closed-Won"];
-
-export const STAGE_META: Record<Stage, { dot: string }> = {
-  New: { dot: "bg-muted-foreground/60" },
-  Contacted: { dot: "bg-warning" },
-  Qualified: { dot: "bg-brand-accent" },
-  "Closed-Won": { dot: "bg-success" },
-};
-
-export function emptyLead(stage: Stage = "New"): Lead {
+export function emptyLead(stage: string = "New"): Lead {
+  const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
     stage,
@@ -69,6 +83,8 @@ export function emptyLead(stage: Stage = "New"): Lead {
     notes: "",
     source: "Direct",
     company: "",
+    createdAt: now,
+    updatedAt: now,
     utmSource: "",
     utmMedium: "",
     utmCampaign: "",
