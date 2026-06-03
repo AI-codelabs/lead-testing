@@ -87,6 +87,14 @@
   --sidebar: oklch(0.985 0.002 247);
   --sidebar-foreground: oklch(0.18 0.012 264);
   --sidebar-border: oklch(0.92 0.006 256);
+
+  /* Pipeline stage pastel colors — soft, low-chroma, readable on white */
+  --stage-new: oklch(0.52 0.075 250);
+  --stage-contacted: oklch(0.50 0.08 150);
+  --stage-qualified: oklch(0.51 0.09 85);
+  --stage-closed-won: oklch(0.50 0.085 55);
+  --stage-lost: oklch(0.50 0.08 25);
+  --stage-disqualified: oklch(0.50 0.075 300);
 }
 
 @layer base {
