@@ -287,6 +287,7 @@ export const SEED_LEADS: Lead[] = [
     company: "Falcon Group", source: "Meta", priority: "Medium",
     description: "Demo follow-up pending.", campaignName: "Retargeting · DE",
     fbclid: "IwAR1y...def", consent: "Accepted",
+    expiresAt: daysFromNow(2),
   },
   {
     ...emptyLead("Qualified"),
