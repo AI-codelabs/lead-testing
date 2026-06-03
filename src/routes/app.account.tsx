@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/leadlogr/page-header";
+import { useTheme, type Theme } from "@/components/theme-provider";
+import { Monitor, Moon, Sun } from "lucide-react";
+
 
 export const Route = createFileRoute("/app/account")({
   head: () => ({ meta: [{ title: "Account — Leadlogr" }] }),
