@@ -271,6 +271,7 @@ export const SEED_LEADS: Lead[] = [
     id: "l3", name: "Liam O'Connor", email: "liam@apex.io", phone: "+353 1 555 0101",
     company: "Apex Solutions", source: "Direct", description: "Submitted contact form directly.",
     priority: "Low", consent: "Unknown",
+    expiresAt: daysFromNow(22),
   },
   {
     ...emptyLead("Contacted"),
