@@ -44,18 +44,43 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-border: var(--sidebar-border);
 
+  /* Stage dot colors (saturated pastel) */
   --color-stage-new: var(--stage-new);
   --color-stage-contacted: var(--stage-contacted);
   --color-stage-qualified: var(--stage-qualified);
   --color-stage-closed-won: var(--stage-closed-won);
   --color-stage-lost: var(--stage-lost);
   --color-stage-disqualified: var(--stage-disqualified);
+
+  /* Stage soft surface tints (column backgrounds) */
+  --color-stage-new-soft: var(--stage-new-soft);
+  --color-stage-contacted-soft: var(--stage-contacted-soft);
+  --color-stage-qualified-soft: var(--stage-qualified-soft);
+  --color-stage-closed-won-soft: var(--stage-closed-won-soft);
+  --color-stage-lost-soft: var(--stage-lost-soft);
+  --color-stage-disqualified-soft: var(--stage-disqualified-soft);
+
+  /* Stage ink (label / badge text) */
+  --color-stage-new-ink: var(--stage-new-ink);
+  --color-stage-contacted-ink: var(--stage-contacted-ink);
+  --color-stage-qualified-ink: var(--stage-qualified-ink);
+  --color-stage-closed-won-ink: var(--stage-closed-won-ink);
+  --color-stage-lost-ink: var(--stage-lost-ink);
+  --color-stage-disqualified-ink: var(--stage-disqualified-ink);
+
+  /* Stage line (subtle border / ring) */
+  --color-stage-new-line: var(--stage-new-line);
+  --color-stage-contacted-line: var(--stage-contacted-line);
+  --color-stage-qualified-line: var(--stage-qualified-line);
+  --color-stage-closed-won-line: var(--stage-closed-won-line);
+  --color-stage-lost-line: var(--stage-lost-line);
+  --color-stage-disqualified-line: var(--stage-disqualified-line);
 }
 
 :root {
   --radius: 0.5rem;
 
-  /* Swiss minimal: warm zinc surface, near-black ink, teal accent */
+  /* Light theme — Swiss minimal: warm zinc surface, near-black ink, teal accent */
   --background: oklch(0.985 0.002 247);
   --foreground: oklch(0.18 0.012 264);
   --surface: oklch(0.985 0.002 247);
@@ -78,7 +103,6 @@
   --accent: oklch(0.94 0.005 247);
   --accent-foreground: oklch(0.205 0.012 264);
 
-  /* Teal — used sparingly as the single brand accent */
   --brand-accent: oklch(0.62 0.11 192);
 
   --destructive: oklch(0.58 0.22 27);
@@ -95,13 +119,108 @@
   --sidebar-foreground: oklch(0.18 0.012 264);
   --sidebar-border: oklch(0.92 0.006 256);
 
-  /* Pipeline stage pastel colors — high lightness, low chroma for soft dots */
+  /* Pipeline stage dots — pastel */
   --stage-new: oklch(0.78 0.05 250);
   --stage-contacted: oklch(0.80 0.055 150);
   --stage-qualified: oklch(0.83 0.065 85);
   --stage-closed-won: oklch(0.79 0.06 55);
   --stage-lost: oklch(0.78 0.055 25);
   --stage-disqualified: oklch(0.78 0.05 300);
+
+  /* Soft surface tints — high lightness, very low chroma */
+  --stage-new-soft: oklch(0.972 0.018 250);
+  --stage-contacted-soft: oklch(0.972 0.022 150);
+  --stage-qualified-soft: oklch(0.975 0.028 85);
+  --stage-closed-won-soft: oklch(0.972 0.025 55);
+  --stage-lost-soft: oklch(0.972 0.022 25);
+  --stage-disqualified-soft: oklch(0.972 0.020 300);
+
+  /* Ink — readable on soft tints */
+  --stage-new-ink: oklch(0.38 0.10 250);
+  --stage-contacted-ink: oklch(0.38 0.10 150);
+  --stage-qualified-ink: oklch(0.40 0.11 85);
+  --stage-closed-won-ink: oklch(0.40 0.12 55);
+  --stage-lost-ink: oklch(0.40 0.12 25);
+  --stage-disqualified-ink: oklch(0.40 0.10 300);
+
+  /* Lines — subtle borders */
+  --stage-new-line: oklch(0.90 0.035 250);
+  --stage-contacted-line: oklch(0.90 0.04 150);
+  --stage-qualified-line: oklch(0.91 0.045 85);
+  --stage-closed-won-line: oklch(0.90 0.04 55);
+  --stage-lost-line: oklch(0.90 0.04 25);
+  --stage-disqualified-line: oklch(0.90 0.035 300);
+}
+
+.dark {
+  /* Dark theme — deep ink surfaces, soft cool foreground, same teal accent */
+  --background: oklch(0.16 0.012 260);
+  --foreground: oklch(0.96 0.004 247);
+  --surface: oklch(0.16 0.012 260);
+  --surface-elevated: oklch(0.21 0.014 260);
+
+  --card: oklch(0.205 0.014 260);
+  --card-foreground: oklch(0.96 0.004 247);
+  --popover: oklch(0.205 0.014 260);
+  --popover-foreground: oklch(0.96 0.004 247);
+
+  --primary: oklch(0.96 0.004 247);
+  --primary-foreground: oklch(0.18 0.012 264);
+
+  --secondary: oklch(0.24 0.014 260);
+  --secondary-foreground: oklch(0.96 0.004 247);
+
+  --muted: oklch(0.24 0.014 260);
+  --muted-foreground: oklch(0.70 0.012 257);
+
+  --accent: oklch(0.26 0.014 260);
+  --accent-foreground: oklch(0.96 0.004 247);
+
+  --brand-accent: oklch(0.72 0.12 192);
+
+  --destructive: oklch(0.62 0.22 27);
+  --destructive-foreground: oklch(0.985 0.002 247);
+  --success: oklch(0.70 0.14 155);
+  --warning: oklch(0.80 0.15 75);
+
+  --border: oklch(0.28 0.014 260);
+  --border-strong: oklch(0.36 0.016 260);
+  --input: oklch(0.28 0.014 260);
+  --ring: oklch(0.72 0.12 192);
+
+  --sidebar: oklch(0.14 0.012 260);
+  --sidebar-foreground: oklch(0.96 0.004 247);
+  --sidebar-border: oklch(0.26 0.014 260);
+
+  /* Stage dots remain pastel — readable on dark cards */
+  --stage-new: oklch(0.72 0.10 250);
+  --stage-contacted: oklch(0.74 0.10 150);
+  --stage-qualified: oklch(0.80 0.12 85);
+  --stage-closed-won: oklch(0.76 0.12 55);
+  --stage-lost: oklch(0.72 0.12 25);
+  --stage-disqualified: oklch(0.74 0.10 300);
+
+  /* Dark soft tints — low-lightness saturated wash */
+  --stage-new-soft: oklch(0.26 0.04 250);
+  --stage-contacted-soft: oklch(0.26 0.045 150);
+  --stage-qualified-soft: oklch(0.27 0.05 85);
+  --stage-closed-won-soft: oklch(0.27 0.05 55);
+  --stage-lost-soft: oklch(0.27 0.05 25);
+  --stage-disqualified-soft: oklch(0.27 0.045 300);
+
+  --stage-new-ink: oklch(0.86 0.06 250);
+  --stage-contacted-ink: oklch(0.88 0.07 150);
+  --stage-qualified-ink: oklch(0.90 0.09 85);
+  --stage-closed-won-ink: oklch(0.88 0.09 55);
+  --stage-lost-ink: oklch(0.86 0.09 25);
+  --stage-disqualified-ink: oklch(0.86 0.07 300);
+
+  --stage-new-line: oklch(0.34 0.05 250);
+  --stage-contacted-line: oklch(0.34 0.055 150);
+  --stage-qualified-line: oklch(0.36 0.06 85);
+  --stage-closed-won-line: oklch(0.35 0.06 55);
+  --stage-lost-line: oklch(0.35 0.06 25);
+  --stage-disqualified-line: oklch(0.34 0.05 300);
 }
 
 @layer base {
@@ -112,6 +231,10 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
   }
   body {
     background-color: var(--color-background);
