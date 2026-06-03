@@ -168,7 +168,7 @@ export function emptyLead(stage: string = "New"): Lead {
 export const SEED_LEADS: Lead[] = [
   {
     ...emptyLead("New"),
-    id: "l1", name: "Marcus Thorne", email: "marcus@thornecap.com", phone: "+1 415 555 0182",
+    id: "l1", label: "Hot Lead", name: "Marcus Thorne", email: "marcus@thornecap.com", phone: "+1 415 555 0182",
     company: "Thorne Capital", source: "Google", description: "Inbound from Search — enterprise SaaS evaluation.",
     priority: "High", campaignName: "Brand · Enterprise · Q2",
     utmSource: "google", utmMedium: "cpc", utmCampaign: "brand-enterprise-q2",
@@ -178,7 +178,7 @@ export const SEED_LEADS: Lead[] = [
   },
   {
     ...emptyLead("New"),
-    id: "l2", name: "Elena Rodríguez", email: "elena@helio.studio", phone: "+34 611 22 33 44",
+    id: "l2", label: "Spam Lead", name: "Elena Rodríguez", email: "elena@helio.studio", phone: "+34 611 22 33 44",
     company: "Helio Studio", source: "Meta", description: "Agency retainer inquiry from IG ad.",
     priority: "Medium", campaignName: "Agencies · LAL 2% · ES",
     utmSource: "meta", utmMedium: "paid-social", utmCampaign: "agencies-lal2-es",
@@ -194,7 +194,7 @@ export const SEED_LEADS: Lead[] = [
   },
   {
     ...emptyLead("Contacted"),
-    id: "l4", name: "Priya Shah", email: "priya@northwind.co", phone: "+44 20 7946 0958",
+    id: "l4", label: "Quotation Sent", name: "Priya Shah", email: "priya@northwind.co", phone: "+44 20 7946 0958",
     company: "Northwind Co.", source: "Google", description: "Discovery call scheduled for Thursday.",
     priority: "Medium", campaignName: "Solutions · Mid-market",
     utmSource: "google", utmMedium: "cpc", utmCampaign: "solutions-mm",
@@ -202,14 +202,14 @@ export const SEED_LEADS: Lead[] = [
   },
   {
     ...emptyLead("Contacted"),
-    id: "l5", name: "Tom Becker", email: "tom@falcongroup.io", phone: "+49 30 1234 5678",
+    id: "l5", label: "Hot Lead", name: "Tom Becker", email: "tom@falcongroup.io", phone: "+49 30 1234 5678",
     company: "Falcon Group", source: "Meta", priority: "Medium",
     description: "Demo follow-up pending.", campaignName: "Retargeting · DE",
     fbclid: "IwAR1y...def", consent: "Accepted",
   },
   {
     ...emptyLead("Qualified"),
-    id: "l6", name: "Ava Lin", email: "ava@brightholdings.com", phone: "+1 212 555 0199",
+    id: "l6", label: "Hot Lead", name: "Ava Lin", email: "ava@brightholdings.com", phone: "+1 212 555 0199",
     company: "Bright Holdings", source: "Google", value: 8400,
     description: "Procurement review in progress. High intent.",
     priority: "High", qualification: "Qualified", campaignName: "Solutions · Enterprise · US",
@@ -219,14 +219,14 @@ export const SEED_LEADS: Lead[] = [
   },
   {
     ...emptyLead("Qualified"),
-    id: "l7", name: "Noah Patel", email: "noah@vertexlabs.ai", phone: "+1 408 555 0143",
+    id: "l7", label: "Quotation Sent", name: "Noah Patel", email: "noah@vertexlabs.ai", phone: "+1 408 555 0143",
     company: "Vertex Labs", source: "Meta", value: 3100, priority: "Medium",
     qualification: "Qualified", description: "Trial active. Weekly check-ins.",
     fbclid: "IwAR3z...ghi", consent: "Accepted",
   },
   {
     ...emptyLead("Won"),
-    id: "l8", name: "Project Zenith", email: "ops@zenith.co", phone: "+1 646 555 0124",
+    id: "l8", label: "Hot Lead", name: "Project Zenith", email: "ops@zenith.co", phone: "+1 646 555 0124",
     company: "Zenith Co.", source: "Google", value: 12500, priority: "High",
     qualification: "Customer", description: "Synced to Google Ads via offline conversion (CAPI).",
     campaignName: "Solutions · Enterprise · US", utmSource: "google", utmMedium: "cpc",
@@ -250,7 +250,7 @@ export const SEED_LEADS: Lead[] = [
   },
   {
     ...emptyLead("Disqualified"),
-    id: "l11", name: "Fake User", email: "fake@example.com", phone: "+1 000 000 0000",
+    id: "l11", label: "Spam Lead", name: "Fake User", email: "fake@example.com", phone: "+1 000 000 0000",
     company: "N/A", source: "Meta", priority: "Low", qualification: "Unqualified",
     description: "Invalid contact info and spam submission — synced as poor-quality signal to Meta.",
     fbclid: "IwAR0x...spam", consent: "Declined", tags: ["disqualified"],
