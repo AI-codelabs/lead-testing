@@ -196,7 +196,7 @@ export function addHistory(
 export function emptyLead(stage: string = "New"): Lead {
   const now = new Date();
   const expires = new Date(now);
-  expires.setDate(expires.getDate() + 30);
+  expires.setDate(expires.getDate() + 90);
   return {
     id: crypto.randomUUID(),
     stage,
