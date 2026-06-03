@@ -101,7 +101,6 @@ export function emptyLead(stage: string = "New"): Lead {
     pagePath: "",
     referrerUrl: "",
     consent: "Unknown",
-    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -179,5 +178,13 @@ export const SEED_LEADS: Lead[] = [
     company: "Falcon Group", source: "Meta", value: 6200, priority: "High",
     qualification: "Customer", description: "Synced to Meta CAPI.",
     fbclid: "IwAR1y...def", consent: "Accepted", tags: ["closed", "meta-capi"],
+  },
+  {
+    ...emptyLead("Lost"),
+    id: "l10", name: "Karim Haddad", email: "karim@globex.io", phone: "+971 4 555 0177",
+    company: "Globex", source: "Google", priority: "Low", qualification: "Unqualified",
+    description: "Budget pulled — synced as negative signal to Google Ads.",
+    utmSource: "google", utmMedium: "cpc", utmCampaign: "solutions-mm",
+    gclid: "Cj0KCQjw...LST", consent: "Declined", tags: ["lost"],
   },
 ];
