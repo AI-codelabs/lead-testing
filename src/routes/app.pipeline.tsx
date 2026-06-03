@@ -12,14 +12,19 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { PageHeader } from "@/components/leadlogr/page-header";
-import { ArrowLeft, ArrowRight, Check, Download, Lock, Palette, Plus, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Clock, Download, Lock, Palette, Plus, X } from "lucide-react";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
+import { LostReasonDialog } from "@/components/leadlogr/lost-reason-dialog";
+import { WonValueDialog } from "@/components/leadlogr/won-value-dialog";
 import {
   CUSTOM_STAGE_INSERT_BEFORE,
   DEFAULT_STAGES,
   PALETTES,
   PALETTE_ORDER,
   SEED_LEADS,
+  addHistory,
+  daysUntilExpiry,
+  expiryUrgency,
   type Lead,
   type Palette as PaletteDef,
   type PaletteKey,
