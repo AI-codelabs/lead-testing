@@ -81,7 +81,7 @@ function CrmPage() {
                 </td>
                 <td className="px-5 py-3.5 text-muted-foreground">{c.company}</td>
                 <td className="px-5 py-3.5">
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${stageColor[c.stage]}`}>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded ring-1 ${stageColor[c.stage]}`}>
                     {c.stage}
                   </span>
                 </td>
