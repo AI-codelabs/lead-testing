@@ -346,7 +346,7 @@ function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`${palette.soft} ring-1 ${palette.line} rounded-lg p-3 transition-all min-h-[200px] ${
+      className={`${palette.soft} ring-1 ${palette.line} rounded-xl p-4 transition-all min-h-[240px] ${
         isOver ? "ring-2 ring-foreground/30 scale-[1.005]" : ""
       }`}
     >
