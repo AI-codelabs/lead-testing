@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/leadlogr/page-header";
-import { Search } from "lucide-react";
+import { Download, Search } from "lucide-react";
+import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 
 export const Route = createFileRoute("/app/crm")({
   head: () => ({ meta: [{ title: "CRM — Leadlogr" }] }),
@@ -25,6 +26,10 @@ const stageColor: Record<string, string> = {
 };
 
 function CrmPage() {
+  const handleExport = () => {
+    downloadCsv(`leadlogr-crm-${timestamp()}.csv`, toCsv(contacts));
+  };
+
   return (
     <>
       <PageHeader
@@ -32,15 +37,25 @@ function CrmPage() {
         title="CRM"
         description="Every lead, contact, and account in one searchable table."
         actions={
-          <div className="relative">
-            <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              placeholder="Search contacts..."
-              className="bg-card ring-1 ring-border rounded-md text-sm pl-8 pr-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                placeholder="Search contacts..."
+                className="bg-card ring-1 ring-border rounded-md text-sm pl-8 pr-3 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <button
+              onClick={handleExport}
+              className="text-sm font-medium px-3 py-2 rounded-md bg-card text-foreground ring-1 ring-border shadow-sm flex items-center gap-1.5 hover:bg-muted transition-colors"
+            >
+              <Download className="size-3.5" />
+              Export CSV
+            </button>
           </div>
         }
       />
+
 
       <div className="bg-card ring-1 ring-border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
