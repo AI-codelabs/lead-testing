@@ -7,7 +7,14 @@ export interface StageDef {
   id: string;
   name: string;
   locked: boolean;
+  /** Dot color utility, e.g. "bg-stage-new" */
   dot: string;
+  /** Soft column background utility, e.g. "bg-stage-new-soft" */
+  soft: string;
+  /** Ink color for labels / badges, e.g. "text-stage-new-ink" */
+  ink: string;
+  /** Subtle line / ring utility, e.g. "ring-stage-new-line" */
+  line: string;
 }
 
 /**
@@ -16,15 +23,19 @@ export interface StageDef {
  * or removed by users.
  */
 export const DEFAULT_STAGES: StageDef[] = [
-  { id: "new", name: "New", locked: false, dot: "bg-stage-new" },
-  { id: "contacted", name: "Contacted", locked: false, dot: "bg-stage-contacted" },
-  { id: "qualified", name: "Qualified", locked: true, dot: "bg-stage-qualified" },
-  { id: "closed-won", name: "Closed-Won", locked: false, dot: "bg-stage-closed-won" },
-  { id: "lost", name: "Lost", locked: true, dot: "bg-stage-lost" },
-  { id: "disqualified", name: "Disqualified", locked: true, dot: "bg-stage-disqualified" },
+  { id: "new", name: "New", locked: false, dot: "bg-stage-new", soft: "bg-stage-new-soft", ink: "text-stage-new-ink", line: "ring-stage-new-line" },
+  { id: "contacted", name: "Contacted", locked: false, dot: "bg-stage-contacted", soft: "bg-stage-contacted-soft", ink: "text-stage-contacted-ink", line: "ring-stage-contacted-line" },
+  { id: "qualified", name: "Qualified", locked: true, dot: "bg-stage-qualified", soft: "bg-stage-qualified-soft", ink: "text-stage-qualified-ink", line: "ring-stage-qualified-line" },
+  { id: "closed-won", name: "Closed-Won", locked: false, dot: "bg-stage-closed-won", soft: "bg-stage-closed-won-soft", ink: "text-stage-closed-won-ink", line: "ring-stage-closed-won-line" },
+  { id: "lost", name: "Lost", locked: true, dot: "bg-stage-lost", soft: "bg-stage-lost-soft", ink: "text-stage-lost-ink", line: "ring-stage-lost-line" },
+  { id: "disqualified", name: "Disqualified", locked: true, dot: "bg-stage-disqualified", soft: "bg-stage-disqualified-soft", ink: "text-stage-disqualified-ink", line: "ring-stage-disqualified-line" },
 ];
 
 export const CUSTOM_STAGE_DOT = "bg-foreground/40";
+export const CUSTOM_STAGE_SOFT = "bg-muted/40";
+export const CUSTOM_STAGE_INK = "text-foreground";
+export const CUSTOM_STAGE_LINE = "ring-border";
+
 
 export interface Lead {
   id: string;
