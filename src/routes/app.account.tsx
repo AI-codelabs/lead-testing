@@ -2,23 +2,38 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useTheme, type Theme } from "@/components/theme-provider";
 import { Monitor, Moon, Sun } from "lucide-react";
+import { AccountTypePanel } from "@/components/account/account-type-panel";
+import { AgencyAccessPanel } from "@/components/account/agency-access-panel";
+import { useAccount } from "@/lib/account-context";
 
 
 export const Route = createFileRoute("/app/account")({
   head: () => ({ meta: [{ title: "Account — Leadlogr" }] }),
+  ssr: false,
   component: AccountPage,
 });
 
 function AccountPage() {
+  const { accountType } = useAccount();
   return (
     <>
       <PageHeader
         eyebrow="Settings"
         title="Account"
-        description="Manage your profile, workspace, billing, and team access."
+        description="Manage your profile, account type, workspace, billing, and team access."
       />
 
       <div className="space-y-4">
+        <SectionCard title="Account type" description="Standard accounts own one workspace. Agency accounts manage many.">
+          <AccountTypePanel />
+        </SectionCard>
+
+        {accountType === "standard" && (
+          <SectionCard title="Agency access" description="Invite an agency and control what they can see in your workspace.">
+            <AgencyAccessPanel />
+          </SectionCard>
+        )}
+
         <SectionCard title="Profile" description="How your name appears across the workspace.">
           <div className="grid md:grid-cols-2 gap-4">
             <Row label="Full name" value="Jane Doe" />
