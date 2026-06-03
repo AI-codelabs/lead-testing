@@ -238,6 +238,12 @@ export function emptyLead(stage: string = "New"): Lead {
   };
 }
 
+const daysFromNow = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString();
+};
+
 export const SEED_LEADS: Lead[] = [
   {
     ...emptyLead("New"),
