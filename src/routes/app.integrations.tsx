@@ -16,7 +16,7 @@ type Integration = {
 
 const integrations: Integration[] = [
   { name: "Google Ads", category: "Ad platform", description: "Send offline conversions back to Google Ads via the Conversions API.", status: "Connected" },
-  { name: "Meta Ads", category: "Ad platform", description: "Sync Closed-Won events to Meta's Conversions API for ROAS optimization.", status: "Connected" },
+  { name: "Meta Ads", category: "Ad platform", description: "Sync Won events to Meta's Conversions API for ROAS optimization.", status: "Connected" },
   { name: "TikTok Business", category: "Ad platform", description: "Forward conversion events to TikTok's Events API.", status: "Available" },
   { name: "HubSpot", category: "CRM", description: "Two-way sync contacts, deals, and lifecycle stages with HubSpot.", status: "Available" },
   { name: "Salesforce", category: "CRM", description: "Map Leadlogr stages to Salesforce opportunities.", status: "Available" },

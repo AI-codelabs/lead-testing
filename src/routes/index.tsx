@@ -32,7 +32,7 @@ const valueProps = [
 
 const steps = [
   { n: "01", title: "Lead Captured", body: "Leadlogr captures gclid, fbclid, and UTM parameters automatically on form submission." },
-  { n: "02", title: "Sales Outcome", body: "Mark leads as Qualified or Closed-Won inside the pipeline, or sync from your existing CRM." },
+  { n: "02", title: "Sales Outcome", body: "Mark leads as Qualified or Won inside the pipeline, or sync from your existing CRM." },
   { n: "03", title: "Auto-Feedback", body: "Conversion value is sent back to ad platforms so their algorithms optimize on real revenue.", highlight: true },
 ];
 
