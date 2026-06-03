@@ -19,28 +19,24 @@ const incoming: IntegrationItem[] = [
   {
     id: "gtm",
     name: "Google Tag Manager",
-    initials: "GTM",
     description:
       "Manage and deploy marketing tags without modifying code. Track conversions, site analytics, and remarketing with ease.",
   },
   {
     id: "wordpress",
     name: "WordPress",
-    initials: "WP",
     description:
       "Capture leads directly from your WordPress site by installing our official plugin for effortless data synchronization.",
   },
   {
     id: "api",
     name: "REST API",
-    initials: "API",
     description:
       "Integrate Leadlogr directly into your custom application or backend using our flexible and powerful REST API.",
   },
   {
     id: "zapier",
     name: "Zapier",
-    initials: "Z",
     description:
       "Create multi-step workflows to automatically sync, update, and route lead data between Leadlogr and 5,000+ other apps.",
   },
