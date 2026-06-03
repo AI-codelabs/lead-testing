@@ -387,11 +387,6 @@ function CrmPage() {
                         {access.canSeeDetails ? l.email : "•••"}
                       </td>
                     )}
-                    {showCol("Phone") && (
-                      <td className="px-3 py-2.5 text-muted-foreground font-mono text-xs">
-                        {access.canSeeDetails ? l.phone : "•••"}
-                      </td>
-                    )}
                     {showCol("Label") && (
                       <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                         <div className="relative inline-block">
