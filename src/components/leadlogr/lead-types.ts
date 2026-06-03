@@ -232,6 +232,9 @@ export function emptyLead(stage: string = "New"): Lead {
     pagePath: "",
     referrerUrl: "",
     consent: "Unknown",
+    history: [
+      { id: crypto.randomUUID(), kind: "created", at: now.toISOString(), message: "Lead created" },
+    ],
   };
 }
 
