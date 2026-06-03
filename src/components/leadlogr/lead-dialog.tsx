@@ -22,7 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import type { Lead } from "./lead-types";
-import { emptyLead, STAGES } from "./lead-types";
+import { emptyLead } from "./lead-types";
 
 interface Props {
   open: boolean;
@@ -30,9 +30,10 @@ interface Props {
   lead: Lead | null;
   mode: "create" | "edit";
   onSave: (lead: Lead) => void;
+  stages: string[];
 }
 
-export function LeadDialog({ open, onOpenChange, lead, mode, onSave }: Props) {
+export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: Props) {
   const [draft, setDraft] = useState<Lead>(lead ?? emptyLead());
   const [tagInput, setTagInput] = useState("");
 
@@ -76,10 +77,10 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave }: Props) {
             </div>
             <div className="w-44 shrink-0">
               <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Stage</Label>
-              <Select value={draft.stage} onValueChange={(v) => set("stage", v as Lead["stage"])}>
+              <Select value={draft.stage} onValueChange={(v) => set("stage", v)}>
                 <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  {stages.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
