@@ -12,13 +12,16 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as AgencyRouteImport } from './routes/agency'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AgencyIndexRouteImport } from './routes/agency.index'
 import { Route as AppPipelineRouteImport } from './routes/app.pipeline'
 import { Route as AppIntegrationsRouteImport } from './routes/app.integrations'
 import { Route as AppDashboardRouteImport } from './routes/app.dashboard'
 import { Route as AppCrmRouteImport } from './routes/app.crm'
 import { Route as AppAccountRouteImport } from './routes/app.account'
+import { Route as AgencyNewClientRouteImport } from './routes/agency.new-client'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -35,6 +38,11 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AgencyRoute = AgencyRouteImport.update({
+  id: '/agency',
+  path: '/agency',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -44,6 +52,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const AgencyIndexRoute = AgencyIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AgencyRoute,
 } as any)
 const AppPipelineRoute = AppPipelineRouteImport.update({
   id: '/pipeline',
@@ -70,83 +83,105 @@ const AppAccountRoute = AppAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AppRoute,
 } as any)
+const AgencyNewClientRoute = AgencyNewClientRouteImport.update({
+  id: '/new-client',
+  path: '/new-client',
+  getParentRoute: () => AgencyRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agency': typeof AgencyRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRoute
   '/app/pipeline': typeof AppPipelineRoute
+  '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRoute
   '/app/pipeline': typeof AppPipelineRoute
+  '/agency': typeof AgencyIndexRoute
   '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agency': typeof AgencyRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRoute
   '/app/pipeline': typeof AppPipelineRoute
+  '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/agency'
     | '/app'
     | '/login'
     | '/signup'
+    | '/agency/new-client'
     | '/app/account'
     | '/app/crm'
     | '/app/dashboard'
     | '/app/integrations'
     | '/app/pipeline'
+    | '/agency/'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/signup'
+    | '/agency/new-client'
     | '/app/account'
     | '/app/crm'
     | '/app/dashboard'
     | '/app/integrations'
     | '/app/pipeline'
+    | '/agency'
     | '/app'
   id:
     | '__root__'
     | '/'
+    | '/agency'
     | '/app'
     | '/login'
     | '/signup'
+    | '/agency/new-client'
     | '/app/account'
     | '/app/crm'
     | '/app/dashboard'
     | '/app/integrations'
     | '/app/pipeline'
+    | '/agency/'
     | '/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgencyRoute: typeof AgencyRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
@@ -175,6 +210,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/agency': {
+      id: '/agency'
+      path: '/agency'
+      fullPath: '/agency'
+      preLoaderRoute: typeof AgencyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -188,6 +230,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/agency/': {
+      id: '/agency/'
+      path: '/'
+      fullPath: '/agency/'
+      preLoaderRoute: typeof AgencyIndexRouteImport
+      parentRoute: typeof AgencyRoute
     }
     '/app/pipeline': {
       id: '/app/pipeline'
@@ -224,8 +273,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAccountRouteImport
       parentRoute: typeof AppRoute
     }
+    '/agency/new-client': {
+      id: '/agency/new-client'
+      path: '/new-client'
+      fullPath: '/agency/new-client'
+      preLoaderRoute: typeof AgencyNewClientRouteImport
+      parentRoute: typeof AgencyRoute
+    }
   }
 }
+
+interface AgencyRouteChildren {
+  AgencyNewClientRoute: typeof AgencyNewClientRoute
+  AgencyIndexRoute: typeof AgencyIndexRoute
+}
+
+const AgencyRouteChildren: AgencyRouteChildren = {
+  AgencyNewClientRoute: AgencyNewClientRoute,
+  AgencyIndexRoute: AgencyIndexRoute,
+}
+
+const AgencyRouteWithChildren =
+  AgencyRoute._addFileChildren(AgencyRouteChildren)
 
 interface AppRouteChildren {
   AppAccountRoute: typeof AppAccountRoute
@@ -249,6 +318,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgencyRoute: AgencyRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
