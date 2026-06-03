@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useTheme, type Theme } from "@/components/theme-provider";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Lock, Monitor, Moon, Sun } from "lucide-react";
 import { AgencyAccessPanel } from "@/components/account/agency-access-panel";
+import { useAccount } from "@/lib/account-context";
 
 
 export const Route = createFileRoute("/app/account")({
@@ -12,6 +13,26 @@ export const Route = createFileRoute("/app/account")({
 });
 
 function AccountPage() {
+  const { isAgencyViewing } = useAccount();
+  if (isAgencyViewing) {
+    return (
+      <div className="max-w-xl mx-auto mt-20 bg-card ring-1 ring-border rounded-lg p-8 text-center">
+        <div className="size-10 rounded-full bg-muted ring-1 ring-border mx-auto flex items-center justify-center mb-4">
+          <Lock className="size-4 text-muted-foreground" />
+        </div>
+        <h2 className="font-semibold">Account settings are private to the client</h2>
+        <p className="text-sm text-muted-foreground mt-1.5">
+          As an agency you cannot view or change a client's account, billing, or workspace settings. Manage your own agency from your agency account page.
+        </p>
+        <Link
+          to="/agency/account"
+          className="inline-flex mt-5 text-sm font-medium px-3 py-2 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors"
+        >
+          Go to agency account
+        </Link>
+      </div>
+    );
+  }
   return (
     <>
       <PageHeader

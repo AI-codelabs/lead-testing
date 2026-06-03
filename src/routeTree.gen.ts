@@ -22,6 +22,7 @@ import { Route as AppDashboardRouteImport } from './routes/app.dashboard'
 import { Route as AppCrmRouteImport } from './routes/app.crm'
 import { Route as AppAccountRouteImport } from './routes/app.account'
 import { Route as AgencyNewClientRouteImport } from './routes/agency.new-client'
+import { Route as AgencyAccountRouteImport } from './routes/agency.account'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -88,6 +89,11 @@ const AgencyNewClientRoute = AgencyNewClientRouteImport.update({
   path: '/new-client',
   getParentRoute: () => AgencyRoute,
 } as any)
+const AgencyAccountRoute = AgencyAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AgencyRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/agency/account': typeof AgencyAccountRoute
   '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/agency/account': typeof AgencyAccountRoute
   '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/agency/account': typeof AgencyAccountRoute
   '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/signup'
+    | '/agency/account'
     | '/agency/new-client'
     | '/app/account'
     | '/app/crm'
@@ -154,6 +164,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/agency/account'
     | '/agency/new-client'
     | '/app/account'
     | '/app/crm'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/signup'
+    | '/agency/account'
     | '/agency/new-client'
     | '/app/account'
     | '/app/crm'
@@ -280,15 +292,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgencyNewClientRouteImport
       parentRoute: typeof AgencyRoute
     }
+    '/agency/account': {
+      id: '/agency/account'
+      path: '/account'
+      fullPath: '/agency/account'
+      preLoaderRoute: typeof AgencyAccountRouteImport
+      parentRoute: typeof AgencyRoute
+    }
   }
 }
 
 interface AgencyRouteChildren {
+  AgencyAccountRoute: typeof AgencyAccountRoute
   AgencyNewClientRoute: typeof AgencyNewClientRoute
   AgencyIndexRoute: typeof AgencyIndexRoute
 }
 
 const AgencyRouteChildren: AgencyRouteChildren = {
+  AgencyAccountRoute: AgencyAccountRoute,
   AgencyNewClientRoute: AgencyNewClientRoute,
   AgencyIndexRoute: AgencyIndexRoute,
 }
