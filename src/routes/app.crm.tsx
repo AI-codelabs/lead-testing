@@ -344,7 +344,7 @@ function CrmPage() {
                 {showCol("Channel") && <th className="px-3 py-3">Channel</th>}
                 {showCol("Name") && <th className="px-3 py-3">Name</th>}
                 {showCol("Email") && <th className="px-3 py-3">Email</th>}
-                {showCol("Phone") && <th className="px-3 py-3">Phone</th>}
+                
                 {showCol("Label") && <th className="px-3 py-3">Label</th>}
                 {showCol("Value") && <th className="px-3 py-3">Value</th>}
                 {showCol("Actions") && <th className="px-3 py-3 text-right">Actions</th>}
