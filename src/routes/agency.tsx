@@ -46,6 +46,15 @@ function AgencyLayout() {
             <Plus className="size-4" />
             New client
           </Link>
+          <Link
+            to="/agency/account"
+            activeProps={{ className: "bg-muted text-foreground ring-1 ring-border" }}
+            inactiveProps={{ className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground" }}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            <Settings className="size-4" />
+            Account
+          </Link>
         </nav>
         <div className="p-3 border-t border-sidebar-border">
           <WorkspaceSwitcher />
