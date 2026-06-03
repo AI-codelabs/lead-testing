@@ -20,15 +20,17 @@ const nav = [
 ] as const;
 
 export function AppSidebar() {
-  const { accountType } = useAccount();
+  const { accountType, isAgencyViewing } = useAccount();
   const isAgency = accountType === "agency";
+  // Agencies inside a client workspace cannot access the client's Account page.
+  const visibleNav = isAgencyViewing ? nav.filter((n) => n.to !== "/app/account") : nav;
   return (
     <aside className="w-60 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col h-screen sticky top-0">
       <div className="h-16 px-5 flex items-center border-b border-sidebar-border">
         <Logo to="/app/dashboard" />
       </div>
       <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {nav.map(({ to, label, icon: Icon }) => (
+        {visibleNav.map(({ to, label, icon: Icon }) => (
           <Link
             key={to}
             to={to}
