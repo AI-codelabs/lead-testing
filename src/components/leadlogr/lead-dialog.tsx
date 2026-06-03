@@ -88,8 +88,8 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
         </DialogHeader>
 
         <Tabs defaultValue="contact" className="flex-1 overflow-hidden flex flex-col">
-          <div className="px-6 pt-4 border-b border-border">
-            <TabsList className="bg-transparent p-0 h-auto gap-1">
+          <div className="px-6 pt-3 bg-muted/30 border-b border-border">
+            <TabsList className="bg-transparent p-0 h-auto gap-0 w-full justify-start rounded-none">
               {[
                 ["contact", "Contact"],
                 ["details", "Details"],
@@ -100,13 +100,14 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
                 <TabsTrigger
                   key={v}
                   value={v}
-                  className="data-[state=active]:bg-muted data-[state=active]:shadow-none rounded-md text-xs"
+                  className="relative rounded-none bg-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none after:absolute after:left-0 after:right-0 after:-bottom-px after:h-0.5 after:bg-foreground after:scale-x-0 after:transition-transform data-[state=active]:after:scale-x-100 hover:text-foreground transition-colors"
                 >
                   {label}
                 </TabsTrigger>
               ))}
             </TabsList>
           </div>
+
 
           <div className="flex-1 overflow-y-auto px-6 py-5">
             <TabsContent value="contact" className="mt-0 space-y-4">
