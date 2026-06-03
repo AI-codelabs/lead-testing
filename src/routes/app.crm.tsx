@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { siGoogleads, siMeta } from "simple-icons";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import {
   ArrowUpDown,
@@ -10,6 +11,7 @@ import {
   Globe,
   Linkedin,
   Lock,
+  Monitor,
   Plus,
   Search,
   Star,
