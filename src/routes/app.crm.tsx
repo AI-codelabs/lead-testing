@@ -112,7 +112,7 @@ function matchesTab(lead: Lead, tab: Tab): boolean {
   );
 }
 
-const ALL_COLUMNS = ["Expires In", "Channel", "Name", "Email", "Phone", "Label", "Value", "Actions"] as const;
+const ALL_COLUMNS = ["Expires In", "Channel", "Name", "Email", "Label", "Value", "Actions"] as const;
 type Column = (typeof ALL_COLUMNS)[number];
 
 function CrmPage() {
