@@ -16,11 +16,12 @@ export interface StageDef {
  * or removed by users.
  */
 export const DEFAULT_STAGES: StageDef[] = [
-  { id: "new", name: "New", locked: false, dot: "bg-muted-foreground/60" },
-  { id: "contacted", name: "Contacted", locked: false, dot: "bg-warning" },
-  { id: "qualified", name: "Qualified", locked: true, dot: "bg-brand-accent" },
-  { id: "closed-won", name: "Closed-Won", locked: false, dot: "bg-success" },
-  { id: "lost", name: "Lost", locked: true, dot: "bg-destructive" },
+  { id: "new", name: "New", locked: false, dot: "bg-stage-new" },
+  { id: "contacted", name: "Contacted", locked: false, dot: "bg-stage-contacted" },
+  { id: "qualified", name: "Qualified", locked: true, dot: "bg-stage-qualified" },
+  { id: "closed-won", name: "Closed-Won", locked: false, dot: "bg-stage-closed-won" },
+  { id: "lost", name: "Lost", locked: true, dot: "bg-stage-lost" },
+  { id: "disqualified", name: "Disqualified", locked: true, dot: "bg-stage-disqualified" },
 ];
 
 export const CUSTOM_STAGE_DOT = "bg-foreground/40";
@@ -186,5 +187,12 @@ export const SEED_LEADS: Lead[] = [
     description: "Budget pulled — synced as negative signal to Google Ads.",
     utmSource: "google", utmMedium: "cpc", utmCampaign: "solutions-mm",
     gclid: "Cj0KCQjw...LST", consent: "Declined", tags: ["lost"],
+  },
+  {
+    ...emptyLead("Disqualified"),
+    id: "l11", name: "Fake User", email: "fake@example.com", phone: "+1 000 000 0000",
+    company: "N/A", source: "Meta", priority: "Low", qualification: "Unqualified",
+    description: "Invalid contact info and spam submission — synced as poor-quality signal to Meta.",
+    fbclid: "IwAR0x...spam", consent: "Declined", tags: ["disqualified"],
   },
 ];

@@ -43,6 +43,13 @@
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-border: var(--sidebar-border);
+
+  --color-stage-new: var(--stage-new);
+  --color-stage-contacted: var(--stage-contacted);
+  --color-stage-qualified: var(--stage-qualified);
+  --color-stage-closed-won: var(--stage-closed-won);
+  --color-stage-lost: var(--stage-lost);
+  --color-stage-disqualified: var(--stage-disqualified);
 }
 
 :root {
@@ -87,6 +94,14 @@
   --sidebar: oklch(0.985 0.002 247);
   --sidebar-foreground: oklch(0.18 0.012 264);
   --sidebar-border: oklch(0.92 0.006 256);
+
+  /* Pipeline stage pastel colors — high lightness, low chroma for soft dots */
+  --stage-new: oklch(0.78 0.05 250);
+  --stage-contacted: oklch(0.80 0.055 150);
+  --stage-qualified: oklch(0.83 0.065 85);
+  --stage-closed-won: oklch(0.79 0.06 55);
+  --stage-lost: oklch(0.78 0.055 25);
+  --stage-disqualified: oklch(0.78 0.05 300);
 }
 
 @layer base {

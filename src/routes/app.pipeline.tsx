@@ -163,7 +163,7 @@ function PipelinePage() {
       <PageHeader
         eyebrow="Sales"
         title="Lead Pipeline"
-        description="Drag leads between stages. Qualified and Lost are system stages used to send conversion signals back to Google Ads and Meta Ads."
+        description="Drag leads between stages. Qualified, Lost, and Disqualified are system stages used to send conversion signals back to Google Ads and Meta Ads."
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -185,7 +185,7 @@ function PipelinePage() {
       />
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
           {stages.map((stage) => (
             <Column
               key={stage.id}
@@ -274,7 +274,7 @@ function Column({
     <div
       ref={setNodeRef}
       className={`bg-muted/40 ring-1 rounded-lg p-3 transition-colors min-h-[200px] ${
-        isOver ? "ring-brand-accent bg-brand-accent/5" : "ring-border"
+        isOver ? "ring-foreground/20 bg-muted" : "ring-border"
       }`}
     >
       <div className="flex items-center justify-between px-1 pb-3 gap-2">
