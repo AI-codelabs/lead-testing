@@ -27,6 +27,8 @@ import {
 } from "@/components/leadlogr/lead-types";
 
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
+import { useAccess } from "@/lib/account-context";
+import { PageHeader as _PH } from "@/components/leadlogr/page-header"; // ensure no-op import dedup
 
 export const Route = createFileRoute("/app/pipeline")({
   head: () => ({ meta: [{ title: "Lead Pipeline — Leadlogr" }] }),
@@ -35,6 +37,21 @@ export const Route = createFileRoute("/app/pipeline")({
 });
 
 function PipelinePage() {
+  const access = useAccess();
+  if (access.metricsOnly) {
+    return (
+      <>
+        <PageHeader eyebrow="Sales" title="Lead Pipeline" description="Pipeline details are hidden by the client." />
+        <div className="bg-card ring-1 ring-border rounded-lg p-10 text-center">
+          <Lock className="size-6 text-muted-foreground mx-auto mb-3" />
+          <h3 className="font-semibold">Restricted by client</h3>
+          <p className="text-sm text-muted-foreground mt-1.5 max-w-md mx-auto">
+            This client has granted read-only metrics access. The pipeline board isn't visible.
+          </p>
+        </div>
+      </>
+    );
+  }
   const [leads, setLeads] = useState<Lead[]>(SEED_LEADS);
   const [stages, setStages] = useState<StageDef[]>(DEFAULT_STAGES);
   const [activeId, setActiveId] = useState<string | null>(null);
