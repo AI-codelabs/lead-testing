@@ -3,39 +3,70 @@ export type Qualification = "Unqualified" | "Qualified" | "Customer";
 export type Consent = "Unknown" | "Accepted" | "Declined";
 export type Source = "Google" | "Meta" | "Direct" | "LinkedIn" | "Microsoft";
 
-export interface StageDef {
-  id: string;
-  name: string;
-  locked: boolean;
-  /** Dot color utility, e.g. "bg-stage-new" */
+export type PaletteKey =
+  | "blue"
+  | "green"
+  | "amber"
+  | "orange"
+  | "red"
+  | "purple"
+  | "teal"
+  | "pink"
+  | "slate";
+
+export interface Palette {
+  key: PaletteKey;
+  label: string;
+  /** Bold dot / accent swatch utility */
   dot: string;
-  /** Soft column background utility, e.g. "bg-stage-new-soft" */
+  /** Soft column background utility */
   soft: string;
-  /** Ink color for labels / badges, e.g. "text-stage-new-ink" */
+  /** Ink color for stage labels */
   ink: string;
-  /** Subtle line / ring utility, e.g. "ring-stage-new-line" */
+  /** Subtle ring / border utility */
   line: string;
 }
 
-/**
- * Stages flagged `locked: true` are system stages used by Leadlogr to send
- * conversion outcomes back to Google Ads / Meta Ads. They cannot be edited
- * or removed by users.
- */
-export const DEFAULT_STAGES: StageDef[] = [
-  { id: "new", name: "New", locked: false, dot: "bg-stage-new", soft: "bg-stage-new-soft", ink: "text-stage-new-ink", line: "ring-stage-new-line" },
-  { id: "contacted", name: "Contacted", locked: false, dot: "bg-stage-contacted", soft: "bg-stage-contacted-soft", ink: "text-stage-contacted-ink", line: "ring-stage-contacted-line" },
-  { id: "qualified", name: "Qualified", locked: true, dot: "bg-stage-qualified", soft: "bg-stage-qualified-soft", ink: "text-stage-qualified-ink", line: "ring-stage-qualified-line" },
-  { id: "closed-won", name: "Closed-Won", locked: false, dot: "bg-stage-closed-won", soft: "bg-stage-closed-won-soft", ink: "text-stage-closed-won-ink", line: "ring-stage-closed-won-line" },
-  { id: "lost", name: "Lost", locked: true, dot: "bg-stage-lost", soft: "bg-stage-lost-soft", ink: "text-stage-lost-ink", line: "ring-stage-lost-line" },
-  { id: "disqualified", name: "Disqualified", locked: true, dot: "bg-stage-disqualified", soft: "bg-stage-disqualified-soft", ink: "text-stage-disqualified-ink", line: "ring-stage-disqualified-line" },
+export const PALETTES: Record<PaletteKey, Palette> = {
+  blue:   { key: "blue",   label: "Blue",   dot: "bg-stage-blue",   soft: "bg-stage-blue-soft",   ink: "text-stage-blue-ink",   line: "ring-stage-blue-line" },
+  green:  { key: "green",  label: "Green",  dot: "bg-stage-green",  soft: "bg-stage-green-soft",  ink: "text-stage-green-ink",  line: "ring-stage-green-line" },
+  amber:  { key: "amber",  label: "Amber",  dot: "bg-stage-amber",  soft: "bg-stage-amber-soft",  ink: "text-stage-amber-ink",  line: "ring-stage-amber-line" },
+  orange: { key: "orange", label: "Orange", dot: "bg-stage-orange", soft: "bg-stage-orange-soft", ink: "text-stage-orange-ink", line: "ring-stage-orange-line" },
+  red:    { key: "red",    label: "Red",    dot: "bg-stage-red",    soft: "bg-stage-red-soft",    ink: "text-stage-red-ink",    line: "ring-stage-red-line" },
+  purple: { key: "purple", label: "Purple", dot: "bg-stage-purple", soft: "bg-stage-purple-soft", ink: "text-stage-purple-ink", line: "ring-stage-purple-line" },
+  teal:   { key: "teal",   label: "Teal",   dot: "bg-stage-teal",   soft: "bg-stage-teal-soft",   ink: "text-stage-teal-ink",   line: "ring-stage-teal-line" },
+  pink:   { key: "pink",   label: "Pink",   dot: "bg-stage-pink",   soft: "bg-stage-pink-soft",   ink: "text-stage-pink-ink",   line: "ring-stage-pink-line" },
+  slate:  { key: "slate",  label: "Slate",  dot: "bg-stage-slate",  soft: "bg-stage-slate-soft",  ink: "text-stage-slate-ink",  line: "ring-stage-slate-line" },
+};
+
+export const PALETTE_ORDER: PaletteKey[] = [
+  "blue", "green", "amber", "orange", "red", "purple", "teal", "pink", "slate",
 ];
 
-export const CUSTOM_STAGE_DOT = "bg-foreground/40";
-export const CUSTOM_STAGE_SOFT = "bg-muted/40";
-export const CUSTOM_STAGE_INK = "text-foreground";
-export const CUSTOM_STAGE_LINE = "ring-border";
+export interface StageDef {
+  id: string;
+  name: string;
+  /** Locked stages cannot be renamed, removed, or reordered, but their color is still editable. */
+  locked: boolean;
+  palette: PaletteKey;
+}
 
+/**
+ * Fixed system stages. Always present. Cannot be removed or reordered.
+ * Colors remain configurable. Used by Leadlogr to send conversion outcomes
+ * back to Google Ads / Meta Ads.
+ */
+export const DEFAULT_STAGES: StageDef[] = [
+  { id: "new",          name: "New",          locked: true, palette: "blue" },
+  { id: "contacted",    name: "Contacted",    locked: true, palette: "green" },
+  { id: "qualified",    name: "Qualified",    locked: true, palette: "amber" },
+  { id: "won",          name: "Won",          locked: true, palette: "orange" },
+  { id: "lost",         name: "Lost",         locked: true, palette: "red" },
+  { id: "disqualified", name: "Disqualified", locked: true, palette: "purple" },
+];
+
+/** Index in DEFAULT_STAGES where custom stages should be inserted (before "Won"). */
+export const CUSTOM_STAGE_INSERT_BEFORE = "Won";
 
 export interface Lead {
   id: string;
@@ -176,7 +207,7 @@ export const SEED_LEADS: Lead[] = [
     fbclid: "IwAR3z...ghi", consent: "Accepted",
   },
   {
-    ...emptyLead("Closed-Won"),
+    ...emptyLead("Won"),
     id: "l8", name: "Project Zenith", email: "ops@zenith.co", phone: "+1 646 555 0124",
     company: "Zenith Co.", source: "Google", value: 12500, priority: "High",
     qualification: "Customer", description: "Synced to Google Ads via offline conversion (CAPI).",
@@ -185,7 +216,7 @@ export const SEED_LEADS: Lead[] = [
     tags: ["closed", "google-capi"],
   },
   {
-    ...emptyLead("Closed-Won"),
+    ...emptyLead("Won"),
     id: "l9", name: "Falcon Group", email: "billing@falcongroup.io", phone: "+49 30 1234 5678",
     company: "Falcon Group", source: "Meta", value: 6200, priority: "High",
     qualification: "Customer", description: "Synced to Meta CAPI.",
