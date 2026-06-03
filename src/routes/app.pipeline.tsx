@@ -24,6 +24,7 @@ import {
 
 export const Route = createFileRoute("/app/pipeline")({
   head: () => ({ meta: [{ title: "Lead Pipeline — Leadlogr" }] }),
+  ssr: false,
   component: PipelinePage,
 });
 
