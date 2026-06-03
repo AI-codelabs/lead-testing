@@ -173,8 +173,19 @@ function PipelinePage() {
 
   const handleSave = (lead: Lead) => {
     setLeads((prev) => {
-      const exists = prev.some((l) => l.id === lead.id);
-      return exists ? prev.map((l) => (l.id === lead.id ? lead : l)) : [lead, ...prev];
+      const exists = prev.find((l) => l.id === lead.id);
+      if (!exists) return [lead, ...prev];
+      const changes: string[] = [];
+      if (exists.value !== lead.value) changes.push(`value €${exists.value} → €${lead.value}`);
+      if (exists.label !== lead.label) changes.push(`label ${exists.label} → ${lead.label}`);
+      const note = changes.length ? changes.join(", ") : "Lead details updated";
+      const kind = exists.value !== lead.value
+        ? "value_changed"
+        : exists.label !== lead.label
+          ? "label_changed"
+          : "edited";
+      const withHistory = addHistory(lead, { kind, message: note });
+      return prev.map((l) => (l.id === lead.id ? withHistory : l));
     });
   };
 
