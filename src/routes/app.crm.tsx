@@ -19,13 +19,14 @@ const contacts = [
 ];
 
 const stageColor: Record<string, string> = {
-  New: "text-sky-700 bg-sky-100",
-  Contacted: "text-emerald-700 bg-emerald-100",
-  Qualified: "text-amber-700 bg-amber-100",
-  "Closed-Won": "text-orange-700 bg-orange-100",
-  Lost: "text-rose-700 bg-rose-100",
-  Disqualified: "text-violet-700 bg-violet-100",
+  New: "text-stage-new-ink bg-stage-new-soft ring-stage-new-line",
+  Contacted: "text-stage-contacted-ink bg-stage-contacted-soft ring-stage-contacted-line",
+  Qualified: "text-stage-qualified-ink bg-stage-qualified-soft ring-stage-qualified-line",
+  "Closed-Won": "text-stage-closed-won-ink bg-stage-closed-won-soft ring-stage-closed-won-line",
+  Lost: "text-stage-lost-ink bg-stage-lost-soft ring-stage-lost-line",
+  Disqualified: "text-stage-disqualified-ink bg-stage-disqualified-soft ring-stage-disqualified-line",
 };
+
 
 function CrmPage() {
   const handleExport = () => {
@@ -80,7 +81,7 @@ function CrmPage() {
                 </td>
                 <td className="px-5 py-3.5 text-muted-foreground">{c.company}</td>
                 <td className="px-5 py-3.5">
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded ${stageColor[c.stage]}`}>
+                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded ring-1 ${stageColor[c.stage]}`}>
                     {c.stage}
                   </span>
                 </td>

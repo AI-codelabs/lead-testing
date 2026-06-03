@@ -16,11 +16,15 @@ import { Download, Lock, Plus, X } from "lucide-react";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
 import {
   CUSTOM_STAGE_DOT,
+  CUSTOM_STAGE_INK,
+  CUSTOM_STAGE_LINE,
+  CUSTOM_STAGE_SOFT,
   DEFAULT_STAGES,
   SEED_LEADS,
   type Lead,
   type StageDef,
 } from "@/components/leadlogr/lead-types";
+
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 
 export const Route = createFileRoute("/app/pipeline")({
@@ -102,7 +106,15 @@ function PipelinePage() {
     setStages((prev) => {
       // insert custom stages before the locked "Lost" terminal stage if present
       const lostIdx = prev.findIndex((s) => s.locked && s.name === "Lost");
-      const next: StageDef = { id, name, locked: false, dot: CUSTOM_STAGE_DOT };
+      const next: StageDef = {
+        id,
+        name,
+        locked: false,
+        dot: CUSTOM_STAGE_DOT,
+        soft: CUSTOM_STAGE_SOFT,
+        ink: CUSTOM_STAGE_INK,
+        line: CUSTOM_STAGE_LINE,
+      };
       if (lostIdx === -1) return [...prev, next];
       return [...prev.slice(0, lostIdx), next, ...prev.slice(lostIdx)];
     });
@@ -242,8 +254,15 @@ function PipelinePage() {
           </div>
         </div>
         <DragOverlay>
-          {activeLead ? <LeadCard lead={activeLead} dragging /> : null}
+          {activeLead ? (
+            <LeadCard
+              lead={activeLead}
+              stage={stages.find((s) => s.name === activeLead.stage) ?? stages[0]}
+              dragging
+            />
+          ) : null}
         </DragOverlay>
+
       </DndContext>
 
       <LeadDialog
@@ -273,24 +292,32 @@ function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`bg-muted/40 ring-1 rounded-lg p-3 transition-colors min-h-[200px] ${
-        isOver ? "ring-foreground/20 bg-muted" : "ring-border"
+      className={`${stage.soft} ring-1 ${stage.line} rounded-lg p-3 transition-all min-h-[200px] ${
+        isOver ? "ring-2 ring-foreground/30 scale-[1.005]" : ""
       }`}
     >
-      <div className="flex items-center justify-between px-1 pb-3 gap-2">
+      <div
+        className={`flex items-center justify-between px-2 py-2 mb-3 rounded-md bg-card/60 ring-1 ${stage.line} gap-2`}
+      >
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`size-1.5 rounded-full shrink-0 ${stage.dot}`} />
-          <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground truncate">
+          <span className={`size-2 rounded-full shrink-0 ${stage.dot}`} />
+          <span
+            className={`text-[10px] font-semibold tracking-widest uppercase truncate ${stage.ink}`}
+          >
             {stage.name}
           </span>
           {stage.locked && (
             <span title="System stage — used for ad platform conversion sync">
-              <Lock className="size-3 text-muted-foreground/60 shrink-0" />
+              <Lock className={`size-3 shrink-0 ${stage.ink} opacity-60`} />
             </span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-mono text-muted-foreground">{leads.length}</span>
+          <span
+            className={`text-[10px] font-mono px-1.5 py-0.5 rounded bg-background/60 ${stage.ink}`}
+          >
+            {leads.length}
+          </span>
           {!stage.locked && (
             <button
               onClick={onRemove}
@@ -302,16 +329,25 @@ function Column({
           )}
         </div>
       </div>
+
       <div className="space-y-2">
         {leads.map((l) => (
-          <DraggableCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
+          <DraggableCard key={l.id} lead={l} stage={stage} onClick={() => onCardClick(l)} />
         ))}
       </div>
     </div>
   );
 }
 
-function DraggableCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+function DraggableCard({
+  lead,
+  stage,
+  onClick,
+}: {
+  lead: Lead;
+  stage: StageDef;
+  onClick: () => void;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: lead.id });
   return (
     <div
@@ -321,18 +357,30 @@ function DraggableCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
       onClick={onClick}
       className={isDragging ? "opacity-30" : ""}
     >
-      <LeadCard lead={lead} />
+      <LeadCard lead={lead} stage={stage} />
     </div>
   );
 }
 
-function LeadCard({ lead, dragging }: { lead: Lead; dragging?: boolean }) {
+function LeadCard({
+  lead,
+  stage,
+  dragging,
+}: {
+  lead: Lead;
+  stage: StageDef;
+  dragging?: boolean;
+}) {
   return (
     <div
-      className={`bg-card ring-1 ring-border rounded-md p-3 cursor-pointer hover:ring-foreground/20 transition-all ${
+      className={`relative bg-card ring-1 ring-border rounded-md p-3 pl-3.5 cursor-pointer hover:ring-foreground/20 transition-all overflow-hidden ${
         dragging ? "shadow-lg rotate-1 ring-foreground/30" : ""
       }`}
     >
+      <span
+        aria-hidden
+        className={`absolute left-0 top-0 bottom-0 w-1 ${stage.dot}`}
+      />
       <div className="flex items-start justify-between gap-2">
         <span className="text-sm font-semibold truncate">{lead.name || "Untitled"}</span>
         {lead.value > 0 && (
@@ -345,6 +393,11 @@ function LeadCard({ lead, dragging }: { lead: Lead; dragging?: boolean }) {
         {lead.company || lead.email || "—"}
       </p>
       <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+        <span
+          className={`text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ${stage.line} ${stage.ink} ${stage.soft}`}
+        >
+          {stage.name}
+        </span>
         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-border text-muted-foreground">
           {lead.source}
         </span>
@@ -367,3 +420,4 @@ function LeadCard({ lead, dragging }: { lead: Lead; dragging?: boolean }) {
     </div>
   );
 }
+
