@@ -379,6 +379,36 @@ function PipelinePage() {
         onSave={handleSave}
         stages={stageNames}
       />
+
+      <WonValueDialog
+        open={!!pendingWon}
+        onOpenChange={(o) => !o && setPendingWon(null)}
+        leadName={pendingWon ? leads.find((l) => l.id === pendingWon.leadId)?.name ?? "" : ""}
+        currency={
+          (pendingWon ? leads.find((l) => l.id === pendingWon.leadId)?.currency : "EUR") || "EUR"
+        }
+        initialValue={pendingWon ? leads.find((l) => l.id === pendingWon.leadId)?.value ?? 0 : 0}
+        onConfirm={(value) => {
+          if (pendingWon) applyStageChange(pendingWon.leadId, "Won", { value });
+          setPendingWon(null);
+        }}
+        onCancel={() => setPendingWon(null)}
+      />
+
+      <LostReasonDialog
+        open={!!pendingLost}
+        onOpenChange={(o) => !o && setPendingLost(null)}
+        leadName={pendingLost ? leads.find((l) => l.id === pendingLost.leadId)?.name ?? "" : ""}
+        onConfirm={(reason, note) => {
+          if (pendingLost) {
+            applyStageChange(pendingLost.leadId, "Lost", {
+              lossReason: note ? `${reason} — ${note}` : reason,
+            });
+          }
+          setPendingLost(null);
+        }}
+        onCancel={() => setPendingLost(null)}
+      />
     </>
   );
 }
