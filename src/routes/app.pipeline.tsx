@@ -285,24 +285,32 @@ function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`bg-muted/40 ring-1 rounded-lg p-3 transition-colors min-h-[200px] ${
-        isOver ? "ring-foreground/20 bg-muted" : "ring-border"
+      className={`${stage.soft} ring-1 ${stage.line} rounded-lg p-3 transition-all min-h-[200px] ${
+        isOver ? "ring-2 ring-foreground/30 scale-[1.005]" : ""
       }`}
     >
-      <div className="flex items-center justify-between px-1 pb-3 gap-2">
+      <div
+        className={`flex items-center justify-between px-2 py-2 mb-3 rounded-md bg-card/60 ring-1 ${stage.line} gap-2`}
+      >
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`size-1.5 rounded-full shrink-0 ${stage.dot}`} />
-          <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground truncate">
+          <span className={`size-2 rounded-full shrink-0 ${stage.dot}`} />
+          <span
+            className={`text-[10px] font-semibold tracking-widest uppercase truncate ${stage.ink}`}
+          >
             {stage.name}
           </span>
           {stage.locked && (
             <span title="System stage — used for ad platform conversion sync">
-              <Lock className="size-3 text-muted-foreground/60 shrink-0" />
+              <Lock className={`size-3 shrink-0 ${stage.ink} opacity-60`} />
             </span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-mono text-muted-foreground">{leads.length}</span>
+          <span
+            className={`text-[10px] font-mono px-1.5 py-0.5 rounded bg-background/60 ${stage.ink}`}
+          >
+            {leads.length}
+          </span>
           {!stage.locked && (
             <button
               onClick={onRemove}
@@ -314,6 +322,7 @@ function Column({
           )}
         </div>
       </div>
+
       <div className="space-y-2">
         {leads.map((l) => (
           <DraggableCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
