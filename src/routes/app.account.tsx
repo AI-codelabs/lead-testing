@@ -28,7 +28,12 @@ function AccountPage() {
           </div>
         </SectionCard>
 
+        <SectionCard title="Appearance" description="Choose how Leadlogr looks. The selected theme is saved to this device.">
+          <ThemeSwitcher />
+        </SectionCard>
+
         <SectionCard title="Workspace" description="Branding and defaults applied to every client account.">
+
           <div className="grid md:grid-cols-2 gap-4">
             <Row label="Agency name" value="Acme Media" />
             <Row label="Workspace ID" value="ws_8f3a2c1b" mono />
