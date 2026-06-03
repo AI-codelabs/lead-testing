@@ -118,15 +118,85 @@ export interface Lead {
   label: LeadLabel;
   /** ISO date when this lead expires (auto-closes if no activity). */
   expiresAt: string;
+  /** Reason captured when a lead is moved to Lost. */
+  lossReason?: string;
+  /** ISO timestamp when the lead first transitioned to Qualified (one-way). */
+  qualifiedAt?: string;
+  /** Auto-logged activity timeline (newest first). */
+  history: ActivityEntry[];
   // Meta
   createdAt: string;
   updatedAt: string;
 }
 
+export type ActivityKind =
+  | "created"
+  | "stage_changed"
+  | "qualified"
+  | "won"
+  | "lost"
+  | "reopened"
+  | "value_changed"
+  | "label_changed"
+  | "note"
+  | "edited";
+
+export interface ActivityEntry {
+  id: string;
+  kind: ActivityKind;
+  at: string;
+  message: string;
+  actor?: string;
+}
+
+export type LossReason =
+  | "Budget constraints"
+  | "Went with competitor"
+  | "Bad timing"
+  | "No response"
+  | "Not a good fit";
+
+export const DEFAULT_LOSS_REASONS: LossReason[] = [
+  "Budget constraints",
+  "Went with competitor",
+  "Bad timing",
+  "No response",
+  "Not a good fit",
+];
+
+/** Days until expiry. Negative when already expired. */
+export function daysUntilExpiry(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.ceil(ms / 86_400_000);
+}
+
+export type Urgency = "expired" | "critical" | "warn" | "ok";
+export function expiryUrgency(iso: string): Urgency {
+  const d = daysUntilExpiry(iso);
+  if (d < 0) return "expired";
+  if (d <= 7) return "critical";
+  if (d <= 30) return "warn";
+  return "ok";
+}
+
+export function addHistory(
+  lead: Lead,
+  entry: Omit<ActivityEntry, "id" | "at"> & { at?: string },
+): Lead {
+  const next: ActivityEntry = {
+    id: crypto.randomUUID(),
+    at: entry.at ?? new Date().toISOString(),
+    kind: entry.kind,
+    message: entry.message,
+    actor: entry.actor,
+  };
+  return { ...lead, history: [next, ...(lead.history ?? [])] };
+}
+
 export function emptyLead(stage: string = "New"): Lead {
   const now = new Date();
   const expires = new Date(now);
-  expires.setDate(expires.getDate() + 30);
+  expires.setDate(expires.getDate() + 90);
   return {
     id: crypto.randomUUID(),
     stage,
@@ -162,8 +232,17 @@ export function emptyLead(stage: string = "New"): Lead {
     pagePath: "",
     referrerUrl: "",
     consent: "Unknown",
+    history: [
+      { id: crypto.randomUUID(), kind: "created", at: now.toISOString(), message: "Lead created" },
+    ],
   };
 }
+
+const daysFromNow = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString();
+};
 
 export const SEED_LEADS: Lead[] = [
   {
@@ -175,6 +254,7 @@ export const SEED_LEADS: Lead[] = [
     gclid: "Cj0KCQjw...EALw_wcB", websiteUrl: "https://leadlogr.com",
     landingPageUrl: "https://leadlogr.com/enterprise", pagePath: "/enterprise",
     referrerUrl: "https://google.com", consent: "Accepted", tags: ["enterprise", "hot"],
+    expiresAt: daysFromNow(5),
   },
   {
     ...emptyLead("New"),
@@ -191,6 +271,7 @@ export const SEED_LEADS: Lead[] = [
     id: "l3", name: "Liam O'Connor", email: "liam@apex.io", phone: "+353 1 555 0101",
     company: "Apex Solutions", source: "Direct", description: "Submitted contact form directly.",
     priority: "Low", consent: "Unknown",
+    expiresAt: daysFromNow(22),
   },
   {
     ...emptyLead("Contacted"),
@@ -206,6 +287,7 @@ export const SEED_LEADS: Lead[] = [
     company: "Falcon Group", source: "Meta", priority: "Medium",
     description: "Demo follow-up pending.", campaignName: "Retargeting · DE",
     fbclid: "IwAR1y...def", consent: "Accepted",
+    expiresAt: daysFromNow(2),
   },
   {
     ...emptyLead("Qualified"),
@@ -216,6 +298,7 @@ export const SEED_LEADS: Lead[] = [
     utmSource: "google", utmMedium: "cpc", utmCampaign: "solutions-ent-us",
     gclid: "Cj0KCQjw...HHH", consent: "Accepted", tags: ["high-intent", "enterprise"],
     notes: "CFO involved. Targeting close by EOQ.",
+    qualifiedAt: daysFromNow(-3),
   },
   {
     ...emptyLead("Qualified"),
@@ -223,6 +306,7 @@ export const SEED_LEADS: Lead[] = [
     company: "Vertex Labs", source: "Meta", value: 3100, priority: "Medium",
     qualification: "Qualified", description: "Trial active. Weekly check-ins.",
     fbclid: "IwAR3z...ghi", consent: "Accepted",
+    qualifiedAt: daysFromNow(-10),
   },
   {
     ...emptyLead("Won"),

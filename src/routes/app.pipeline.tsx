@@ -12,14 +12,19 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { PageHeader } from "@/components/leadlogr/page-header";
-import { ArrowLeft, ArrowRight, Check, Download, Lock, Palette, Plus, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Clock, Download, Lock, Palette, Plus, X } from "lucide-react";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
+import { LostReasonDialog } from "@/components/leadlogr/lost-reason-dialog";
+import { WonValueDialog } from "@/components/leadlogr/won-value-dialog";
 import {
   CUSTOM_STAGE_INSERT_BEFORE,
   DEFAULT_STAGES,
   PALETTES,
   PALETTE_ORDER,
   SEED_LEADS,
+  addHistory,
+  daysUntilExpiry,
+  expiryUrgency,
   type Lead,
   type Palette as PaletteDef,
   type PaletteKey,
@@ -61,6 +66,8 @@ function PipelinePage() {
   const [newStageName, setNewStageName] = useState("");
   const [addingStage, setAddingStage] = useState(false);
   const [pickerOpenFor, setPickerOpenFor] = useState<string | null>(null);
+  const [pendingWon, setPendingWon] = useState<{ leadId: string; fromStage: string } | null>(null);
+  const [pendingLost, setPendingLost] = useState<{ leadId: string; fromStage: string } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -80,6 +87,44 @@ function PipelinePage() {
 
   const activeLead = activeId ? leads.find((l) => l.id === activeId) ?? null : null;
 
+  const applyStageChange = (leadId: string, targetStage: string, extra?: Partial<Lead>) => {
+    setLeads((prev) =>
+      prev.map((l) => {
+        if (l.id !== leadId) return l;
+        const fromStage = l.stage;
+        const now = new Date().toISOString();
+        let next: Lead = { ...l, ...extra, stage: targetStage, updatedAt: now };
+        next = addHistory(next, {
+          kind:
+            targetStage === "Qualified"
+              ? "qualified"
+              : targetStage === "Won"
+                ? "won"
+                : targetStage === "Lost"
+                  ? "lost"
+                  : fromStage === "Lost" || fromStage === "Disqualified"
+                    ? "reopened"
+                    : "stage_changed",
+          message:
+            targetStage === "Won" && typeof extra?.value === "number"
+              ? `Moved ${fromStage} → Won · €${extra.value!.toLocaleString()} synced to ad platforms`
+              : targetStage === "Lost" && extra?.lossReason
+                ? `Moved ${fromStage} → Lost · ${extra.lossReason}`
+                : targetStage === "Qualified"
+                  ? `Qualified · synced to ad platforms`
+                  : `Moved ${fromStage} → ${targetStage}`,
+        });
+        if (targetStage === "Qualified" && !next.qualifiedAt) {
+          next = { ...next, qualifiedAt: now, qualification: "Qualified" };
+        }
+        if (targetStage === "Won") {
+          next = { ...next, qualification: "Customer" };
+        }
+        return next;
+      }),
+    );
+  };
+
   const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
   const handleDragEnd = (e: DragEndEvent) => {
     setActiveId(null);
@@ -87,14 +132,33 @@ function PipelinePage() {
     if (!over) return;
     const targetStage = String(over.id);
     if (!stageNames.includes(targetStage)) return;
-    setLeads((prev) =>
-      prev.map((l) =>
-        l.id === e.active.id && l.stage !== targetStage
-          ? { ...l, stage: targetStage, updatedAt: new Date().toISOString() }
-          : l,
-      ),
-    );
+    const leadId = String(e.active.id);
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead || lead.stage === targetStage) return;
+
+    // Lifecycle rules
+    // Qualified is one-way — block regression to New / Contacted.
+    if (lead.qualifiedAt && (targetStage === "New" || targetStage === "Contacted")) {
+      return;
+    }
+    // Won requires a revenue value.
+    if (targetStage === "Won") {
+      if (lead.value > 0) {
+        applyStageChange(leadId, targetStage);
+      } else {
+        setPendingWon({ leadId, fromStage: lead.stage });
+      }
+      return;
+    }
+    // Lost prompts for a reason.
+    if (targetStage === "Lost") {
+      setPendingLost({ leadId, fromStage: lead.stage });
+      return;
+    }
+    applyStageChange(leadId, targetStage);
   };
+
+
 
   const openCreate = () => {
     setEditing(null);
@@ -109,8 +173,19 @@ function PipelinePage() {
 
   const handleSave = (lead: Lead) => {
     setLeads((prev) => {
-      const exists = prev.some((l) => l.id === lead.id);
-      return exists ? prev.map((l) => (l.id === lead.id ? lead : l)) : [lead, ...prev];
+      const exists = prev.find((l) => l.id === lead.id);
+      if (!exists) return [lead, ...prev];
+      const changes: string[] = [];
+      if (exists.value !== lead.value) changes.push(`value €${exists.value} → €${lead.value}`);
+      if (exists.label !== lead.label) changes.push(`label ${exists.label} → ${lead.label}`);
+      const note = changes.length ? changes.join(", ") : "Lead details updated";
+      const kind = exists.value !== lead.value
+        ? "value_changed"
+        : exists.label !== lead.label
+          ? "label_changed"
+          : "edited";
+      const withHistory = addHistory(lead, { kind, message: note });
+      return prev.map((l) => (l.id === lead.id ? withHistory : l));
     });
   };
 
@@ -315,6 +390,36 @@ function PipelinePage() {
         onSave={handleSave}
         stages={stageNames}
       />
+
+      <WonValueDialog
+        open={!!pendingWon}
+        onOpenChange={(o) => !o && setPendingWon(null)}
+        leadName={pendingWon ? leads.find((l) => l.id === pendingWon.leadId)?.name ?? "" : ""}
+        currency={
+          (pendingWon ? leads.find((l) => l.id === pendingWon.leadId)?.currency : "EUR") || "EUR"
+        }
+        initialValue={pendingWon ? leads.find((l) => l.id === pendingWon.leadId)?.value ?? 0 : 0}
+        onConfirm={(value) => {
+          if (pendingWon) applyStageChange(pendingWon.leadId, "Won", { value });
+          setPendingWon(null);
+        }}
+        onCancel={() => setPendingWon(null)}
+      />
+
+      <LostReasonDialog
+        open={!!pendingLost}
+        onOpenChange={(o) => !o && setPendingLost(null)}
+        leadName={pendingLost ? leads.find((l) => l.id === pendingLost.leadId)?.name ?? "" : ""}
+        onConfirm={(reason, note) => {
+          if (pendingLost) {
+            applyStageChange(pendingLost.leadId, "Lost", {
+              lossReason: note ? `${reason} — ${note}` : reason,
+            });
+          }
+          setPendingLost(null);
+        }}
+        onCancel={() => setPendingLost(null)}
+      />
     </>
   );
 }
@@ -485,6 +590,10 @@ function DraggableCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
 }
 
 function LeadCard({ lead, dragging }: { lead: Lead; dragging?: boolean }) {
+  // Won/Lost leads have completed their lifecycle — don't show expiry urgency.
+  const showUrgency = lead.stage !== "Won" && lead.stage !== "Lost" && lead.stage !== "Disqualified";
+  const urgency = showUrgency ? expiryUrgency(lead.expiresAt) : "ok";
+  const daysLeft = daysUntilExpiry(lead.expiresAt);
   return (
     <div
       className={`bg-card ring-1 ring-border rounded-md p-3 cursor-pointer hover:ring-foreground/20 transition-all ${
@@ -514,6 +623,33 @@ function LeadCard({ lead, dragging }: { lead: Lead; dragging?: boolean }) {
         {lead.qualification === "Customer" && (
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-border text-muted-foreground">
             Customer
+          </span>
+        )}
+        {urgency === "expired" && (
+          <span
+            title="Lead expired — outside the 90-day conversion window"
+            className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-destructive/40 bg-destructive/10 text-destructive inline-flex items-center gap-1"
+          >
+            <AlertTriangle className="size-3" />
+            Expired
+          </span>
+        )}
+        {urgency === "critical" && (
+          <span
+            title={`${daysLeft} day${daysLeft === 1 ? "" : "s"} left before this lead expires`}
+            className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-destructive/40 bg-destructive/10 text-destructive inline-flex items-center gap-1 animate-pulse"
+          >
+            <Clock className="size-3" />
+            {daysLeft}d left
+          </span>
+        )}
+        {urgency === "warn" && (
+          <span
+            title={`${daysLeft} days left before this lead expires`}
+            className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-stage-amber-line bg-stage-amber-soft text-stage-amber-ink inline-flex items-center gap-1"
+          >
+            <Clock className="size-3" />
+            {daysLeft}d left
           </span>
         )}
       </div>
