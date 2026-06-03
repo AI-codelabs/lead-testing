@@ -1,7 +1,8 @@
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
-import { Briefcase, LayoutGrid, Plus } from "lucide-react";
+import { LayoutGrid, Plus } from "lucide-react";
 import { Logo } from "@/components/leadlogr/logo";
 import { useAccount } from "@/lib/account-context";
+import { WorkspaceSwitcher } from "@/components/agency/workspace-switcher";
 
 export const Route = createFileRoute("/agency")({
   ssr: false,
@@ -47,15 +48,7 @@ function AgencyLayout() {
           </Link>
         </nav>
         <div className="p-3 border-t border-sidebar-border">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="size-8 rounded-full bg-muted ring-1 ring-border flex items-center justify-center">
-              <Briefcase className="size-4 text-muted-foreground" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">Agency mode</div>
-              <div className="text-xs text-muted-foreground truncate">Multi-workspace</div>
-            </div>
-          </div>
+          <WorkspaceSwitcher />
         </div>
       </aside>
       <main className="flex-1 min-w-0">
