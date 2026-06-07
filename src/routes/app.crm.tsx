@@ -250,6 +250,35 @@ function CrmPage() {
     setLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
   };
 
+  const handleDelete = async (lead: Lead) => {
+    if (!access.canSeeDetails) return;
+    const label = lead.name || lead.email || "this lead";
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
+    // Optimistically hide
+    setDeletedIds((prev) => {
+      const next = new Set(prev);
+      next.add(lead.id);
+      return next;
+    });
+    setLeads((prev) => prev.filter((l) => l.id !== lead.id));
+    // If it's a live (DB-backed) lead, delete server-side
+    const isLive = liveLeads.some((l) => l.id === lead.id);
+    if (isLive) {
+      try {
+        await deleteLeadFn({ data: { id: lead.id, workspaceKey } });
+      } catch (err) {
+        console.error("[crm] delete failed", err);
+        window.alert("Failed to delete lead. Please try again.");
+        setDeletedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(lead.id);
+          return next;
+        });
+      }
+    }
+  };
+
+
   return (
     <>
       <PageHeader
