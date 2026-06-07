@@ -32,7 +32,7 @@ import {
   type Source,
 } from "@/components/leadlogr/lead-types";
 import { useAccess, useAccount } from "@/lib/account-context";
-import { deriveWorkspaceKey, useLiveLeads } from "@/hooks/use-live-leads";
+import { useLiveLeads } from "@/hooks/use-live-leads";
 
 export const Route = createFileRoute("/app/crm")({
   head: () => ({ meta: [{ title: "CRM — Leadlogr" }] }),

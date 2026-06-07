@@ -33,7 +33,7 @@ import {
 
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { useAccess, useAccount } from "@/lib/account-context";
-import { deriveWorkspaceKey, useLiveLeads } from "@/hooks/use-live-leads";
+import { useLiveLeads } from "@/hooks/use-live-leads";
 
 
 export const Route = createFileRoute("/app/pipeline")({
