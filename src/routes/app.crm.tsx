@@ -126,10 +126,13 @@ function CrmPage() {
   const workspaceKey = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
   const liveLeads = useLiveLeads(workspaceKey);
   const [seedLeads, setLeads] = useState<Lead[]>(SEED_LEADS);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const deleteLeadFn = useServerFn(deleteLead);
   const leads = useMemo(() => {
     const liveIds = new Set(liveLeads.map((l) => l.id));
-    return [...liveLeads, ...seedLeads.filter((l) => !liveIds.has(l.id))];
-  }, [liveLeads, seedLeads]);
+    const merged = [...liveLeads, ...seedLeads.filter((l) => !liveIds.has(l.id))];
+    return merged.filter((l) => !deletedIds.has(l.id));
+  }, [liveLeads, seedLeads, deletedIds]);
   const [tab, setTab] = useState<Tab>("Open");
   const [search, setSearch] = useState("");
   const [sortAsc, setSortAsc] = useState(true);
