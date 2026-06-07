@@ -322,29 +322,43 @@ function PerformanceCard({ perf, hasData }: { perf: Performance; hasData: boolea
         <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Performance
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-success/10 text-success px-2 py-0.5 text-[10px] font-semibold">
-          <ArrowUpRight className="size-3" strokeWidth={2.5} />
-          {perf.roiDelta}
-        </span>
+        {hasData && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 text-success px-2 py-0.5 text-[10px] font-semibold">
+            <ArrowUpRight className="size-3" strokeWidth={2.5} />
+            {perf.roiDelta}
+          </span>
+        )}
       </header>
 
       <div>
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Return on investment</div>
         <div className="flex items-baseline gap-1.5 mt-1">
-          <span className="text-5xl font-semibold tracking-tight tabular-nums">{perf.roi.toFixed(2)}</span>
-          <span className="text-2xl font-light text-muted-foreground">×</span>
+          <span className="text-5xl font-semibold tracking-tight tabular-nums">
+            {hasData ? perf.roi.toFixed(2) : dash}
+          </span>
+          {hasData && <span className="text-2xl font-light text-muted-foreground">×</span>}
         </div>
         <div className="text-xs text-muted-foreground mt-1.5">
-          Net profit{" "}
-          <span className="text-foreground font-medium tabular-nums">{cf.format(netProfit)}</span>
+          {hasData ? (
+            <>
+              Net profit{" "}
+              <span className="text-foreground font-medium tabular-nums">{cf.format(netProfit)}</span>
+            </>
+          ) : (
+            "Connect Google Ads and start a campaign to track ROI"
+          )}
         </div>
       </div>
 
       {/* Spend vs Won proportional bar */}
       <div className="space-y-2">
         <div className="flex h-1.5 rounded-full overflow-hidden bg-muted ring-1 ring-border">
-          <div className="bg-destructive/80" style={{ width: `${spendPct}%` }} />
-          <div className="bg-success" style={{ width: `${100 - spendPct}%` }} />
+          {hasData && (
+            <>
+              <div className="bg-destructive/80" style={{ width: `${spendPct}%` }} />
+              <div className="bg-success" style={{ width: `${100 - spendPct}%` }} />
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3 pt-2">
@@ -352,21 +366,33 @@ function PerformanceCard({ perf, hasData }: { perf: Performance; hasData: boolea
             <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
               <span className="size-2 rounded-sm bg-destructive/80" /> Spend
             </div>
-            <div className="text-base font-semibold tabular-nums mt-0.5">{cf.format(perf.spend)}</div>
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-destructive tabular-nums">
-              <ArrowUpRight className="size-3" strokeWidth={2.25} />
-              {perf.spendDelta}
-            </span>
+            <div className="text-base font-semibold tabular-nums mt-0.5">
+              {hasData ? cf.format(perf.spend) : dash}
+            </div>
+            {hasData ? (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-destructive tabular-nums">
+                <ArrowUpRight className="size-3" strokeWidth={2.25} />
+                {perf.spendDelta}
+              </span>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">No campaigns yet</span>
+            )}
           </div>
           <div>
             <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
               <span className="size-2 rounded-sm bg-success" /> Won Value
             </div>
-            <div className="text-base font-semibold tabular-nums mt-0.5">{cf.format(perf.wonValue)}</div>
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-success tabular-nums">
-              <ArrowUpRight className="size-3" strokeWidth={2.25} />
-              {perf.wonDelta}
-            </span>
+            <div className="text-base font-semibold tabular-nums mt-0.5">
+              {hasData ? cf.format(perf.wonValue) : dash}
+            </div>
+            {hasData ? (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-success tabular-nums">
+                <ArrowUpRight className="size-3" strokeWidth={2.25} />
+                {perf.wonDelta}
+              </span>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">Awaiting won deals</span>
+            )}
           </div>
         </div>
       </div>
