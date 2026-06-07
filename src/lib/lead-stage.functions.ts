@@ -48,6 +48,3 @@ export const setLeadStage = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
-
-    return { ok: true };
-  });
