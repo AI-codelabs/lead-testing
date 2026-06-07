@@ -450,7 +450,13 @@ function CrmPage() {
                     className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${access.canSeeDetails ? "cursor-pointer" : ""}`}
                   >
                     <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" className="size-3.5 accent-primary cursor-pointer" />
+                      <input
+                        type="checkbox"
+                        className="size-3.5 accent-primary cursor-pointer"
+                        checked={selectedIds.has(l.id)}
+                        onChange={() => toggleSelect(l.id)}
+                        aria-label={`Select ${l.name || l.email || "lead"}`}
+                      />
                     </td>
                     <td className="px-3 py-2.5 text-xs font-mono text-muted-foreground/70">
                       {startIdx + i + 1}
