@@ -167,7 +167,16 @@ const updating: IntegrationItem[] = [
   },
 ];
 
-function IntegrationCard({ item }: { item: IntegrationItem }) {
+function ConnectedBadge({ label = "Connected" }: { label?: string }) {
+  return (
+    <div className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/30 flex items-center justify-center gap-1.5">
+      <Check className="size-4" />
+      {label}
+    </div>
+  );
+}
+
+function IntegrationCard({ item, connected }: { item: IntegrationItem; connected?: boolean }) {
   return (
     <div className="bg-card ring-1 ring-border rounded-lg p-5 flex flex-col">
       <div className="flex items-start justify-between mb-4">
@@ -185,19 +194,35 @@ function IntegrationCard({ item }: { item: IntegrationItem }) {
         <p className="text-sm text-muted-foreground mt-1.5">{item.description}</p>
       </div>
       {item.id === "gtm" && !item.comingSoon ? (
-        <Link
-          to="/app/tracking"
-          className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
-        >
-          Set up
-        </Link>
+        connected ? (
+          <ConnectedBadge label="Set up" />
+        ) : (
+          <Link
+            to="/app/tracking"
+            className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
+          >
+            Set up
+          </Link>
+        )
       ) : item.id === "google-ads" && !item.comingSoon ? (
-        <Link
-          to="/app/integrations/google-ads"
-          className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
-        >
-          Connect
-        </Link>
+        connected ? (
+          <Link
+            to="/app/integrations/google-ads"
+            className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/30 hover:opacity-90 cursor-pointer text-center flex items-center justify-center gap-1.5"
+          >
+            <Check className="size-4" />
+            Connected
+          </Link>
+        ) : (
+          <Link
+            to="/app/integrations/google-ads"
+            className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
+          >
+            Connect
+          </Link>
+        )
+      ) : connected ? (
+        <ConnectedBadge />
       ) : (
         <button
           disabled={item.comingSoon}
@@ -210,11 +235,11 @@ function IntegrationCard({ item }: { item: IntegrationItem }) {
   );
 }
 
-function Grid({ items }: { items: IntegrationItem[] }) {
+function Grid({ items, connectedIds }: { items: IntegrationItem[]; connectedIds: Set<string> }) {
   return (
     <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
       {items.map((item) => (
-        <IntegrationCard key={item.id} item={item} />
+        <IntegrationCard key={item.id} item={item} connected={connectedIds.has(item.id)} />
       ))}
     </div>
   );
@@ -222,6 +247,23 @@ function Grid({ items }: { items: IntegrationItem[] }) {
 
 function IntegrationsPage() {
   const location = useLocation();
+  const { ownWorkspace } = useAccount();
+  const workspaceKey = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
+  const fetchStatuses = useServerFn(getIntegrationStatuses);
+  const { data: statuses } = useQuery({
+    queryKey: ["integration-statuses", workspaceKey],
+    queryFn: () => fetchStatuses({ data: { workspaceKey } }),
+    enabled: !!workspaceKey,
+  });
+
+  const connectedIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (statuses?.incomingConnected) {
+      for (const i of incoming) ids.add(i.id);
+    }
+    if (statuses?.googleAdsConnected) ids.add("google-ads");
+    return ids;
+  }, [statuses]);
 
   if (location.pathname.replace(/\/$/, "") !== "/app/integrations") {
     return <Outlet />;
