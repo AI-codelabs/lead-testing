@@ -88,43 +88,73 @@ export type Database = {
           },
         ]
       }
+      google_ads_oauth_states: {
+        Row: {
+          created_at: string
+          expires_at: string
+          state: string
+          workspace_key: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          state: string
+          workspace_key: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          state?: string
+          workspace_key?: string
+        }
+        Relationships: []
+      }
       google_ads_settings: {
         Row: {
+          connected_at: string | null
           conversion_action_lost: string | null
           conversion_action_new: string | null
           conversion_action_qualified: string | null
           conversion_action_won: string | null
           created_at: string
-          customer_id: string
+          customer_id: string | null
           default_currency: string
           enabled: boolean
           login_customer_id: string | null
+          oauth_email: string | null
+          oauth_refresh_token: string | null
           updated_at: string
           workspace_key: string
         }
         Insert: {
+          connected_at?: string | null
           conversion_action_lost?: string | null
           conversion_action_new?: string | null
           conversion_action_qualified?: string | null
           conversion_action_won?: string | null
           created_at?: string
-          customer_id: string
+          customer_id?: string | null
           default_currency?: string
           enabled?: boolean
           login_customer_id?: string | null
+          oauth_email?: string | null
+          oauth_refresh_token?: string | null
           updated_at?: string
           workspace_key: string
         }
         Update: {
+          connected_at?: string | null
           conversion_action_lost?: string | null
           conversion_action_new?: string | null
           conversion_action_qualified?: string | null
           conversion_action_won?: string | null
           created_at?: string
-          customer_id?: string
+          customer_id?: string | null
           default_currency?: string
           enabled?: boolean
           login_customer_id?: string | null
+          oauth_email?: string | null
+          oauth_refresh_token?: string | null
           updated_at?: string
           workspace_key?: string
         }
