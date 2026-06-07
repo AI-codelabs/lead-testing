@@ -1,7 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/leadlogr/page-header";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { useAccount } from "@/lib/account-context";
+import { deriveWorkspaceKey } from "@/hooks/use-live-leads";
+import { getIntegrationStatuses } from "@/lib/integration-status.functions";
 
 type Range = 7 | 30 | 90;
 type Trend = "up" | "down" | "flat";
@@ -109,6 +114,18 @@ function DashboardPage() {
   const perf = performanceData[range];
   const sources = sourcesData[range];
 
+  const { ownWorkspace } = useAccount();
+  const workspaceKey = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
+  const fetchStatuses = useServerFn(getIntegrationStatuses);
+  const { data: statuses } = useQuery({
+    queryKey: ["integration-statuses", workspaceKey],
+    queryFn: () => fetchStatuses({ data: { workspaceKey } }),
+    staleTime: 30_000,
+  });
+  const hasLeads = (statuses?.incomingConnectedIds.length ?? 0) > 0;
+  const hasAds = !!statuses?.googleAdsConnected;
+  const hasPerf = hasLeads && hasAds;
+
   return (
     <>
       <PageHeader
@@ -135,8 +152,8 @@ function DashboardPage() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-8">
-        <FunnelCard stages={stages} />
-        <PerformanceCard perf={perf} />
+        <FunnelCard stages={stages} hasData={hasLeads} />
+        <PerformanceCard perf={perf} hasData={hasPerf} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
@@ -155,28 +172,47 @@ function DashboardPage() {
               </span>
             </div>
           </div>
-          <ChartMock range={range} />
+          {hasPerf ? (
+            <ChartMock range={range} />
+          ) : (
+            <EmptyState
+              className="h-48"
+              message={hasLeads ? "Connect an ad platform to track conversions" : "Start a campaign to see conversions flow in"}
+            />
+          )}
         </div>
 
         <div className="bg-card ring-1 ring-border rounded-lg p-6">
           <h3 className="font-semibold mb-1">Top sources</h3>
           <p className="text-xs text-muted-foreground mb-4">By qualified leads.</p>
-          <div className="space-y-3">
-            {sources.map((s) => (
-              <div key={s.name} className="flex items-center justify-between text-sm">
-                <div>
-                  <div className="font-medium">{s.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {s.leads} leads · {s.conv} conv
+          {hasLeads ? (
+            <div className="space-y-3">
+              {sources.map((s) => (
+                <div key={s.name} className="flex items-center justify-between text-sm">
+                  <div>
+                    <div className="font-medium">{s.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {s.leads} leads · {s.conv} conv
+                    </div>
                   </div>
+                  <div className="text-sm font-mono text-foreground">{s.roas}</div>
                 </div>
-                <div className="text-sm font-mono text-foreground">{s.roas}</div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState className="h-32" message="Connect an integration to rank your top sources" />
+          )}
         </div>
       </div>
     </>
+  );
+}
+
+function EmptyState({ message, className = "" }: { message: string; className?: string }) {
+  return (
+    <div className={`flex items-center justify-center rounded-md border border-dashed border-border bg-muted/30 px-4 text-center ${className}`}>
+      <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
   );
 }
 
@@ -196,10 +232,11 @@ function TrendChip({ delta, trend, compact = false }: { delta: string; trend: Tr
   );
 }
 
-function FunnelCard({ stages }: { stages: Stage[] }) {
+function FunnelCard({ stages, hasData }: { stages: Stage[]; hasData: boolean }) {
   const total = stages.find((s) => s.key === "total")!.value;
   const funnelStages = stages.filter((s) => s.key !== "total");
   const totalStage = stages.find((s) => s.key === "total")!;
+  const dash = "—";
 
   return (
     <section className="lg:col-span-3 bg-card ring-1 ring-border rounded-lg p-5 flex flex-col gap-5">
@@ -209,9 +246,13 @@ function FunnelCard({ stages }: { stages: Stage[] }) {
             Lead Overview
           </div>
           <div className="flex items-baseline gap-3 mt-1">
-            <h2 className="text-4xl font-semibold tracking-tight tabular-nums">{nf.format(total)}</h2>
-            <span className="text-sm text-muted-foreground">total leads</span>
-            <TrendChip delta={totalStage.delta} trend={totalStage.trend} />
+            <h2 className="text-4xl font-semibold tracking-tight tabular-nums">
+              {hasData ? nf.format(total) : dash}
+            </h2>
+            <span className="text-sm text-muted-foreground">
+              {hasData ? "total leads" : "Connect an integration to start collecting leads"}
+            </span>
+            {hasData && <TrendChip delta={totalStage.delta} trend={totalStage.trend} />}
           </div>
         </div>
       </header>
@@ -219,22 +260,23 @@ function FunnelCard({ stages }: { stages: Stage[] }) {
       {/* Stacked funnel bar */}
       <div className="space-y-2">
         <div className="flex h-2.5 rounded-full overflow-hidden ring-1 ring-border bg-muted">
-          {funnelStages.map((s) => {
-            const pct = total > 0 ? (s.value / total) * 100 : 0;
-            if (pct === 0) return null;
-            return (
-              <div
-                key={s.key}
-                className={s.swatch}
-                style={{ width: `${pct}%` }}
-                title={`${s.label}: ${s.value}`}
-              />
-            );
-          })}
+          {hasData &&
+            funnelStages.map((s) => {
+              const pct = total > 0 ? (s.value / total) * 100 : 0;
+              if (pct === 0) return null;
+              return (
+                <div
+                  key={s.key}
+                  className={s.swatch}
+                  style={{ width: `${pct}%` }}
+                  title={`${s.label}: ${s.value}`}
+                />
+              );
+            })}
         </div>
         <div className="text-[10px] text-muted-foreground flex justify-between font-mono">
           <span>0</span>
-          <span>{nf.format(total)}</span>
+          <span>{hasData ? nf.format(total) : dash}</span>
         </div>
       </div>
 
@@ -249,10 +291,18 @@ function FunnelCard({ stages }: { stages: Stage[] }) {
                 <span className="truncate">{s.label}</span>
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-xl font-semibold tabular-nums tracking-tight">{nf.format(s.value)}</span>
-                <span className="text-[10px] text-muted-foreground font-mono">{pct}%</span>
+                <span className="text-xl font-semibold tabular-nums tracking-tight">
+                  {hasData ? nf.format(s.value) : dash}
+                </span>
+                {hasData && (
+                  <span className="text-[10px] text-muted-foreground font-mono">{pct}%</span>
+                )}
               </div>
-              <TrendChip delta={s.delta} trend={s.trend} compact />
+              {hasData ? (
+                <TrendChip delta={s.delta} trend={s.trend} compact />
+              ) : (
+                <span className="text-[10px] text-muted-foreground">Awaiting leads</span>
+              )}
             </div>
           );
         })}
@@ -261,9 +311,10 @@ function FunnelCard({ stages }: { stages: Stage[] }) {
   );
 }
 
-function PerformanceCard({ perf }: { perf: Performance }) {
+function PerformanceCard({ perf, hasData }: { perf: Performance; hasData: boolean }) {
   const netProfit = perf.wonValue - perf.spend;
-  const spendPct = (perf.spend / perf.wonValue) * 100;
+  const spendPct = hasData ? (perf.spend / perf.wonValue) * 100 : 0;
+  const dash = "—";
 
   return (
     <section className="lg:col-span-2 bg-card ring-1 ring-border rounded-lg p-5 flex flex-col gap-5">
@@ -271,29 +322,43 @@ function PerformanceCard({ perf }: { perf: Performance }) {
         <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Performance
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-success/10 text-success px-2 py-0.5 text-[10px] font-semibold">
-          <ArrowUpRight className="size-3" strokeWidth={2.5} />
-          {perf.roiDelta}
-        </span>
+        {hasData && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 text-success px-2 py-0.5 text-[10px] font-semibold">
+            <ArrowUpRight className="size-3" strokeWidth={2.5} />
+            {perf.roiDelta}
+          </span>
+        )}
       </header>
 
       <div>
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Return on investment</div>
         <div className="flex items-baseline gap-1.5 mt-1">
-          <span className="text-5xl font-semibold tracking-tight tabular-nums">{perf.roi.toFixed(2)}</span>
-          <span className="text-2xl font-light text-muted-foreground">×</span>
+          <span className="text-5xl font-semibold tracking-tight tabular-nums">
+            {hasData ? perf.roi.toFixed(2) : dash}
+          </span>
+          {hasData && <span className="text-2xl font-light text-muted-foreground">×</span>}
         </div>
         <div className="text-xs text-muted-foreground mt-1.5">
-          Net profit{" "}
-          <span className="text-foreground font-medium tabular-nums">{cf.format(netProfit)}</span>
+          {hasData ? (
+            <>
+              Net profit{" "}
+              <span className="text-foreground font-medium tabular-nums">{cf.format(netProfit)}</span>
+            </>
+          ) : (
+            "Connect Google Ads and start a campaign to track ROI"
+          )}
         </div>
       </div>
 
       {/* Spend vs Won proportional bar */}
       <div className="space-y-2">
         <div className="flex h-1.5 rounded-full overflow-hidden bg-muted ring-1 ring-border">
-          <div className="bg-destructive/80" style={{ width: `${spendPct}%` }} />
-          <div className="bg-success" style={{ width: `${100 - spendPct}%` }} />
+          {hasData && (
+            <>
+              <div className="bg-destructive/80" style={{ width: `${spendPct}%` }} />
+              <div className="bg-success" style={{ width: `${100 - spendPct}%` }} />
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3 pt-2">
@@ -301,21 +366,33 @@ function PerformanceCard({ perf }: { perf: Performance }) {
             <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
               <span className="size-2 rounded-sm bg-destructive/80" /> Spend
             </div>
-            <div className="text-base font-semibold tabular-nums mt-0.5">{cf.format(perf.spend)}</div>
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-destructive tabular-nums">
-              <ArrowUpRight className="size-3" strokeWidth={2.25} />
-              {perf.spendDelta}
-            </span>
+            <div className="text-base font-semibold tabular-nums mt-0.5">
+              {hasData ? cf.format(perf.spend) : dash}
+            </div>
+            {hasData ? (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-destructive tabular-nums">
+                <ArrowUpRight className="size-3" strokeWidth={2.25} />
+                {perf.spendDelta}
+              </span>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">No campaigns yet</span>
+            )}
           </div>
           <div>
             <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
               <span className="size-2 rounded-sm bg-success" /> Won Value
             </div>
-            <div className="text-base font-semibold tabular-nums mt-0.5">{cf.format(perf.wonValue)}</div>
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-success tabular-nums">
-              <ArrowUpRight className="size-3" strokeWidth={2.25} />
-              {perf.wonDelta}
-            </span>
+            <div className="text-base font-semibold tabular-nums mt-0.5">
+              {hasData ? cf.format(perf.wonValue) : dash}
+            </div>
+            {hasData ? (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-success tabular-nums">
+                <ArrowUpRight className="size-3" strokeWidth={2.25} />
+                {perf.wonDelta}
+              </span>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">Awaiting won deals</span>
+            )}
           </div>
         </div>
       </div>
