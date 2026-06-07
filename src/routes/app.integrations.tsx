@@ -213,7 +213,7 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
             </Link>
           ) : (
             <Link
-              to="/app/integrations/google-ads"
+              to={item.setupTo}
               className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-stage-green-soft text-stage-green-ink ring-1 ring-stage-green-line hover:opacity-90 cursor-pointer text-center flex items-center justify-center gap-1.5"
             >
               <Check className="size-4" />
@@ -231,7 +231,7 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
             </Link>
           ) : (
             <Link
-              to="/app/integrations/google-ads"
+              to={item.setupTo}
               className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
             >
               Connect
