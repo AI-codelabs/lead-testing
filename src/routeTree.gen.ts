@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TrackerDotv1DotjsRouteImport } from './routes/tracker[.]v1[.]js'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/app'
@@ -27,6 +28,11 @@ import { Route as AgencyNewClientRouteImport } from './routes/agency.new-client'
 import { Route as AgencyAccountRouteImport } from './routes/agency.account'
 import { Route as ApiPublicLeadsCollectRouteImport } from './routes/api/public/leads/collect'
 
+const TrackerDotv1DotjsRoute = TrackerDotv1DotjsRouteImport.update({
+  id: '/tracker.v1.js',
+  path: '/tracker.v1.js',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
   '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
   '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
   '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/signup'
+    | '/tracker.v1.js'
     | '/agency/account'
     | '/agency/new-client'
     | '/app/account'
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/tracker.v1.js'
     | '/agency/account'
     | '/agency/new-client'
     | '/app/account'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/signup'
+    | '/tracker.v1.js'
     | '/agency/account'
     | '/agency/new-client'
     | '/app/account'
@@ -233,12 +245,20 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  TrackerDotv1DotjsRoute: typeof TrackerDotv1DotjsRoute
   TrackerV1DotjsRoute: typeof TrackerV1DotjsRoute
   ApiPublicLeadsCollectRoute: typeof ApiPublicLeadsCollectRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tracker.v1.js': {
+      id: '/tracker.v1.js'
+      path: '/tracker.v1.js'
+      fullPath: '/tracker.v1.js'
+      preLoaderRoute: typeof TrackerDotv1DotjsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -404,6 +424,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  TrackerDotv1DotjsRoute: TrackerDotv1DotjsRoute,
   TrackerV1DotjsRoute: TrackerV1DotjsRoute,
   ApiPublicLeadsCollectRoute: ApiPublicLeadsCollectRoute,
 }

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TRACKER } from "@/lib/leadlogr-tracker";
 
-export const Route = createFileRoute("/tracker/v1.js")({
+export const Route = createFileRoute("/tracker.v1.js")({
   server: {
     handlers: {
       GET: async () => {
