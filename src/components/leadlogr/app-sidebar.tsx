@@ -20,10 +20,15 @@ const nav = [
 ] as const;
 
 export function AppSidebar() {
-  const { accountType, isAgencyViewing, ownWorkspace } = useAccount();
+  const { accountType, isAgencyViewing, ownWorkspace, signOut } = useAccount();
+  const navigate = useNavigate();
   const isAgency = accountType === "agency";
   // Agencies inside a client workspace cannot access the client's Account page.
   const visibleNav = isAgencyViewing ? nav.filter((n) => n.to !== "/app/account") : nav;
+  const handleSignOut = async () => {
+    await signOut();
+    navigate({ to: "/login", replace: true });
+  };
   return (
     <aside className="w-60 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col h-screen sticky top-0">
       <div className="h-16 px-5 flex items-center border-b border-sidebar-border">
