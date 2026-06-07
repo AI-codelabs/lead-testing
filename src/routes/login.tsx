@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AuthShell, Field } from "@/components/leadlogr/auth-shell";
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -14,10 +15,31 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    navigate({ to: "/app/dashboard" });
+    setError(null);
+    setSubmitting(true);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (signInError) throw signInError;
+      // Account context will hydrate from the profiles table via onAuthStateChange.
+      // Decide destination after fetching the profile.
+      const { data: userRes } = await supabase.auth.getUser();
+      const accountType = (userRes.user?.user_metadata?.account_type as string) ?? "standard";
+      navigate({ to: accountType === "agency" ? "/agency" : "/app/dashboard" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sign in");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -34,13 +56,15 @@ function LoginPage() {
       }
     >
       <form className="space-y-4" onSubmit={onSubmit}>
-        <Field label="Email" type="email" placeholder="you@agency.com" autoComplete="email" />
-        <Field label="Password" type="password" placeholder="••••••••" autoComplete="current-password" />
+        <Field label="Email" type="email" placeholder="you@agency.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <Field label="Password" type="password" placeholder="••••••••" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        {error ? <p className="text-xs text-destructive">{error}</p> : null}
         <button
           type="submit"
-          className="w-full bg-primary text-primary-foreground text-sm font-medium px-4 py-2.5 rounded-md ring-1 ring-primary shadow-sm hover:opacity-90 transition-opacity"
+          disabled={submitting}
+          className="w-full bg-primary text-primary-foreground text-sm font-medium px-4 py-2.5 rounded-md ring-1 ring-primary shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
         >
-          Sign in
+          {submitting ? "Signing in…" : "Sign in"}
         </button>
       </form>
     </AuthShell>
