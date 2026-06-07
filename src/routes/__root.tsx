@@ -88,7 +88,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Leadlogr is the infrastructure for agency attribution. Capture leads, track outcomes, and feed conversion data back to Google and Meta automatically.",
       },
       { name: "author", content: "Leadlogr" },
-      { property: "og:title", content: "Leadlogr — Agency attribution infrastructure" },
+      { property: "og:title", content: "Leadlogr — Lead tracking & conversion management for agencies" },
       {
         property: "og:description",
         content:
@@ -96,6 +96,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "Leadlogr — Lead tracking & conversion management for agencies" },
+      { name: "description", content: "LeadFlow Pro centralizes lead management, tracks performance, and sends conversion data to ad platforms." },
+      { property: "og:description", content: "LeadFlow Pro centralizes lead management, tracks performance, and sends conversion data to ad platforms." },
+      { name: "twitter:description", content: "LeadFlow Pro centralizes lead management, tracks performance, and sends conversion data to ad platforms." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/658e9d16-b442-4950-be63-2f898cd42466/id-preview-91a720f9--3fbcb3ed-3c51-4ee7-be2e-eb1c32a679e6.lovable.app-1780832806956.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/658e9d16-b442-4950-be63-2f898cd42466/id-preview-91a720f9--3fbcb3ed-3c51-4ee7-be2e-eb1c32a679e6.lovable.app-1780832806956.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
