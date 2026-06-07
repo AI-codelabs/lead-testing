@@ -74,14 +74,17 @@ export const sendGoogleAdsConversion = createServerFn({ method: "POST" })
     if (!settings || !settings.enabled) {
       return { ok: false, skipped: true, reason: "google_ads_not_configured" };
     }
+    if (!settings.customer_id) {
+      return { ok: false, skipped: true, reason: "no_customer_id" };
+    }
     const conversionActionId = (settings as unknown as Record<string, string | null>)[settingsField];
     if (!conversionActionId) {
       return { ok: false, skipped: true, reason: `no_conversion_action_for:${stage}` };
     }
 
-    const creds = readGoogleAdsCreds();
+    const creds = buildGoogleAdsCreds((settings as { oauth_refresh_token?: string | null }).oauth_refresh_token);
     if (!creds) {
-      return { ok: false, skipped: true, reason: "missing_oauth_secrets" };
+      return { ok: false, skipped: true, reason: "not_connected" };
     }
 
     // Enhanced conversions: hashed email + phone (when consent was given).
