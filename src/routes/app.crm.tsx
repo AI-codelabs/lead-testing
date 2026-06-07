@@ -15,8 +15,12 @@ import {
   Plus,
   Search,
   Star,
+  Trash2,
   X,
 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { deleteLead } from "@/lib/leads.functions";
+
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
 import {
@@ -122,10 +126,13 @@ function CrmPage() {
   const workspaceKey = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
   const liveLeads = useLiveLeads(workspaceKey);
   const [seedLeads, setLeads] = useState<Lead[]>(SEED_LEADS);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const deleteLeadFn = useServerFn(deleteLead);
   const leads = useMemo(() => {
     const liveIds = new Set(liveLeads.map((l) => l.id));
-    return [...liveLeads, ...seedLeads.filter((l) => !liveIds.has(l.id))];
-  }, [liveLeads, seedLeads]);
+    const merged = [...liveLeads, ...seedLeads.filter((l) => !liveIds.has(l.id))];
+    return merged.filter((l) => !deletedIds.has(l.id));
+  }, [liveLeads, seedLeads, deletedIds]);
   const [tab, setTab] = useState<Tab>("Open");
   const [search, setSearch] = useState("");
   const [sortAsc, setSortAsc] = useState(true);
@@ -242,6 +249,35 @@ function CrmPage() {
   const handleSave = (lead: Lead) => {
     setLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
   };
+
+  const handleDelete = async (lead: Lead) => {
+    if (!access.canSeeDetails) return;
+    const label = lead.name || lead.email || "this lead";
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
+    // Optimistically hide
+    setDeletedIds((prev) => {
+      const next = new Set(prev);
+      next.add(lead.id);
+      return next;
+    });
+    setLeads((prev) => prev.filter((l) => l.id !== lead.id));
+    // If it's a live (DB-backed) lead, delete server-side
+    const isLive = liveLeads.some((l) => l.id === lead.id);
+    if (isLive) {
+      try {
+        await deleteLeadFn({ data: { id: lead.id, workspaceKey } });
+      } catch (err) {
+        console.error("[crm] delete failed", err);
+        window.alert("Failed to delete lead. Please try again.");
+        setDeletedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(lead.id);
+          return next;
+        });
+      }
+    }
+  };
+
 
   return (
     <>
@@ -471,6 +507,14 @@ function CrmPage() {
                           >
                             <Check className="size-3" />
                             Won
+                          </button>
+                          <button
+                            onClick={() => handleDelete(l)}
+                            className="p-1 rounded hover:bg-stage-red-soft text-muted-foreground hover:text-stage-red-ink transition-colors"
+                            aria-label="Delete lead"
+                            title="Delete lead"
+                          >
+                            <Trash2 className="size-3.5" />
                           </button>
                         </div>
                       </td>
