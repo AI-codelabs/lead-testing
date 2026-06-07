@@ -10,6 +10,9 @@ export type GoogleAdsSettings = {
   conversion_action_qualified: string | null;
   conversion_action_won: string | null;
   conversion_action_lost: string | null;
+  oauth_email: string | null;
+  connected_at: string | null;
+  connected: boolean;
 };
 
 export const getGoogleAdsSettings = createServerFn({ method: "POST" })
