@@ -61,13 +61,12 @@ function PipelinePage() {
   const { ownWorkspace } = useAccount();
   const workspaceKey = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
   const liveLeads = useLiveLeads(workspaceKey);
-  const [leads, setLeads] = useState<Lead[]>(SEED_LEADS);
-  // Merge: live leads (from website tracker) come first, then mock seeds.
-  // Live leads override seeds with the same id (none in practice — UUIDs vs "l1"…).
-  const mergedLeads = useMemo(() => {
+  const [seedLeads, setLeads] = useState<Lead[]>(SEED_LEADS);
+  // Merge live (tracker-captured) leads in front of the demo seed data.
+  const leads = useMemo(() => {
     const liveIds = new Set(liveLeads.map((l) => l.id));
-    return [...liveLeads, ...leads.filter((l) => !liveIds.has(l.id))];
-  }, [liveLeads, leads]);
+    return [...liveLeads, ...seedLeads.filter((l) => !liveIds.has(l.id))];
+  }, [liveLeads, seedLeads]);
   const [stages, setStages] = useState<StageDef[]>(DEFAULT_STAGES);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
