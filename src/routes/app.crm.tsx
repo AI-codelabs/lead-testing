@@ -251,33 +251,58 @@ function CrmPage() {
     setLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
   };
 
-  const handleDelete = async (lead: Lead) => {
-    if (!access.canSeeDetails) return;
-    const label = lead.name || lead.email || "this lead";
-    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
-    // Optimistically hide
-    setDeletedIds((prev) => {
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.add(lead.id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
-    setLeads((prev) => prev.filter((l) => l.id !== lead.id));
-    // If it's a live (DB-backed) lead, delete server-side
-    const isLive = liveLeads.some((l) => l.id === lead.id);
-    if (isLive) {
-      try {
-        await deleteLeadFn({ data: { id: lead.id, workspaceKey } });
-      } catch (err) {
-        console.error("[crm] delete failed", err);
-        window.alert("Failed to delete lead. Please try again.");
-        setDeletedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(lead.id);
-          return next;
-        });
-      }
+  };
+
+  const allOnPageSelected =
+    pageRowsExist() && pageIdsRef().every((id) => selectedIds.has(id));
+
+  function pageRowsExist() {
+    return true; // placeholder, replaced below via inline derivation
+  }
+  function pageIdsRef(): string[] {
+    return [];
+  }
+
+  const handleDeleteSelected = async () => {
+    if (!access.canSeeDetails) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (!window.confirm(`Delete ${ids.length} lead${ids.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
+
+    setDeletedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
+    setLeads((prev) => prev.filter((l) => !selectedIds.has(l.id)));
+    setSelectedIds(new Set());
+
+    const liveIdSet = new Set(liveLeads.map((l) => l.id));
+    const liveTargets = ids.filter((id) => liveIdSet.has(id));
+    const results = await Promise.allSettled(
+      liveTargets.map((id) => deleteLeadFn({ data: { id, workspaceKey } })),
+    );
+    const failed = results
+      .map((r, i) => (r.status === "rejected" ? liveTargets[i] : null))
+      .filter((x): x is string => x !== null);
+    if (failed.length > 0) {
+      console.error("[crm] delete failed for", failed);
+      window.alert(`Failed to delete ${failed.length} lead${failed.length === 1 ? "" : "s"}.`);
+      setDeletedIds((prev) => {
+        const next = new Set(prev);
+        failed.forEach((id) => next.delete(id));
+        return next;
+      });
     }
   };
+
 
 
   return (
