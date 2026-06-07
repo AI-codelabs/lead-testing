@@ -397,6 +397,15 @@ function CrmPage() {
             <Download className="size-3.5" />
             Export
           </button>
+          {selectedIds.size > 0 && access.canSeeDetails && (
+            <button
+              onClick={handleDeleteSelected}
+              className="text-sm font-medium px-3 py-2 rounded-md bg-stage-red-soft text-stage-red-ink ring-1 ring-stage-red-line flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+            >
+              <Trash2 className="size-3.5" />
+              Delete ({selectedIds.size})
+            </button>
+          )}
           <button className="text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground ring-1 ring-primary flex items-center gap-1.5 hover:bg-primary/90 transition-colors">
             <Plus className="size-3.5" />
             Add Lead
