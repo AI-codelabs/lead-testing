@@ -16,16 +16,27 @@ export type ClientWorkspace = {
   agencyAccess: AccessLevel | null;
 };
 
+type OwnWorkspace = {
+  key: string;
+  name: string;
+  ownerName: string;
+  ownerEmail: string;
+  invitedAgencyEmail: string | null;
+  grantedAccess: AccessLevel;
+};
+
 type AccountState = {
   accountType: AccountType;
   setAccountType: (t: AccountType) => void;
+  createAccount: (data: {
+    accountType: AccountType;
+    workspaceName: string;
+    ownerName: string;
+    ownerEmail: string;
+  }) => void;
 
   // Standard-account workspace (self).
-  ownWorkspace: {
-    name: string;
-    invitedAgencyEmail: string | null;
-    grantedAccess: AccessLevel;
-  };
+  ownWorkspace: OwnWorkspace;
   setInvitedAgencyEmail: (email: string | null) => void;
   setGrantedAccess: (lvl: AccessLevel) => void;
 
@@ -51,13 +62,31 @@ type AccountState = {
   isAgencyViewing: boolean;
 };
 
-const STORAGE_KEY = "leadlogr.account.v1";
+const STORAGE_KEY = "leadlogr.account.v2";
 
 /** Inline copy of deriveWorkspaceKey (kept in sync with use-live-leads.ts) to avoid an import cycle. */
 function deriveWorkspaceKey(name: string): string {
   const slug = (name || "workspace").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24) || "workspace";
   return `ws_${slug}`;
 }
+
+function generateWorkspaceKey(name: string): string {
+  const slug = (name || "workspace").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24) || "workspace";
+  const random =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().replace(/-/g, "").slice(0, 8)
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.slice(0, 8);
+  return `ws_${slug}_${random}`;
+}
+
+const DEFAULT_OWN_WORKSPACE: OwnWorkspace = {
+  key: "ws_acmemedia",
+  name: "Acme Media",
+  ownerName: "Jane Doe",
+  ownerEmail: "jane@acmemedia.com",
+  invitedAgencyEmail: null,
+  grantedAccess: "full",
+};
 
 const DEFAULT_CLIENTS: ClientWorkspace[] = [
   {
