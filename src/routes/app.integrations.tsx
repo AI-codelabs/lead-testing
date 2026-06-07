@@ -184,6 +184,13 @@ function IntegrationCard({ item }: { item: IntegrationItem }) {
         >
           Set up
         </Link>
+      ) : item.id === "google-ads" && !item.comingSoon ? (
+        <Link
+          to="/app/integrations/google-ads"
+          className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
+        >
+          Connect
+        </Link>
       ) : (
         <button
           disabled={item.comingSoon}
