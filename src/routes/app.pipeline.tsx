@@ -21,7 +21,6 @@ import {
   DEFAULT_STAGES,
   PALETTES,
   PALETTE_ORDER,
-  SEED_LEADS,
   addHistory,
   daysUntilExpiry,
   expiryUrgency,

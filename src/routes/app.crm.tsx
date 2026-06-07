@@ -26,7 +26,6 @@ import { LeadDialog } from "@/components/leadlogr/lead-dialog";
 import {
   LABEL_STYLES,
   LEAD_LABELS,
-  SEED_LEADS,
   type Lead,
   type LeadLabel,
   type Source,
