@@ -30,6 +30,7 @@ import { Route as AppIntegrationsGoogleAdsRouteImport } from './routes/app.integ
 import { Route as ApiPublicTrackerV1RouteImport } from './routes/api/public/tracker.v1'
 import { Route as ApiPublicLeadsCollectRouteImport } from './routes/api/public/leads/collect'
 import { Route as ApiPublicOauthGoogleAdsStartRouteImport } from './routes/api/public/oauth/google-ads/start'
+import { Route as ApiPublicOauthGoogleAdsCallbackRouteImport } from './routes/api/public/oauth/google-ads/callback'
 
 const TrackerDotv1DotjsRoute = TrackerDotv1DotjsRouteImport.update({
   id: '/tracker.v1.js',
@@ -138,6 +139,12 @@ const ApiPublicOauthGoogleAdsStartRoute =
     path: '/api/public/oauth/google-ads/start',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicOauthGoogleAdsCallbackRoute =
+  ApiPublicOauthGoogleAdsCallbackRouteImport.update({
+    id: '/api/public/oauth/google-ads/callback',
+    path: '/api/public/oauth/google-ads/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
+  '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
   '/api/public/oauth/google-ads/start': typeof ApiPublicOauthGoogleAdsStartRoute
 }
 export interface FileRoutesByTo {
@@ -181,6 +189,7 @@ export interface FileRoutesByTo {
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
+  '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
   '/api/public/oauth/google-ads/start': typeof ApiPublicOauthGoogleAdsStartRoute
 }
 export interface FileRoutesById {
@@ -205,6 +214,7 @@ export interface FileRoutesById {
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
+  '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
   '/api/public/oauth/google-ads/start': typeof ApiPublicOauthGoogleAdsStartRoute
 }
 export interface FileRouteTypes {
@@ -230,6 +240,7 @@ export interface FileRouteTypes {
     | '/app/integrations/google-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
+    | '/api/public/oauth/google-ads/callback'
     | '/api/public/oauth/google-ads/start'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -251,6 +262,7 @@ export interface FileRouteTypes {
     | '/app/integrations/google-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
+    | '/api/public/oauth/google-ads/callback'
     | '/api/public/oauth/google-ads/start'
   id:
     | '__root__'
@@ -274,6 +286,7 @@ export interface FileRouteTypes {
     | '/app/integrations/google-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
+    | '/api/public/oauth/google-ads/callback'
     | '/api/public/oauth/google-ads/start'
   fileRoutesById: FileRoutesById
 }
@@ -287,6 +300,7 @@ export interface RootRouteChildren {
   TrackerV1DotjsRoute: typeof TrackerV1DotjsRoute
   ApiPublicLeadsCollectRoute: typeof ApiPublicLeadsCollectRoute
   ApiPublicTrackerV1Route: typeof ApiPublicTrackerV1Route
+  ApiPublicOauthGoogleAdsCallbackRoute: typeof ApiPublicOauthGoogleAdsCallbackRoute
   ApiPublicOauthGoogleAdsStartRoute: typeof ApiPublicOauthGoogleAdsStartRoute
 }
 
@@ -439,6 +453,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicOauthGoogleAdsStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/oauth/google-ads/callback': {
+      id: '/api/public/oauth/google-ads/callback'
+      path: '/api/public/oauth/google-ads/callback'
+      fullPath: '/api/public/oauth/google-ads/callback'
+      preLoaderRoute: typeof ApiPublicOauthGoogleAdsCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -501,6 +522,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrackerV1DotjsRoute: TrackerV1DotjsRoute,
   ApiPublicLeadsCollectRoute: ApiPublicLeadsCollectRoute,
   ApiPublicTrackerV1Route: ApiPublicTrackerV1Route,
+  ApiPublicOauthGoogleAdsCallbackRoute: ApiPublicOauthGoogleAdsCallbackRoute,
   ApiPublicOauthGoogleAdsStartRoute: ApiPublicOauthGoogleAdsStartRoute,
 }
 export const routeTree = rootRouteImport
