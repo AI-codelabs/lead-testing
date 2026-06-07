@@ -64,12 +64,6 @@ type AccountState = {
 
 const STORAGE_KEY = "leadlogr.account.v2";
 
-/** Inline copy of deriveWorkspaceKey (kept in sync with use-live-leads.ts) to avoid an import cycle. */
-function deriveWorkspaceKey(name: string): string {
-  const slug = (name || "workspace").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24) || "workspace";
-  return `ws_${slug}`;
-}
-
 function generateWorkspaceKey(name: string): string {
   const slug = (name || "workspace").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24) || "workspace";
   const random =
@@ -138,8 +132,7 @@ function loadFromStorage(): Partial<AccountState> | null {
 
 export function AccountProvider({ children }: { children: ReactNode }) {
   const [accountType, _setAccountType] = useState<AccountType>("standard");
-  const [invitedAgencyEmail, _setInvitedAgencyEmail] = useState<string | null>(null);
-  const [grantedAccess, _setGrantedAccess] = useState<AccessLevel>("full");
+  const [ownWorkspace, setOwnWorkspace] = useState<OwnWorkspace>(DEFAULT_OWN_WORKSPACE);
   const [clientWorkspaces, setClientWorkspaces] = useState<ClientWorkspace[]>(DEFAULT_CLIENTS);
   const [viewingClientId, setViewingClientId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -150,8 +143,15 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       if (saved.accountType) _setAccountType(saved.accountType as AccountType);
       const own = (saved as any).ownWorkspace;
       if (own) {
-        _setInvitedAgencyEmail(own.invitedAgencyEmail ?? null);
-        _setGrantedAccess(own.grantedAccess ?? "full");
+        const name = typeof own.name === "string" && own.name.trim() ? own.name : DEFAULT_OWN_WORKSPACE.name;
+        setOwnWorkspace({
+          key: typeof own.key === "string" && own.key ? own.key : generateWorkspaceKey(name),
+          name,
+          ownerName: typeof own.ownerName === "string" && own.ownerName.trim() ? own.ownerName : DEFAULT_OWN_WORKSPACE.ownerName,
+          ownerEmail: typeof own.ownerEmail === "string" && own.ownerEmail.trim() ? own.ownerEmail : DEFAULT_OWN_WORKSPACE.ownerEmail,
+          invitedAgencyEmail: own.invitedAgencyEmail ?? null,
+          grantedAccess: own.grantedAccess ?? "full",
+        });
       }
       if (Array.isArray((saved as any).clientWorkspaces)) {
         setClientWorkspaces((saved as any).clientWorkspaces);
@@ -167,16 +167,36 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       STORAGE_KEY,
       JSON.stringify({
         accountType,
-        ownWorkspace: { invitedAgencyEmail, grantedAccess },
+        ownWorkspace,
         clientWorkspaces,
         viewingClientId,
       }),
     );
-  }, [hydrated, accountType, invitedAgencyEmail, grantedAccess, clientWorkspaces, viewingClientId]);
+  }, [hydrated, accountType, ownWorkspace, clientWorkspaces, viewingClientId]);
 
   const setAccountType = useCallback((t: AccountType) => {
     _setAccountType(t);
     setViewingClientId(null);
+  }, []);
+
+  const createAccount = useCallback((data: {
+    accountType: AccountType;
+    workspaceName: string;
+    ownerName: string;
+    ownerEmail: string;
+  }) => {
+    const workspaceName = data.workspaceName.trim() || "My workspace";
+    setOwnWorkspace({
+      key: generateWorkspaceKey(workspaceName),
+      name: workspaceName,
+      ownerName: data.ownerName.trim() || data.ownerEmail.trim() || "Workspace owner",
+      ownerEmail: data.ownerEmail.trim(),
+      invitedAgencyEmail: null,
+      grantedAccess: "full",
+    });
+    _setAccountType(data.accountType);
+    setViewingClientId(null);
+    if (data.accountType === "agency") setClientWorkspaces([]);
   }, []);
 
   const addClientWorkspace = useCallback(
@@ -192,11 +212,18 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const enterClient = useCallback((id: string) => setViewingClientId(id), []);
   const exitClient = useCallback(() => setViewingClientId(null), []);
 
+  const setInvitedAgencyEmail = useCallback((email: string | null) => {
+    setOwnWorkspace((prev) => ({ ...prev, invitedAgencyEmail: email }));
+  }, []);
+
+  const setGrantedAccess = useCallback((lvl: AccessLevel) => {
+    setOwnWorkspace((prev) => ({ ...prev, grantedAccess: lvl }));
+  }, []);
+
   const value = useMemo<AccountState>(() => {
     const isAgencyViewing = accountType === "agency" && viewingClientId !== null;
-    const ownName = "Acme Media";
     let effectiveAccess: AccessLevel = "full";
-    let activeWorkspace = { key: deriveWorkspaceKey(ownName), name: ownName };
+    let activeWorkspace = { key: ownWorkspace.key, name: ownWorkspace.name };
     if (isAgencyViewing) {
       const ws = clientWorkspaces.find((c) => c.id === viewingClientId);
       effectiveAccess = ws?.agencyAccess ?? "metrics_only";
@@ -209,13 +236,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     return {
       accountType,
       setAccountType,
-      ownWorkspace: {
-        name: ownName,
-        invitedAgencyEmail,
-        grantedAccess,
-      },
-      setInvitedAgencyEmail: _setInvitedAgencyEmail,
-      setGrantedAccess: _setGrantedAccess,
+      createAccount,
+      ownWorkspace,
+      setInvitedAgencyEmail,
+      setGrantedAccess,
       clientWorkspaces,
       addClientWorkspace,
       viewingClientId,
@@ -228,8 +252,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   }, [
     accountType,
     setAccountType,
-    invitedAgencyEmail,
-    grantedAccess,
+    createAccount,
+    ownWorkspace,
+    setInvitedAgencyEmail,
+    setGrantedAccess,
     clientWorkspaces,
     viewingClientId,
     addClientWorkspace,
