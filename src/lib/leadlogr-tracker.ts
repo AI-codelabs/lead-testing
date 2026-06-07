@@ -129,7 +129,8 @@ export const TRACKER = `/* Leadlogr tracker v1 — autodetects forms, captures a
     var body = JSON.stringify(payload);
     try {
       if (navigator.sendBeacon) {
-        var blob = new Blob([body], { type: 'application/json' });
+        // Use text/plain to keep it a CORS-safelisted request (no preflight, no credentials issue)
+        var blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
         if (navigator.sendBeacon(CFG.endpoint, blob)) return;
       }
     } catch (e) {}
