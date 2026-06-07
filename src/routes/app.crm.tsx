@@ -143,6 +143,7 @@ function CrmPage() {
   const [visibleCols, setVisibleCols] = useState<Set<Column>>(new Set(ALL_COLUMNS));
   const [labelMenuFor, setLabelMenuFor] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rowsPerPage, setRowsPerPage] = useState(50);
 
   if (access.metricsOnly) {
