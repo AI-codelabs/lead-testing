@@ -107,10 +107,3 @@ export function deriveWorkspaceKey(name: string): string {
   const slug = (name || "workspace").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24) || "workspace";
   return `ws_${slug}`;
 }
-
-
-/** Deterministic workspace key derived from workspace name. Matches the tracking page. */
-export function deriveWorkspaceKey(name: string): string {
-  const slug = (name || "workspace").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24) || "workspace";
-  return `ws_${slug}`;
-}
