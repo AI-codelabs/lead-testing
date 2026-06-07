@@ -293,7 +293,7 @@ function IntegrationsPage() {
         description="Connect Leadlogr to ad platforms, analytics tools, CRMs, and the rest of your marketing stack."
       />
 
-      <Tabs defaultValue="outgoing" className="mt-6">
+      <Tabs defaultValue="incoming" className="mt-6">
         <TabsList>
           <TabsTrigger value="incoming">Incoming</TabsTrigger>
           <TabsTrigger value="outgoing">Outgoing</TabsTrigger>
