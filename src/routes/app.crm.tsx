@@ -125,7 +125,7 @@ function CrmPage() {
   const { activeWorkspace } = useAccount();
   const workspaceKey = activeWorkspace.key;
   const liveLeads = useLiveLeads(workspaceKey);
-  const [seedLeads, setLeads] = useState<Lead[]>(SEED_LEADS);
+  const [seedLeads, setLeads] = useState<Lead[]>([]);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const deleteLeadFn = useServerFn(deleteLead);
   const leads = useMemo(() => {
@@ -150,7 +150,7 @@ function CrmPage() {
     return (
       <>
         <PageHeader eyebrow="Contacts" title="CRM" description="Individual leads are hidden by the client." />
-        <RestrictedNotice leadsCount={SEED_LEADS.length} />
+        <RestrictedNotice leadsCount={liveLeads.length} />
       </>
     );
   }
