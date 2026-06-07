@@ -1,14 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAccount } from "@/lib/account-context";
+import { deriveWorkspaceKey, useLiveLeads } from "@/hooks/use-live-leads";
 import { Check, Copy, ExternalLink, ShieldCheck, Sparkles, Zap, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/app/tracking")({
   head: () => ({ meta: [{ title: "Tracking Setup — Leadlogr" }] }),
+  ssr: false,
   component: TrackingPage,
 });
+
+
 
 const DEFAULT_ENDPOINT = "https://leadlogr.com/api/leads/collect";
 const TRACKER_SRC = "https://cdn.leadlogr.com/tracker.v1.js";
