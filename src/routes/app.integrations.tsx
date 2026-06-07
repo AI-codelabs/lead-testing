@@ -285,18 +285,18 @@ function IntegrationsPage() {
         </TabsList>
 
         <TabsContent value="incoming" className="mt-6">
-          <Grid items={incoming} />
+          <Grid items={incoming} connectedIds={connectedIds} />
         </TabsContent>
 
         <TabsContent value="outgoing" className="mt-6">
-          <Grid items={outgoing} />
+          <Grid items={outgoing} connectedIds={connectedIds} />
         </TabsContent>
 
         <TabsContent value="updating" className="mt-6">
           <p className="text-sm text-muted-foreground mb-4 max-w-2xl">
             Sync lead status changes back into Leadlogr from your CRM or project management tool, so lead lifecycle data stays accurate everywhere.
           </p>
-          <Grid items={updating} />
+          <Grid items={updating} connectedIds={connectedIds} />
         </TabsContent>
       </Tabs>
     </>
