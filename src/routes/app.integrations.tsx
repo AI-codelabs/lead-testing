@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { IntegrationLogo } from "@/components/leadlogr/integration-logo";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -214,6 +214,12 @@ function Grid({ items }: { items: IntegrationItem[] }) {
 }
 
 function IntegrationsPage() {
+  const location = useLocation();
+
+  if (location.pathname.replace(/\/$/, "") !== "/app/integrations") {
+    return <Outlet />;
+  }
+
   return (
     <>
       <PageHeader
