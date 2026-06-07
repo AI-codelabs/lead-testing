@@ -126,8 +126,8 @@ export const sendGoogleAdsConversion = createServerFn({ method: "POST" })
       currency: value != null ? settings.default_currency || "EUR" : null,
       click_id: gclid || wbraid || gbraid,
       click_id_type: gclid ? "gclid" : wbraid ? "wbraid" : "gbraid",
-      request_payload: result.request as object,
-      response_payload: result.response as object,
+      request_payload: JSON.parse(JSON.stringify(result.request)),
+      response_payload: JSON.parse(JSON.stringify(result.response)),
       error: result.error ?? null,
       attempts: (existing.data ? 1 : 0) + 1,
       attempted_at: new Date().toISOString(),
@@ -135,7 +135,7 @@ export const sendGoogleAdsConversion = createServerFn({ method: "POST" })
     };
     await supabaseAdmin
       .from("conversion_uploads")
-      .upsert(row, { onConflict: "lead_id,network,stage" });
+      .upsert(row as never, { onConflict: "lead_id,network,stage" });
 
     return { ok: result.ok, status: result.status, error: result.error };
   });
