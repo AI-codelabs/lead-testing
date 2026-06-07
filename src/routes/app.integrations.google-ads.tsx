@@ -124,6 +124,22 @@ function GoogleAdsPage() {
     return () => window.removeEventListener("message", onMsg);
   }, [refresh]);
 
+  // Handle full-redirect OAuth return (?ga_connected=1|0&error=...).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("ga_connected")) return;
+    const ok = params.get("ga_connected") === "1";
+    if (ok) {
+      setError(null);
+      void refresh();
+    } else {
+      setError(params.get("error") || "Connection failed");
+    }
+    // Clean the URL.
+    const clean = window.location.pathname;
+    window.history.replaceState({}, "", clean);
+  }, [refresh]);
+
   // Auto-load customers when connected.
   useEffect(() => {
     if (!connection.connected) { setCustomers([]); return; }
