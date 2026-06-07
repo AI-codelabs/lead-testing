@@ -279,6 +279,7 @@ function IntegrationsPage() {
       for (const id of statuses.incomingConnectedIds) ids.add(id);
     }
     if (statuses?.googleAdsConnected) ids.add("google-ads");
+    if (statuses?.metaAdsConnected) ids.add("meta-ads");
     return ids;
   }, [statuses]);
 
