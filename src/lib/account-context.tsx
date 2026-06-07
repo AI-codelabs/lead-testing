@@ -37,6 +37,14 @@ type AccountState = {
   enterClient: (id: string) => void;
   exitClient: () => void;
 
+  /**
+   * The workspace the UI is currently rendering for. This is the ONLY workspace
+   * identifier data-bound pages (dashboard, crm, pipeline, tracking,
+   * integrations) should read — it switches automatically when an agency
+   * enters/exits a client so each client sees their own leads, not the agency's.
+   */
+  activeWorkspace: { key: string; name: string };
+
   /** Effective access level for the currently rendered workspace. Standard owners always get "full". */
   effectiveAccess: AccessLevel;
   /** True when the current view is an agency looking at a client (read-mostly). */
@@ -151,16 +159,23 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AccountState>(() => {
     const isAgencyViewing = accountType === "agency" && viewingClientId !== null;
+    const ownName = "Acme Media";
     let effectiveAccess: AccessLevel = "full";
+    let activeWorkspace = { key: deriveWorkspaceKey(ownName), name: ownName };
     if (isAgencyViewing) {
       const ws = clientWorkspaces.find((c) => c.id === viewingClientId);
       effectiveAccess = ws?.agencyAccess ?? "metrics_only";
+      if (ws) {
+        // Client workspace IDs are already in `ws_*` form and ARE the workspace
+        // key — so each client owns a distinct set of leads, billing, settings.
+        activeWorkspace = { key: ws.id, name: ws.name };
+      }
     }
     return {
       accountType,
       setAccountType,
       ownWorkspace: {
-        name: "Acme Media",
+        name: ownName,
         invitedAgencyEmail,
         grantedAccess,
       },
@@ -171,6 +186,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       viewingClientId,
       enterClient,
       exitClient,
+      activeWorkspace,
       effectiveAccess,
       isAgencyViewing,
     };
