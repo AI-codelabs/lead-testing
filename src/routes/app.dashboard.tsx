@@ -232,10 +232,11 @@ function TrendChip({ delta, trend, compact = false }: { delta: string; trend: Tr
   );
 }
 
-function FunnelCard({ stages }: { stages: Stage[] }) {
+function FunnelCard({ stages, hasData }: { stages: Stage[]; hasData: boolean }) {
   const total = stages.find((s) => s.key === "total")!.value;
   const funnelStages = stages.filter((s) => s.key !== "total");
   const totalStage = stages.find((s) => s.key === "total")!;
+  const dash = "—";
 
   return (
     <section className="lg:col-span-3 bg-card ring-1 ring-border rounded-lg p-5 flex flex-col gap-5">
@@ -245,9 +246,13 @@ function FunnelCard({ stages }: { stages: Stage[] }) {
             Lead Overview
           </div>
           <div className="flex items-baseline gap-3 mt-1">
-            <h2 className="text-4xl font-semibold tracking-tight tabular-nums">{nf.format(total)}</h2>
-            <span className="text-sm text-muted-foreground">total leads</span>
-            <TrendChip delta={totalStage.delta} trend={totalStage.trend} />
+            <h2 className="text-4xl font-semibold tracking-tight tabular-nums">
+              {hasData ? nf.format(total) : dash}
+            </h2>
+            <span className="text-sm text-muted-foreground">
+              {hasData ? "total leads" : "Connect an integration to start collecting leads"}
+            </span>
+            {hasData && <TrendChip delta={totalStage.delta} trend={totalStage.trend} />}
           </div>
         </div>
       </header>
@@ -255,22 +260,23 @@ function FunnelCard({ stages }: { stages: Stage[] }) {
       {/* Stacked funnel bar */}
       <div className="space-y-2">
         <div className="flex h-2.5 rounded-full overflow-hidden ring-1 ring-border bg-muted">
-          {funnelStages.map((s) => {
-            const pct = total > 0 ? (s.value / total) * 100 : 0;
-            if (pct === 0) return null;
-            return (
-              <div
-                key={s.key}
-                className={s.swatch}
-                style={{ width: `${pct}%` }}
-                title={`${s.label}: ${s.value}`}
-              />
-            );
-          })}
+          {hasData &&
+            funnelStages.map((s) => {
+              const pct = total > 0 ? (s.value / total) * 100 : 0;
+              if (pct === 0) return null;
+              return (
+                <div
+                  key={s.key}
+                  className={s.swatch}
+                  style={{ width: `${pct}%` }}
+                  title={`${s.label}: ${s.value}`}
+                />
+              );
+            })}
         </div>
         <div className="text-[10px] text-muted-foreground flex justify-between font-mono">
           <span>0</span>
-          <span>{nf.format(total)}</span>
+          <span>{hasData ? nf.format(total) : dash}</span>
         </div>
       </div>
 
@@ -285,10 +291,18 @@ function FunnelCard({ stages }: { stages: Stage[] }) {
                 <span className="truncate">{s.label}</span>
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-xl font-semibold tabular-nums tracking-tight">{nf.format(s.value)}</span>
-                <span className="text-[10px] text-muted-foreground font-mono">{pct}%</span>
+                <span className="text-xl font-semibold tabular-nums tracking-tight">
+                  {hasData ? nf.format(s.value) : dash}
+                </span>
+                {hasData && (
+                  <span className="text-[10px] text-muted-foreground font-mono">{pct}%</span>
+                )}
               </div>
-              <TrendChip delta={s.delta} trend={s.trend} compact />
+              {hasData ? (
+                <TrendChip delta={s.delta} trend={s.trend} compact />
+              ) : (
+                <span className="text-[10px] text-muted-foreground">Awaiting leads</span>
+              )}
             </div>
           );
         })}
