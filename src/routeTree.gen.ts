@@ -29,6 +29,7 @@ import { Route as AgencyAccountRouteImport } from './routes/agency.account'
 import { Route as AppIntegrationsGoogleAdsRouteImport } from './routes/app.integrations.google-ads'
 import { Route as ApiPublicTrackerV1RouteImport } from './routes/api/public/tracker.v1'
 import { Route as ApiPublicLeadsCollectRouteImport } from './routes/api/public/leads/collect'
+import { Route as ApiPublicOauthGoogleAdsStartRouteImport } from './routes/api/public/oauth/google-ads/start'
 
 const TrackerDotv1DotjsRoute = TrackerDotv1DotjsRouteImport.update({
   id: '/tracker.v1.js',
@@ -131,6 +132,12 @@ const ApiPublicLeadsCollectRoute = ApiPublicLeadsCollectRouteImport.update({
   path: '/api/public/leads/collect',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicOauthGoogleAdsStartRoute =
+  ApiPublicOauthGoogleAdsStartRouteImport.update({
+    id: '/api/public/oauth/google-ads/start',
+    path: '/api/public/oauth/google-ads/start',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
+  '/api/public/oauth/google-ads/start': typeof ApiPublicOauthGoogleAdsStartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -173,6 +181,7 @@ export interface FileRoutesByTo {
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
+  '/api/public/oauth/google-ads/start': typeof ApiPublicOauthGoogleAdsStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -196,6 +205,7 @@ export interface FileRoutesById {
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
+  '/api/public/oauth/google-ads/start': typeof ApiPublicOauthGoogleAdsStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/app/integrations/google-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
+    | '/api/public/oauth/google-ads/start'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/app/integrations/google-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
+    | '/api/public/oauth/google-ads/start'
   id:
     | '__root__'
     | '/'
@@ -262,6 +274,7 @@ export interface FileRouteTypes {
     | '/app/integrations/google-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
+    | '/api/public/oauth/google-ads/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -274,6 +287,7 @@ export interface RootRouteChildren {
   TrackerV1DotjsRoute: typeof TrackerV1DotjsRoute
   ApiPublicLeadsCollectRoute: typeof ApiPublicLeadsCollectRoute
   ApiPublicTrackerV1Route: typeof ApiPublicTrackerV1Route
+  ApiPublicOauthGoogleAdsStartRoute: typeof ApiPublicOauthGoogleAdsStartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -418,6 +432,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicLeadsCollectRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/oauth/google-ads/start': {
+      id: '/api/public/oauth/google-ads/start'
+      path: '/api/public/oauth/google-ads/start'
+      fullPath: '/api/public/oauth/google-ads/start'
+      preLoaderRoute: typeof ApiPublicOauthGoogleAdsStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -480,7 +501,18 @@ const rootRouteChildren: RootRouteChildren = {
   TrackerV1DotjsRoute: TrackerV1DotjsRoute,
   ApiPublicLeadsCollectRoute: ApiPublicLeadsCollectRoute,
   ApiPublicTrackerV1Route: ApiPublicTrackerV1Route,
+  ApiPublicOauthGoogleAdsStartRoute: ApiPublicOauthGoogleAdsStartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
