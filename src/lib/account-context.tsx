@@ -307,6 +307,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       activeWorkspace,
       effectiveAccess,
       isAgencyViewing,
+      signOut,
+      authReady,
+      isAuthenticated,
     };
   }, [
     accountType,
@@ -320,6 +323,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     addClientWorkspace,
     enterClient,
     exitClient,
+    signOut,
+    authReady,
+    isAuthenticated,
   ]);
 
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
