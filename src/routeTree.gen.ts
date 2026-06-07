@@ -26,6 +26,7 @@ import { Route as AppCrmRouteImport } from './routes/app.crm'
 import { Route as AppAccountRouteImport } from './routes/app.account'
 import { Route as AgencyNewClientRouteImport } from './routes/agency.new-client'
 import { Route as AgencyAccountRouteImport } from './routes/agency.account'
+import { Route as AppIntegrationsMetaAdsRouteImport } from './routes/app.integrations.meta-ads'
 import { Route as AppIntegrationsGoogleAdsRouteImport } from './routes/app.integrations.google-ads'
 import { Route as ApiPublicTrackerV1RouteImport } from './routes/api/public/tracker.v1'
 import { Route as ApiPublicLeadsCollectRouteImport } from './routes/api/public/leads/collect'
@@ -117,6 +118,11 @@ const AgencyAccountRoute = AgencyAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AgencyRoute,
 } as any)
+const AppIntegrationsMetaAdsRoute = AppIntegrationsMetaAdsRouteImport.update({
+  id: '/meta-ads',
+  path: '/meta-ads',
+  getParentRoute: () => AppIntegrationsRoute,
+} as any)
 const AppIntegrationsGoogleAdsRoute =
   AppIntegrationsGoogleAdsRouteImport.update({
     id: '/google-ads',
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
+  '/app/integrations/meta-ads': typeof AppIntegrationsMetaAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/agency': typeof AgencyIndexRoute
   '/app': typeof AppIndexRoute
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
+  '/app/integrations/meta-ads': typeof AppIntegrationsMetaAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
+  '/app/integrations/meta-ads': typeof AppIntegrationsMetaAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
@@ -238,6 +247,7 @@ export interface FileRouteTypes {
     | '/agency/'
     | '/app/'
     | '/app/integrations/google-ads'
+    | '/app/integrations/meta-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
     | '/api/public/oauth/google-ads/callback'
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | '/agency'
     | '/app'
     | '/app/integrations/google-ads'
+    | '/app/integrations/meta-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
     | '/api/public/oauth/google-ads/callback'
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/agency/'
     | '/app/'
     | '/app/integrations/google-ads'
+    | '/app/integrations/meta-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
     | '/api/public/oauth/google-ads/callback'
@@ -425,6 +437,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgencyAccountRouteImport
       parentRoute: typeof AgencyRoute
     }
+    '/app/integrations/meta-ads': {
+      id: '/app/integrations/meta-ads'
+      path: '/meta-ads'
+      fullPath: '/app/integrations/meta-ads'
+      preLoaderRoute: typeof AppIntegrationsMetaAdsRouteImport
+      parentRoute: typeof AppIntegrationsRoute
+    }
     '/app/integrations/google-ads': {
       id: '/app/integrations/google-ads'
       path: '/google-ads'
@@ -480,10 +499,12 @@ const AgencyRouteWithChildren =
 
 interface AppIntegrationsRouteChildren {
   AppIntegrationsGoogleAdsRoute: typeof AppIntegrationsGoogleAdsRoute
+  AppIntegrationsMetaAdsRoute: typeof AppIntegrationsMetaAdsRoute
 }
 
 const AppIntegrationsRouteChildren: AppIntegrationsRouteChildren = {
   AppIntegrationsGoogleAdsRoute: AppIntegrationsGoogleAdsRoute,
+  AppIntegrationsMetaAdsRoute: AppIntegrationsMetaAdsRoute,
 }
 
 const AppIntegrationsRouteWithChildren = AppIntegrationsRoute._addFileChildren(

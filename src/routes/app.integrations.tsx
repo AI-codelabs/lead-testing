@@ -19,7 +19,7 @@ type IntegrationItem = {
   id: string;
   name: string;
   description: string;
-  setupTo?: "/app/tracking" | "/app/integrations/google-ads";
+  setupTo?: "/app/tracking" | "/app/integrations/google-ads" | "/app/integrations/meta-ads";
   comingSoon?: boolean;
 };
 
@@ -71,8 +71,9 @@ const outgoing: IntegrationItem[] = [
   {
     id: "meta-ads",
     name: "Meta Ads",
+    setupTo: "/app/integrations/meta-ads",
     description:
-      "Send conversion events to Meta (Facebook & Instagram) for better campaign optimization and audience targeting across Meta platforms.",
+      "Send conversion events to Meta (Facebook & Instagram) via the Conversions API for better campaign optimization and audience targeting across Meta platforms.",
   },
   {
     id: "microsoft-ads",
