@@ -9,6 +9,9 @@ import { Check, Copy, ExternalLink, ShieldCheck, Sparkles, Zap, AlertCircle } fr
 export const Route = createFileRoute("/app/tracking")({
   head: () => ({ meta: [{ title: "Tracking Setup — Leadlogr" }] }),
   ssr: false,
+  validateSearch: (search: Record<string, unknown>) => ({
+    integration: typeof search.integration === "string" ? search.integration : "gtm",
+  }),
   component: TrackingPage,
 });
 
@@ -23,6 +26,13 @@ type Flags = {
   allowConsentFallback: boolean;
   allowDynamicForms: boolean;
   debug: boolean;
+};
+
+const INTEGRATION_NAMES: Record<string, string> = {
+  gtm: "Google Tag Manager",
+  wordpress: "WordPress",
+  api: "REST API",
+  zapier: "Zapier",
 };
 
 function CopyButton({ text }: { text: string }) {
@@ -83,8 +93,11 @@ function FlagToggle({
 }
 
 function TrackingPage() {
+  const search = Route.useSearch();
   const { ownWorkspace } = useAccount();
   const workspaceId = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
+  const integrationId = ["gtm", "wordpress", "api", "zapier"].includes(search.integration) ? search.integration : "gtm";
+  const integrationName = INTEGRATION_NAMES[integrationId] ?? "Google Tag Manager";
 
   const [origin, setOrigin] = useState<string>("");
   useEffect(() => { setOrigin(window.location.origin); }, []);
@@ -124,7 +137,7 @@ function TrackingPage() {
   window.LEADLOGR_CONFIG = {
     workspaceId: ${JSON.stringify(workspaceId)},
     endpoint:    ${JSON.stringify(effectiveEndpoint)},
-    integrationId: "gtm",
+    integrationId: ${JSON.stringify(integrationId)},
     debug:       ${flags.debug},
     featureFlags: ${flagsJson}
   };
@@ -141,7 +154,7 @@ function TrackingPage() {
   src="${trackerSrc}"
   data-workspace-id="${workspaceId}"
   data-endpoint="${effectiveEndpoint}"
-  data-integration-id="gtm"
+  data-integration-id="${integrationId}"
   data-debug="${flags.debug}"
   data-feature-flags='${flagsJson}'
   async
@@ -161,7 +174,7 @@ window.Leadlogr.submitForm({
     <>
       <PageHeader
         eyebrow="Integrations › Tracking"
-        title="Tracking setup"
+        title={`${integrationName} setup`}
         description="One snippet. Auto-detects forms, captures UTMs and click IDs, respects consent. Paste it once — no code changes per form."
       />
 
@@ -258,7 +271,7 @@ window.Leadlogr.submitForm({
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           workspace_key: workspaceId,
-                          integration_id: "gtm",
+                          integration_id: integrationId,
                           name: "Test Lead",
                           email: "test@example.com",
                           phone: "+1 555 0100",

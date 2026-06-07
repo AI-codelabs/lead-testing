@@ -175,7 +175,7 @@ const updating: IntegrationItem[] = [
 
 function ConnectedBadge({ label = "Connected" }: { label?: string }) {
   return (
-    <div className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/30 flex items-center justify-center gap-1.5">
+    <div className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-stage-green-soft text-stage-green-ink ring-1 ring-stage-green-line flex items-center justify-center gap-1.5">
       <Check className="size-4" />
       {label}
     </div>
@@ -203,6 +203,7 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
         connected ? (
           <Link
             to={item.setupTo}
+            search={item.setupTo === "/app/tracking" ? { integration: item.id } : undefined}
             className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-stage-green-soft text-stage-green-ink ring-1 ring-stage-green-line hover:opacity-90 cursor-pointer text-center flex items-center justify-center gap-1.5"
           >
             <Check className="size-4" />
@@ -211,6 +212,7 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
         ) : (
           <Link
             to={item.setupTo}
+            search={item.setupTo === "/app/tracking" ? { integration: item.id } : undefined}
             className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
           >
             {item.id === "google-ads" ? "Connect" : "Set up"}
