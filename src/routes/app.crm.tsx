@@ -508,6 +508,14 @@ function CrmPage() {
                             <Check className="size-3" />
                             Won
                           </button>
+                          <button
+                            onClick={() => handleDelete(l)}
+                            className="p-1 rounded hover:bg-stage-red-soft text-muted-foreground hover:text-stage-red-ink transition-colors"
+                            aria-label="Delete lead"
+                            title="Delete lead"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
                         </div>
                       </td>
                     )}
