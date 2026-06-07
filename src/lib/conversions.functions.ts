@@ -20,7 +20,7 @@ export const sendGoogleAdsConversion = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const {
-      readGoogleAdsCreds,
+      buildGoogleAdsCreds,
       uploadClickConversion,
       formatConversionDateTime,
       sha256Hex,
