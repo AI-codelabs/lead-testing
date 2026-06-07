@@ -311,9 +311,10 @@ function FunnelCard({ stages, hasData }: { stages: Stage[]; hasData: boolean }) 
   );
 }
 
-function PerformanceCard({ perf }: { perf: Performance }) {
+function PerformanceCard({ perf, hasData }: { perf: Performance; hasData: boolean }) {
   const netProfit = perf.wonValue - perf.spend;
-  const spendPct = (perf.spend / perf.wonValue) * 100;
+  const spendPct = hasData ? (perf.spend / perf.wonValue) * 100 : 0;
+  const dash = "—";
 
   return (
     <section className="lg:col-span-2 bg-card ring-1 ring-border rounded-lg p-5 flex flex-col gap-5">
