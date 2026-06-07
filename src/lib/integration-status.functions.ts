@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 export type IntegrationStatuses = {
-  incomingConnected: boolean;
+  incomingConnectedIds: string[];
   googleAdsConnected: boolean;
 };
 
@@ -12,10 +12,10 @@ export const getIntegrationStatuses = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }): Promise<IntegrationStatuses> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [leadsRes, gaRes] = await Promise.all([
+    const [incomingRes, gaRes] = await Promise.all([
       supabaseAdmin
         .from("leads")
-        .select("id", { count: "exact", head: true })
+        .select("raw_payload")
         .eq("workspace_key", data.workspaceKey),
       supabaseAdmin
         .from("google_ads_settings")
@@ -23,8 +23,13 @@ export const getIntegrationStatuses = createServerFn({ method: "POST" })
         .eq("workspace_key", data.workspaceKey)
         .maybeSingle(),
     ]);
-    const incomingConnected = (leadsRes.count ?? 0) > 0;
+    const incomingConnectedIds = new Set<string>();
+    for (const row of (incomingRes.data ?? []) as Array<{ raw_payload?: Record<string, unknown> | null }>) {
+      const id = typeof row.raw_payload?.integration_id === "string" ? row.raw_payload.integration_id : "";
+      if (["gtm", "wordpress", "api", "zapier"].includes(id)) incomingConnectedIds.add(id);
+      if (!id) incomingConnectedIds.add("gtm");
+    }
     const row = gaRes.data as { oauth_refresh_token?: string | null } | null;
     const googleAdsConnected = !!row?.oauth_refresh_token;
-    return { incomingConnected, googleAdsConnected };
+    return { incomingConnectedIds: [...incomingConnectedIds], googleAdsConnected };
   });

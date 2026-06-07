@@ -9,6 +9,9 @@ import { Check, Copy, ExternalLink, ShieldCheck, Sparkles, Zap, AlertCircle } fr
 export const Route = createFileRoute("/app/tracking")({
   head: () => ({ meta: [{ title: "Tracking Setup — Leadlogr" }] }),
   ssr: false,
+  validateSearch: (search: Record<string, unknown>) => ({
+    integration: typeof search.integration === "string" ? search.integration : "gtm",
+  }),
   component: TrackingPage,
 });
 
@@ -23,6 +26,13 @@ type Flags = {
   allowConsentFallback: boolean;
   allowDynamicForms: boolean;
   debug: boolean;
+};
+
+const INTEGRATION_NAMES: Record<string, string> = {
+  gtm: "Google Tag Manager",
+  wordpress: "WordPress",
+  api: "REST API",
+  zapier: "Zapier",
 };
 
 function CopyButton({ text }: { text: string }) {
@@ -83,8 +93,11 @@ function FlagToggle({
 }
 
 function TrackingPage() {
+  const search = Route.useSearch();
   const { ownWorkspace } = useAccount();
   const workspaceId = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
+  const integrationId = ["gtm", "wordpress", "api", "zapier"].includes(search.integration) ? search.integration : "gtm";
+  const integrationName = INTEGRATION_NAMES[integrationId] ?? "Google Tag Manager";
 
   const [origin, setOrigin] = useState<string>("");
   useEffect(() => { setOrigin(window.location.origin); }, []);
@@ -102,7 +115,11 @@ function TrackingPage() {
 
   // Live ingestion status
   const liveLeads = useLiveLeads(workspaceId);
-  const hasEvents = liveLeads.length > 0;
+  const integrationLeads = useMemo(
+    () => liveLeads.filter((lead) => (lead.integrationId || "gtm") === integrationId),
+    [liveLeads, integrationId],
+  );
+  const hasEvents = integrationLeads.length > 0;
 
 
   const flagsJson = JSON.stringify(
@@ -124,6 +141,7 @@ function TrackingPage() {
   window.LEADLOGR_CONFIG = {
     workspaceId: ${JSON.stringify(workspaceId)},
     endpoint:    ${JSON.stringify(effectiveEndpoint)},
+    integrationId: ${JSON.stringify(integrationId)},
     debug:       ${flags.debug},
     featureFlags: ${flagsJson}
   };
@@ -140,6 +158,7 @@ function TrackingPage() {
   src="${trackerSrc}"
   data-workspace-id="${workspaceId}"
   data-endpoint="${effectiveEndpoint}"
+  data-integration-id="${integrationId}"
   data-debug="${flags.debug}"
   data-feature-flags='${flagsJson}'
   async
@@ -159,7 +178,7 @@ window.Leadlogr.submitForm({
     <>
       <PageHeader
         eyebrow="Integrations › Tracking"
-        title="Tracking setup"
+        title={`${integrationName} setup`}
         description="One snippet. Auto-detects forms, captures UTMs and click IDs, respects consent. Paste it once — no code changes per form."
       />
 
@@ -242,7 +261,7 @@ window.Leadlogr.submitForm({
                   {hasEvents ? (
                     <span className="inline-flex items-center gap-1.5 text-stage-green-ink bg-stage-green-soft ring-1 ring-stage-green-line px-2 py-1 rounded">
                       <span className="size-1.5 rounded-full bg-stage-green-ink" />
-                      {liveLeads.length} event{liveLeads.length === 1 ? "" : "s"} received — newest from {liveLeads[0]?.email || liveLeads[0]?.name || "anonymous"}
+                      {integrationLeads.length} event{integrationLeads.length === 1 ? "" : "s"} received — newest from {integrationLeads[0]?.email || integrationLeads[0]?.name || "anonymous"}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-muted-foreground bg-muted/40 ring-1 ring-border px-2 py-1 rounded">
@@ -256,6 +275,7 @@ window.Leadlogr.submitForm({
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           workspace_key: workspaceId,
+                          integration_id: integrationId,
                           name: "Test Lead",
                           email: "test@example.com",
                           phone: "+1 555 0100",
