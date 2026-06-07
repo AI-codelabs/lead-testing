@@ -27,7 +27,8 @@ import {
   type LeadLabel,
   type Source,
 } from "@/components/leadlogr/lead-types";
-import { useAccess } from "@/lib/account-context";
+import { useAccess, useAccount } from "@/lib/account-context";
+import { deriveWorkspaceKey, useLiveLeads } from "@/hooks/use-live-leads";
 
 export const Route = createFileRoute("/app/crm")({
   head: () => ({ meta: [{ title: "CRM — Leadlogr" }] }),
@@ -117,7 +118,14 @@ type Column = (typeof ALL_COLUMNS)[number];
 
 function CrmPage() {
   const access = useAccess();
-  const [leads, setLeads] = useState<Lead[]>(SEED_LEADS);
+  const { ownWorkspace } = useAccount();
+  const workspaceKey = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
+  const liveLeads = useLiveLeads(workspaceKey);
+  const [seedLeads, setLeads] = useState<Lead[]>(SEED_LEADS);
+  const leads = useMemo(() => {
+    const liveIds = new Set(liveLeads.map((l) => l.id));
+    return [...liveLeads, ...seedLeads.filter((l) => !liveIds.has(l.id))];
+  }, [liveLeads, seedLeads]);
   const [tab, setTab] = useState<Tab>("Open");
   const [search, setSearch] = useState("");
   const [sortAsc, setSortAsc] = useState(true);
