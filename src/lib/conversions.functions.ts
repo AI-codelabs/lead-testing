@@ -142,3 +142,122 @@ export const sendGoogleAdsConversion = createServerFn({ method: "POST" })
 
     return { ok: result.ok, status: result.status, error: result.error };
   });
+
+/**
+ * Send a Meta Conversions API event for one lead at a given stage.
+ * - Fires for any lead — Meta CAPI accepts website + system_generated events
+ *   without requiring an fbc/fbclid. fbc/fbp are attached when available.
+ * - Idempotent per (lead_id, network, stage).
+ */
+export const sendMetaConversion = createServerFn({ method: "POST" })
+  .inputValidator((data: { leadId: string; stage: string }) => {
+    if (!data || typeof data.leadId !== "string" || typeof data.stage !== "string") {
+      throw new Error("Invalid input");
+    }
+    return data;
+  })
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { sendMetaCapiEvent, buildFbc } = await import("./meta-capi.server");
+
+    const stage = data.stage;
+    const STAGE_TO_FIELD: Record<string, "event_name_new" | "event_name_qualified" | "event_name_won" | "event_name_lost"> = {
+      New: "event_name_new",
+      Qualified: "event_name_qualified",
+      Won: "event_name_won",
+      Lost: "event_name_lost",
+      Disqualified: "event_name_lost",
+    };
+    const settingsField = STAGE_TO_FIELD[stage];
+    if (!settingsField) return { ok: false, skipped: true, reason: `unsupported_stage:${stage}` };
+
+    const existing = await supabaseAdmin
+      .from("conversion_uploads")
+      .select("id, status")
+      .eq("lead_id", data.leadId)
+      .eq("network", "meta_ads")
+      .eq("stage", stage)
+      .maybeSingle();
+    if (existing.data && existing.data.status === "success") {
+      return { ok: true, skipped: true, reason: "already_sent" };
+    }
+
+    const { data: lead, error: leadErr } = await supabaseAdmin
+      .from("leads")
+      .select("*")
+      .eq("id", data.leadId)
+      .single();
+    if (leadErr || !lead) return { ok: false, skipped: true, reason: "lead_not_found" };
+
+    const { data: settings } = await supabaseAdmin
+      .from("meta_ads_settings")
+      .select("*")
+      .eq("workspace_key", lead.workspace_key)
+      .maybeSingle();
+    const s = settings as Record<string, unknown> | null;
+    if (!s || !s.enabled) return { ok: false, skipped: true, reason: "meta_not_configured" };
+    if (!s.access_token || !s.pixel_id) return { ok: false, skipped: true, reason: "not_connected" };
+    const eventName = s[settingsField] as string | null;
+    if (!eventName) return { ok: false, skipped: true, reason: `no_event_name_for:${stage}` };
+
+    const consent = String(lead.consent || "").toLowerCase();
+    const consented = consent === "accepted";
+
+    const fbclid = (lead as any).fbclid as string;
+    const fbp = (lead as any).fbp as string;
+    const fbc = fbclid ? buildFbc(fbclid) : undefined;
+
+    const value =
+      stage === "Won" && (lead as any).won_value != null
+        ? Number((lead as any).won_value)
+        : undefined;
+
+    const result = await sendMetaCapiEvent(
+      {
+        pixelId: s.pixel_id as string,
+        accessToken: s.access_token as string,
+        testEventCode: (s.test_event_code as string | null) ?? null,
+      },
+      {
+        eventName,
+        eventTime: Math.floor(new Date((lead as any).stage_changed_at || lead.updated_at || lead.created_at).getTime() / 1000),
+        eventId: `${lead.id}:${stage}`,
+        eventSourceUrl: (lead as any).landing_page_url || (lead as any).page_path || undefined,
+        actionSource: fbc || fbp ? "website" : "system_generated",
+        userData: {
+          email: consented && lead.email ? lead.email : undefined,
+          phone: consented && lead.phone ? lead.phone : undefined,
+          fbp: fbp || undefined,
+          fbc,
+          clientUserAgent: (lead as any).user_agent || undefined,
+        },
+        value,
+        currency: value != null ? ((s.default_currency as string) || "EUR") : undefined,
+        orderId: `${lead.id}:${stage}`,
+      },
+    );
+
+    const uploadRow = {
+      lead_id: lead.id,
+      workspace_key: lead.workspace_key,
+      network: "meta_ads",
+      stage,
+      status: result.ok ? "success" : "failed",
+      conversion_action: eventName,
+      value: value ?? null,
+      currency: value != null ? (s.default_currency as string) || "EUR" : null,
+      click_id: fbclid || fbp || null,
+      click_id_type: fbclid ? "fbclid" : fbp ? "fbp" : null,
+      request_payload: JSON.parse(JSON.stringify(result.request)),
+      response_payload: JSON.parse(JSON.stringify(result.response)),
+      error: result.error ?? null,
+      attempts: (existing.data ? 1 : 0) + 1,
+      attempted_at: new Date().toISOString(),
+      succeeded_at: result.ok ? new Date().toISOString() : null,
+    };
+    await supabaseAdmin
+      .from("conversion_uploads")
+      .upsert(uploadRow as never, { onConflict: "lead_id,network,stage" });
+
+    return { ok: result.ok, status: result.status, error: result.error };
+  });

@@ -37,12 +37,11 @@ export const setLeadStage = createServerFn({ method: "POST" })
       .eq("workspace_key", data.workspaceKey);
     if (error) throw new Error(error.message);
 
-    // Fire conversion in the background. We don't block the UI on Google.
+    // Fire conversions in the background. We don't block the UI on upstream networks.
     try {
-      const { sendGoogleAdsConversion } = await import("./conversions.functions");
-      // Intentionally not awaited; serverless runtime will keep it alive long enough
-      // for a single fetch round-trip via keepalive.
+      const { sendGoogleAdsConversion, sendMetaConversion } = await import("./conversions.functions");
       void sendGoogleAdsConversion({ data: { leadId: data.leadId, stage: data.stage } });
+      void sendMetaConversion({ data: { leadId: data.leadId, stage: data.stage } });
     } catch {
       /* swallow — conversion failure must never break stage updates */
     }

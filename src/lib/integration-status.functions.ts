@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 export type IntegrationStatuses = {
   incomingConnectedIds: string[];
   googleAdsConnected: boolean;
+  metaAdsConnected: boolean;
 };
 
 export const getIntegrationStatuses = createServerFn({ method: "POST" })
@@ -12,7 +13,7 @@ export const getIntegrationStatuses = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }): Promise<IntegrationStatuses> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [incomingRes, gaRes] = await Promise.all([
+    const [incomingRes, gaRes, metaRes] = await Promise.all([
       supabaseAdmin
         .from("leads")
         .select("raw_payload")
@@ -22,6 +23,11 @@ export const getIntegrationStatuses = createServerFn({ method: "POST" })
         .select("oauth_refresh_token")
         .eq("workspace_key", data.workspaceKey)
         .maybeSingle(),
+      supabaseAdmin
+        .from("meta_ads_settings")
+        .select("access_token, pixel_id")
+        .eq("workspace_key", data.workspaceKey)
+        .maybeSingle(),
     ]);
     const incomingConnectedIds = new Set<string>();
     for (const row of (incomingRes.data ?? []) as Array<{ raw_payload?: Record<string, unknown> | null }>) {
@@ -29,7 +35,9 @@ export const getIntegrationStatuses = createServerFn({ method: "POST" })
       if (["gtm", "wordpress", "api", "zapier"].includes(id)) incomingConnectedIds.add(id);
       if (!id) incomingConnectedIds.add("gtm");
     }
-    const row = gaRes.data as { oauth_refresh_token?: string | null } | null;
-    const googleAdsConnected = !!row?.oauth_refresh_token;
-    return { incomingConnectedIds: [...incomingConnectedIds], googleAdsConnected };
+    const gaRow = gaRes.data as { oauth_refresh_token?: string | null } | null;
+    const googleAdsConnected = !!gaRow?.oauth_refresh_token;
+    const metaRow = metaRes.data as { access_token?: string | null; pixel_id?: string | null } | null;
+    const metaAdsConnected = !!(metaRow?.access_token && metaRow?.pixel_id);
+    return { incomingConnectedIds: [...incomingConnectedIds], googleAdsConnected, metaAdsConnected };
   });

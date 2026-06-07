@@ -19,7 +19,7 @@ type IntegrationItem = {
   id: string;
   name: string;
   description: string;
-  setupTo?: "/app/tracking" | "/app/integrations/google-ads";
+  setupTo?: "/app/tracking" | "/app/integrations/google-ads" | "/app/integrations/meta-ads";
   comingSoon?: boolean;
 };
 
@@ -71,8 +71,9 @@ const outgoing: IntegrationItem[] = [
   {
     id: "meta-ads",
     name: "Meta Ads",
+    setupTo: "/app/integrations/meta-ads",
     description:
-      "Send conversion events to Meta (Facebook & Instagram) for better campaign optimization and audience targeting across Meta platforms.",
+      "Send conversion events to Meta (Facebook & Instagram) via the Conversions API for better campaign optimization and audience targeting across Meta platforms.",
   },
   {
     id: "microsoft-ads",
@@ -212,7 +213,7 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
             </Link>
           ) : (
             <Link
-              to="/app/integrations/google-ads"
+              to={item.setupTo}
               className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-stage-green-soft text-stage-green-ink ring-1 ring-stage-green-line hover:opacity-90 cursor-pointer text-center flex items-center justify-center gap-1.5"
             >
               <Check className="size-4" />
@@ -230,7 +231,7 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
             </Link>
           ) : (
             <Link
-              to="/app/integrations/google-ads"
+              to={item.setupTo}
               className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
             >
               Connect
@@ -278,6 +279,7 @@ function IntegrationsPage() {
       for (const id of statuses.incomingConnectedIds) ids.add(id);
     }
     if (statuses?.googleAdsConnected) ids.add("google-ads");
+    if (statuses?.metaAdsConnected) ids.add("meta-ads");
     return ids;
   }, [statuses]);
 
