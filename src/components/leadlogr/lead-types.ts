@@ -96,6 +96,7 @@ export interface Lead {
   source: Source;
   company?: string;
   // Tracking
+  integrationId?: string;
   utmSource: string;
   utmMedium: string;
   utmCampaign: string;
@@ -216,6 +217,7 @@ export function emptyLead(stage: string = "New"): Lead {
     updatedAt: now.toISOString(),
     expiresAt: expires.toISOString(),
     label: "No label",
+    integrationId: "",
     utmSource: "",
     utmMedium: "",
     utmCampaign: "",

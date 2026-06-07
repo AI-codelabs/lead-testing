@@ -31,6 +31,7 @@ export type LiveLeadRow = {
   page_path: string;
   referrer_url: string;
   consent: string;
+  raw_payload: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 };
@@ -51,6 +52,7 @@ function toLead(row: LiveLeadRow): Lead {
     phone: row.phone || "",
     company: row.company || "",
     description: row.message || "",
+    integrationId: typeof row.raw_payload?.integration_id === "string" ? row.raw_payload.integration_id : "gtm",
     source,
     utmSource: row.utm_source || "",
     utmMedium: row.utm_medium || "",

@@ -115,7 +115,11 @@ function TrackingPage() {
 
   // Live ingestion status
   const liveLeads = useLiveLeads(workspaceId);
-  const hasEvents = liveLeads.length > 0;
+  const integrationLeads = useMemo(
+    () => liveLeads.filter((lead) => (lead.integrationId || "gtm") === integrationId),
+    [liveLeads, integrationId],
+  );
+  const hasEvents = integrationLeads.length > 0;
 
 
   const flagsJson = JSON.stringify(
@@ -257,7 +261,7 @@ window.Leadlogr.submitForm({
                   {hasEvents ? (
                     <span className="inline-flex items-center gap-1.5 text-stage-green-ink bg-stage-green-soft ring-1 ring-stage-green-line px-2 py-1 rounded">
                       <span className="size-1.5 rounded-full bg-stage-green-ink" />
-                      {liveLeads.length} event{liveLeads.length === 1 ? "" : "s"} received — newest from {liveLeads[0]?.email || liveLeads[0]?.name || "anonymous"}
+                      {integrationLeads.length} event{integrationLeads.length === 1 ? "" : "s"} received — newest from {integrationLeads[0]?.email || integrationLeads[0]?.name || "anonymous"}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 text-muted-foreground bg-muted/40 ring-1 ring-border px-2 py-1 rounded">
