@@ -24,7 +24,7 @@ export type WorkspaceLeadRow = {
   page_path: string;
   referrer_url: string;
   consent: string;
-  raw_payload: Record<string, unknown> | null;
+  raw_payload: Record<string, string | number | boolean | null> | null;
   created_at: string;
   updated_at: string;
 };
