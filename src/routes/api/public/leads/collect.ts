@@ -15,7 +15,7 @@ function corsHeaders(request: Request): Record<string, string> {
 const KNOWN_FIELDS = new Set([
   "workspace_key", "name", "email", "phone", "company", "message",
   "source", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-  "gclid", "fbclid", "msclkid", "li_fat_id", "fbp", "ga_client_id", "ga_session_id",
+  "gclid", "wbraid", "gbraid", "fbclid", "msclkid", "li_fat_id", "fbp", "ga_client_id", "ga_session_id",
   "landing_page_url", "page_path", "referrer_url", "user_agent", "consent",
 ]);
 
