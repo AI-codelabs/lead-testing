@@ -419,7 +419,15 @@ function CrmPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b border-border">
               <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                <th className="px-3 py-3 w-10"></th>
+                <th className="px-3 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    className="size-3.5 accent-primary cursor-pointer"
+                    checked={allOnPageSelected}
+                    onChange={toggleSelectAllOnPage}
+                    aria-label="Select all on page"
+                  />
+                </th>
                 <th className="px-3 py-3 w-8 text-muted-foreground/60">#</th>
                 {showCol("Expires In") && <th className="px-3 py-3">Expires In</th>}
                 {showCol("Channel") && <th className="px-3 py-3">Channel</th>}
