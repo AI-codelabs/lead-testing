@@ -1,11 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useAccount } from "@/lib/account-context";
 import { deriveWorkspaceKey } from "@/hooks/use-live-leads";
-import { getGoogleAdsSettings, saveGoogleAdsSettings, listConversionUploads } from "@/lib/google-ads-settings.functions";
-import { Check, AlertCircle, ExternalLink, Loader2 } from "lucide-react";
+import {
+  getGoogleAdsSettings,
+  saveGoogleAdsSettings,
+  listConversionUploads,
+  disconnectGoogleAds,
+  listGoogleAdsCustomers,
+  listGoogleAdsConversionActions,
+} from "@/lib/google-ads-settings.functions";
+import { Check, AlertCircle, ExternalLink, Loader2, Plug, Unplug, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/app/integrations/google-ads")({
   head: () => ({ meta: [{ title: "Google Ads — Leadlogr" }] }),
@@ -31,12 +38,18 @@ const STAGES: Array<{ key: keyof FormState; label: string; hint: string }> = [
   { key: "conversion_action_lost", label: "Lost / Disqualified", hint: "Fired on Lost. Useful as a negative signal for Smart Bidding." },
 ];
 
+type Customer = { id: string; descriptiveName: string; currencyCode: string; timeZone: string; manager: boolean };
+type Action = { id: string; name: string; category: string; status: string };
+
 function GoogleAdsPage() {
   const { ownWorkspace } = useAccount();
   const workspaceKey = deriveWorkspaceKey(ownWorkspace.name);
   const load = useServerFn(getGoogleAdsSettings);
   const save = useServerFn(saveGoogleAdsSettings);
   const listUploads = useServerFn(listConversionUploads);
+  const disconnect = useServerFn(disconnectGoogleAds);
+  const listCustomers = useServerFn(listGoogleAdsCustomers);
+  const listActions = useServerFn(listGoogleAdsConversionActions);
 
   const [form, setForm] = useState<FormState>({
     enabled: true,
@@ -48,39 +61,101 @@ function GoogleAdsPage() {
     conversion_action_won: "",
     conversion_action_lost: "",
   });
+  const [connection, setConnection] = useState<{ connected: boolean; email: string | null; connectedAt: string | null }>({
+    connected: false,
+    email: null,
+    connectedAt: null,
+  });
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [actions, setActions] = useState<Action[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [loadingActions, setLoadingActions] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploads, setUploads] = useState<Array<{ id: string; stage: string; status: string; value: number | null; currency: string | null; click_id_type: string | null; error: string | null; attempted_at: string }>>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    const [s, u] = await Promise.all([
+      load({ data: { workspaceKey } }),
+      listUploads({ data: { workspaceKey, limit: 25 } }),
+    ]);
+    if (s.settings) {
+      setForm({
+        enabled: s.settings.enabled,
+        customer_id: s.settings.customer_id ?? "",
+        login_customer_id: s.settings.login_customer_id ?? "",
+        default_currency: s.settings.default_currency ?? "EUR",
+        conversion_action_new: s.settings.conversion_action_new ?? "",
+        conversion_action_qualified: s.settings.conversion_action_qualified ?? "",
+        conversion_action_won: s.settings.conversion_action_won ?? "",
+        conversion_action_lost: s.settings.conversion_action_lost ?? "",
+      });
+      setConnection({ connected: s.settings.connected, email: s.settings.oauth_email, connectedAt: s.settings.connected_at });
+    } else {
+      setConnection({ connected: false, email: null, connectedAt: null });
+    }
+    setUploads(u.uploads as never);
+  }, [workspaceKey, load, listUploads]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const [s, u] = await Promise.all([
-          load({ data: { workspaceKey } }),
-          listUploads({ data: { workspaceKey, limit: 25 } }),
-        ]);
-        if (cancelled) return;
-        if (s.settings) {
-          setForm({
-            enabled: s.settings.enabled,
-            customer_id: s.settings.customer_id ?? "",
-            login_customer_id: s.settings.login_customer_id ?? "",
-            default_currency: s.settings.default_currency ?? "EUR",
-            conversion_action_new: s.settings.conversion_action_new ?? "",
-            conversion_action_qualified: s.settings.conversion_action_qualified ?? "",
-            conversion_action_won: s.settings.conversion_action_won ?? "",
-            conversion_action_lost: s.settings.conversion_action_lost ?? "",
-          });
-        }
-        setUploads(u.uploads as never);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      try { await refresh(); } finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [workspaceKey, load, listUploads]);
+  }, [refresh]);
+
+  // Listen for the popup's success/failure message.
+  useEffect(() => {
+    function onMsg(e: MessageEvent) {
+      const d = e.data;
+      if (!d || d.source !== "leadlogr-google-ads-oauth") return;
+      const p = d.payload;
+      if (p?.ok) {
+        setError(null);
+        void refresh();
+      } else {
+        setError(p?.error || "Connection failed");
+      }
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [refresh]);
+
+  // Auto-load customers when connected.
+  useEffect(() => {
+    if (!connection.connected) { setCustomers([]); return; }
+    setLoadingCustomers(true);
+    listCustomers({ data: { workspaceKey } })
+      .then((r) => { setCustomers(r.customers as Customer[]); if (r.error) setError(r.error); })
+      .finally(() => setLoadingCustomers(false));
+  }, [connection.connected, workspaceKey, listCustomers]);
+
+  // Auto-load conversion actions when a customer is picked.
+  useEffect(() => {
+    if (!connection.connected || !form.customer_id) { setActions([]); return; }
+    setLoadingActions(true);
+    listActions({ data: { workspaceKey, customerId: form.customer_id, loginCustomerId: form.login_customer_id || undefined } })
+      .then((r) => { setActions(r.actions as Action[]); if (r.error) setError(r.error); })
+      .finally(() => setLoadingActions(false));
+  }, [connection.connected, workspaceKey, form.customer_id, form.login_customer_id, listActions]);
+
+  const onConnect = () => {
+    setError(null);
+    const url = `/api/public/oauth/google-ads/start?workspace_key=${encodeURIComponent(workspaceKey)}`;
+    const w = 520, h = 640;
+    const left = window.screenX + (window.outerWidth - w) / 2;
+    const top = window.screenY + (window.outerHeight - h) / 2;
+    window.open(url, "leadlogr-google-ads", `width=${w},height=${h},left=${left},top=${top}`);
+  };
+
+  const onDisconnect = async () => {
+    if (!confirm("Disconnect Google Ads? Conversion uploads will stop until you reconnect.")) return;
+    await disconnect({ data: { workspaceKey } });
+    await refresh();
+  };
 
   const onSave = async () => {
     setSaving(true);
@@ -103,11 +178,67 @@ function GoogleAdsPage() {
 
       <div className="grid lg:grid-cols-[1fr_360px] gap-6">
         <div className="space-y-6 min-w-0">
+          {/* Connection */}
           <section className="rounded-lg ring-1 ring-border bg-card p-5">
+            <header className="flex items-start justify-between gap-4 mb-3">
+              <div>
+                <h2 className="text-base font-semibold">Connection</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Sign in once with the Google account that has access to your Ads accounts. Leadlogr stores a refresh token per workspace.
+                </p>
+              </div>
+              {connection.connected ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-stage-green-ink bg-stage-green/20 px-2 py-1 rounded-full">
+                  <Check className="size-3" /> Connected
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted/40 px-2 py-1 rounded-full">
+                  Not connected
+                </span>
+              )}
+            </header>
+
+            {connection.connected ? (
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <div className="text-muted-foreground">
+                  Connected as <span className="font-medium text-foreground">{connection.email || "—"}</span>
+                  {connection.connectedAt ? <> · {new Date(connection.connectedAt).toLocaleDateString()}</> : null}
+                </div>
+                <button
+                  onClick={onDisconnect}
+                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md ring-1 ring-border hover:bg-muted/40"
+                >
+                  <Unplug className="size-3.5" /> Disconnect
+                </button>
+                <button
+                  onClick={onConnect}
+                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md ring-1 ring-border hover:bg-muted/40"
+                >
+                  <RefreshCw className="size-3.5" /> Re-authenticate
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onConnect}
+                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-md bg-primary text-primary-foreground hover:opacity-90"
+              >
+                <Plug className="size-4" /> Connect Google Ads
+              </button>
+            )}
+
+            {error ? (
+              <div className="mt-3 text-xs text-stage-red-ink flex items-center gap-1.5">
+                <AlertCircle className="size-3.5" /> {error}
+              </div>
+            ) : null}
+          </section>
+
+          {/* Account selection */}
+          <section className={`rounded-lg ring-1 ring-border bg-card p-5 ${connection.connected ? "" : "opacity-60 pointer-events-none"}`}>
             <header className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-base font-semibold">Account</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Where conversions are uploaded.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Which Google Ads account conversions go to.</p>
               </div>
               <label className="inline-flex items-center gap-2 text-xs">
                 <input type="checkbox" className="size-4 accent-primary" checked={form.enabled} onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))} />
@@ -116,15 +247,29 @@ function GoogleAdsPage() {
             </header>
 
             <div className="grid sm:grid-cols-2 gap-3">
-              <Field label="Customer ID" hint="Digits only — no dashes. e.g. 1234567890">
-                <input
+              <Field label="Customer account" hint={loadingCustomers ? "Loading accounts you can access…" : `${customers.length} account${customers.length === 1 ? "" : "s"} available.`}>
+                <select
                   value={form.customer_id}
-                  onChange={(e) => setForm((f) => ({ ...f, customer_id: e.target.value.replace(/\D/g, "") }))}
-                  placeholder="1234567890"
-                  className="w-full text-sm font-mono px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const c = customers.find((c) => c.id === id);
+                    setForm((f) => ({
+                      ...f,
+                      customer_id: id,
+                      default_currency: c?.currencyCode || f.default_currency,
+                    }));
+                  }}
+                  className="w-full text-sm px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">— Pick an account —</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.descriptiveName || "(unnamed)"} · {c.id}{c.manager ? " · manager" : ""}{c.currencyCode ? ` · ${c.currencyCode}` : ""}
+                    </option>
+                  ))}
+                </select>
               </Field>
-              <Field label="Login customer ID (MCC)" hint="Optional. Required only if you access this account through a manager.">
+              <Field label="Login customer ID (MCC)" hint="Optional. Use the manager ID when this account is accessed through an MCC.">
                 <input
                   value={form.login_customer_id}
                   onChange={(e) => setForm((f) => ({ ...f, login_customer_id: e.target.value.replace(/\D/g, "") }))}
@@ -143,20 +288,29 @@ function GoogleAdsPage() {
             </div>
           </section>
 
-          <section className="rounded-lg ring-1 ring-border bg-card p-5">
+          {/* Conversion actions */}
+          <section className={`rounded-lg ring-1 ring-border bg-card p-5 ${connection.connected && form.customer_id ? "" : "opacity-60 pointer-events-none"}`}>
             <header className="mb-4">
               <h2 className="text-base font-semibold">Conversion actions per stage</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Paste the numeric ID of each conversion action created in Google Ads. Leave blank to skip a stage.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {loadingActions ? "Loading conversion actions…" : `Pick which conversion action to fire at each stage. ${actions.length} available on this account.`}
+              </p>
             </header>
             <div className="space-y-3">
               {STAGES.map((s) => (
                 <Field key={s.key} label={s.label} hint={s.hint}>
-                  <input
+                  <select
                     value={form[s.key] as string}
-                    onChange={(e) => setForm((f) => ({ ...f, [s.key]: e.target.value.replace(/\D/g, "") }))}
-                    placeholder="e.g. 987654321"
-                    className="w-full text-sm font-mono px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
+                    onChange={(e) => setForm((f) => ({ ...f, [s.key]: e.target.value }))}
+                    className="w-full text-sm px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">— Skip this stage —</option>
+                    {actions.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} · {a.category}{a.status !== "ENABLED" ? ` · ${a.status}` : ""}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
               ))}
             </div>
@@ -175,11 +329,12 @@ function GoogleAdsPage() {
                 rel="noopener"
                 className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
               >
-                Open Google Ads → Conversions <ExternalLink className="size-3" />
+                Manage in Google Ads <ExternalLink className="size-3" />
               </a>
             </div>
           </section>
 
+          {/* Uploads log */}
           <section className="rounded-lg ring-1 ring-border bg-card p-5">
             <header className="mb-3">
               <h2 className="text-base font-semibold">Recent uploads</h2>
@@ -224,11 +379,11 @@ function GoogleAdsPage() {
           <div className="rounded-lg ring-1 ring-border bg-muted/30 p-4">
             <h3 className="text-sm font-semibold mb-2">How it works</h3>
             <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal pl-4">
-              <li>Tracker captures <code>gclid</code> / <code>wbraid</code> / <code>gbraid</code> on every Google Ads visit.</li>
-              <li>When a lead reaches a configured stage, we POST to Google's <code>uploadClickConversions</code> endpoint.</li>
-              <li>For Won, the deal value + currency are included. For Qualified/Lost we send the conversion only.</li>
+              <li>Click <strong>Connect Google Ads</strong> and sign in with the Google account that manages your Ads accounts.</li>
+              <li>Pick the Ads account that should receive conversions.</li>
+              <li>Pick a conversion action per pipeline stage (New / Qualified / Won / Lost).</li>
+              <li>As leads move through stages, Leadlogr uploads to Google's <code>uploadClickConversions</code> with the matching gclid/wbraid/gbraid.</li>
               <li>If consent was granted, hashed email & phone are sent as Enhanced Conversions for Leads.</li>
-              <li>Each (lead, stage) is uploaded at most once — re-running a stage change is safe.</li>
             </ol>
           </div>
           <div className="rounded-lg ring-1 ring-border bg-card p-4">
