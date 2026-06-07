@@ -12,7 +12,7 @@
  * - We exchange the refresh token for a short-lived access token on every call.
  */
 
-const API_VERSION = "v18";
+const API_VERSION = "v21";
 
 export type GoogleAdsAppCreds = {
   developerToken: string;
