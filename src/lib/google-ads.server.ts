@@ -1,47 +1,68 @@
 /**
  * Minimal Google Ads REST API client for offline click-conversion uploads.
- * Server-only. Uses OAuth refresh-token flow (workspace-owner credentials)
- * + a developer token. One global app-level OAuth credential set is shared
- * across workspaces; the customer ID and conversion action IDs are per
- * workspace and stored in `google_ads_settings`.
+ * Server-only.
+ *
+ * Auth model (scalable, one app for all clients):
+ * - App-level OAuth credentials live in env (one set, shared across workspaces):
+ *     GOOGLE_ADS_OAUTH_CLIENT_ID
+ *     GOOGLE_ADS_OAUTH_CLIENT_SECRET
+ *     GOOGLE_ADS_DEVELOPER_TOKEN
+ * - Per-workspace refresh token is stored in `google_ads_settings.oauth_refresh_token`
+ *   after the user clicks "Connect Google Ads" and completes Google's consent popup.
+ * - We exchange the refresh token for a short-lived access token on every call.
  */
 
 const API_VERSION = "v18";
 
-export type GoogleAdsCreds = {
+export type GoogleAdsAppCreds = {
   developerToken: string;
   clientId: string;
   clientSecret: string;
+};
+
+export type GoogleAdsCreds = GoogleAdsAppCreds & {
   refreshToken: string;
 };
 
 export type ClickConversionInput = {
-  customerId: string; // "1234567890" (digits only)
-  loginCustomerId?: string; // MCC manager, digits only
-  conversionActionId: string; // numeric ID of the conversion action
+  customerId: string;
+  loginCustomerId?: string;
+  conversionActionId: string;
   gclid?: string;
   wbraid?: string;
   gbraid?: string;
-  conversionDateTime: string; // "YYYY-MM-DD HH:MM:SS+00:00"
+  conversionDateTime: string;
   value?: number;
   currencyCode?: string;
-  orderId?: string; // dedupe key on Google's side
+  orderId?: string;
   userIdentifiers?: Array<
     | { hashedEmail: string }
     | { hashedPhoneNumber: string }
   >;
 };
 
-export function readGoogleAdsCreds(): GoogleAdsCreds | null {
+/** App-level creds shared by all workspaces. Stored in env, set once by Leadlogr. */
+export function readGoogleAdsAppCreds(): GoogleAdsAppCreds | null {
   const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
   const clientId = process.env.GOOGLE_ADS_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_ADS_OAUTH_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_ADS_OAUTH_REFRESH_TOKEN;
-  if (!developerToken || !clientId || !clientSecret || !refreshToken) return null;
-  return { developerToken, clientId, clientSecret, refreshToken };
+  if (!developerToken || !clientId || !clientSecret) return null;
+  return { developerToken, clientId, clientSecret };
 }
 
-async function getAccessToken(creds: GoogleAdsCreds): Promise<string> {
+/** Combine app-level creds with a workspace's refresh token. */
+export function buildGoogleAdsCreds(refreshToken: string | null | undefined): GoogleAdsCreds | null {
+  const app = readGoogleAdsAppCreds();
+  if (!app || !refreshToken) return null;
+  return { ...app, refreshToken };
+}
+
+/** @deprecated Kept for back-compat; prefer buildGoogleAdsCreds(). */
+export function readGoogleAdsCreds(): GoogleAdsCreds | null {
+  return buildGoogleAdsCreds(process.env.GOOGLE_ADS_OAUTH_REFRESH_TOKEN ?? null);
+}
+
+export async function getAccessToken(creds: GoogleAdsCreds): Promise<string> {
   const resp = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -61,7 +82,6 @@ async function getAccessToken(creds: GoogleAdsCreds): Promise<string> {
   return json.access_token;
 }
 
-/** SHA-256 then lowercase hex. Google requires lowercase hex hashes. */
 export async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input.trim().toLowerCase());
   const buf = await crypto.subtle.digest("SHA-256", data);
@@ -72,7 +92,6 @@ export async function sha256Hex(input: string): Promise<string> {
 }
 
 export function formatConversionDateTime(date: Date, tzOffsetMinutes = 0): string {
-  // Google requires "yyyy-MM-dd HH:mm:ss+HH:MM" in the account's timezone or with explicit offset.
   const pad = (n: number) => String(n).padStart(2, "0");
   const local = new Date(date.getTime() + tzOffsetMinutes * 60_000);
   const sign = tzOffsetMinutes >= 0 ? "+" : "-";
@@ -82,6 +101,16 @@ export function formatConversionDateTime(date: Date, tzOffsetMinutes = 0): strin
     `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}` +
     `${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
   );
+}
+
+function gaHeaders(creds: GoogleAdsCreds, accessToken: string, loginCustomerId?: string) {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    "developer-token": creds.developerToken,
+    "Content-Type": "application/json",
+  };
+  if (loginCustomerId) headers["login-customer-id"] = loginCustomerId.replace(/\D/g, "");
+  return headers;
 }
 
 export async function uploadClickConversion(
@@ -109,14 +138,11 @@ export async function uploadClickConversion(
   const body = { conversions: [conversion], partialFailure: true, validateOnly: false };
 
   const url = `https://googleads.googleapis.com/${API_VERSION}/customers/${customer}:uploadClickConversions`;
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${accessToken}`,
-    "developer-token": creds.developerToken,
-    "Content-Type": "application/json",
-  };
-  if (input.loginCustomerId) headers["login-customer-id"] = input.loginCustomerId.replace(/\D/g, "");
-
-  const resp = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: gaHeaders(creds, accessToken, input.loginCustomerId),
+    body: JSON.stringify(body),
+  });
   const text = await resp.text();
   let parsed: unknown = text;
   try { parsed = JSON.parse(text); } catch { /* keep raw */ }
@@ -124,10 +150,95 @@ export async function uploadClickConversion(
   if (!resp.ok) {
     return { ok: false, status: resp.status, request: body, response: parsed, error: `http_${resp.status}` };
   }
-  // Google returns 200 even on partial failures — check `partialFailureError`.
   const pfe = (parsed as { partialFailureError?: { message?: string } }).partialFailureError;
   if (pfe && pfe.message) {
     return { ok: false, status: 200, request: body, response: parsed, error: pfe.message };
   }
   return { ok: true, status: 200, request: body, response: parsed };
+}
+
+/** Lists every customer ID the connected Google account can access. */
+export async function listAccessibleCustomers(creds: GoogleAdsCreds): Promise<string[]> {
+  const accessToken = await getAccessToken(creds);
+  const resp = await fetch(
+    `https://googleads.googleapis.com/${API_VERSION}/customers:listAccessibleCustomers`,
+    { headers: gaHeaders(creds, accessToken) },
+  );
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`list_accessible_customers_failed: ${resp.status} ${text.slice(0, 300)}`);
+  }
+  const json = (await resp.json()) as { resourceNames?: string[] };
+  return (json.resourceNames ?? []).map((rn) => rn.replace("customers/", ""));
+}
+
+export type CustomerInfo = { id: string; descriptiveName: string; currencyCode: string; timeZone: string; manager: boolean };
+
+/** Fetches descriptive info for one or more customer IDs (one GAQL call per ID). */
+export async function getCustomerInfo(
+  creds: GoogleAdsCreds,
+  customerId: string,
+  loginCustomerId?: string,
+): Promise<CustomerInfo | null> {
+  const accessToken = await getAccessToken(creds);
+  const customer = customerId.replace(/\D/g, "");
+  const resp = await fetch(
+    `https://googleads.googleapis.com/${API_VERSION}/customers/${customer}/googleAds:search`,
+    {
+      method: "POST",
+      headers: gaHeaders(creds, accessToken, loginCustomerId ?? customer),
+      body: JSON.stringify({
+        query: "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone, customer.manager FROM customer LIMIT 1",
+      }),
+    },
+  );
+  if (!resp.ok) return null;
+  const json = (await resp.json()) as { results?: Array<{ customer?: { id?: string; descriptiveName?: string; currencyCode?: string; timeZone?: string; manager?: boolean } }> };
+  const c = json.results?.[0]?.customer;
+  if (!c?.id) return null;
+  return {
+    id: String(c.id),
+    descriptiveName: c.descriptiveName ?? "",
+    currencyCode: c.currencyCode ?? "",
+    timeZone: c.timeZone ?? "",
+    manager: !!c.manager,
+  };
+}
+
+export type ConversionActionRow = { id: string; name: string; category: string; status: string };
+
+/** Lists conversion actions on a customer account via GAQL. */
+export async function listConversionActions(
+  creds: GoogleAdsCreds,
+  customerId: string,
+  loginCustomerId?: string,
+): Promise<ConversionActionRow[]> {
+  const accessToken = await getAccessToken(creds);
+  const customer = customerId.replace(/\D/g, "");
+  const resp = await fetch(
+    `https://googleads.googleapis.com/${API_VERSION}/customers/${customer}/googleAds:search`,
+    {
+      method: "POST",
+      headers: gaHeaders(creds, accessToken, loginCustomerId),
+      body: JSON.stringify({
+        query: `
+          SELECT conversion_action.id, conversion_action.name, conversion_action.category, conversion_action.status
+          FROM conversion_action
+          WHERE conversion_action.status != 'REMOVED'
+          ORDER BY conversion_action.name
+        `,
+        pageSize: 200,
+      }),
+    },
+  );
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`list_conversion_actions_failed: ${resp.status} ${text.slice(0, 300)}`);
+  }
+  const json = (await resp.json()) as { results?: Array<{ conversionAction?: { id?: string; name?: string; category?: string; status?: string } }> };
+  return (json.results ?? []).flatMap((r) => {
+    const ca = r.conversionAction;
+    if (!ca?.id) return [];
+    return [{ id: String(ca.id), name: ca.name ?? "", category: ca.category ?? "", status: ca.status ?? "" }];
+  });
 }
