@@ -64,11 +64,8 @@ function buildStages(m: DashboardMetrics): Stage[] {
 
 function DashboardPage() {
   const [range, setRange] = useState<DashboardRange>(30);
-  const { ownWorkspace } = useAccount();
-  const workspaceKey = useMemo(
-    () => deriveWorkspaceKey(ownWorkspace.name),
-    [ownWorkspace.name],
-  );
+  const { activeWorkspace } = useAccount();
+  const workspaceKey = activeWorkspace.key;
 
   const fetchStatuses = useServerFn(getIntegrationStatuses);
   const fetchMetrics = useServerFn(getDashboardMetrics);

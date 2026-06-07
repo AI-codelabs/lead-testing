@@ -42,8 +42,8 @@ type Customer = { id: string; descriptiveName: string; currencyCode: string; tim
 type Action = { id: string; name: string; category: string; status: string };
 
 function GoogleAdsPage() {
-  const { ownWorkspace } = useAccount();
-  const workspaceKey = deriveWorkspaceKey(ownWorkspace.name);
+  const { activeWorkspace } = useAccount();
+  const workspaceKey = activeWorkspace.key;
   const load = useServerFn(getGoogleAdsSettings);
   const save = useServerFn(saveGoogleAdsSettings);
   const listUploads = useServerFn(listConversionUploads);

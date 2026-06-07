@@ -94,8 +94,8 @@ function FlagToggle({
 
 function TrackingPage() {
   const search = Route.useSearch();
-  const { ownWorkspace } = useAccount();
-  const workspaceId = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
+  const { activeWorkspace } = useAccount();
+  const workspaceId = activeWorkspace.key;
   const integrationId = ["gtm", "wordpress", "api", "zapier"].includes(search.integration) ? search.integration : "gtm";
   const integrationName = INTEGRATION_NAMES[integrationId] ?? "Google Tag Manager";
 
