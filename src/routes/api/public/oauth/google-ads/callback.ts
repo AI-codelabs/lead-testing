@@ -95,18 +95,32 @@ export const Route = createFileRoute("/api/public/oauth/google-ads/callback")({
 
 function popupResult(payload: { ok: true; email: string } | { ok: false; error: string }): Response {
   const json = JSON.stringify(payload);
+  // If the OAuth round-trip was started as a popup, postMessage back to the
+  // opener and close. If there is no opener (popup was blocked → top-window
+  // redirect), navigate the user back to the integrations page with a query
+  // param so the page can refresh its state and surface any error.
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Connecting…</title>
 <style>body{font-family:system-ui,sans-serif;padding:32px;text-align:center;color:#111}</style></head>
 <body>
-<p>${payload.ok ? "✓ Connected — you can close this window." : "Connection failed. You can close this window."}</p>
+<p>${payload.ok ? "✓ Connected — redirecting…" : "Connection failed — redirecting…"}</p>
 <script>
 (function(){
+  var payload = ${json};
+  if (window.opener && !window.opener.closed) {
+    try { window.opener.postMessage({ source: "leadlogr-google-ads-oauth", payload: payload }, "*"); } catch(e){}
+    setTimeout(function(){ window.close(); }, 300);
+    return;
+  }
+  var qs = payload.ok
+    ? "?ga_connected=1&email=" + encodeURIComponent(payload.email || "")
+    : "?ga_connected=0&error=" + encodeURIComponent(payload.error || "failed");
+  var returnTo = "/app/integrations/google-ads";
   try {
-    if (window.opener) {
-      window.opener.postMessage({ source: "leadlogr-google-ads-oauth", payload: ${json} }, "*");
-    }
+    var saved = sessionStorage.getItem("leadlogr.googleads.returnTo");
+    if (saved) returnTo = saved;
+    sessionStorage.removeItem("leadlogr.googleads.returnTo");
   } catch(e){}
-  setTimeout(function(){ window.close(); }, 400);
+  window.location.replace(returnTo + qs);
 })();
 </script>
 </body></html>`;
