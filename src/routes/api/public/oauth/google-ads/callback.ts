@@ -25,17 +25,17 @@ export const Route = createFileRoute("/api/public/oauth/google-ads/callback")({
 
         // Validate + consume the state row.
         const { data: stateRow } = await supabaseAdmin
-          .from("google_ads_oauth_states" as never)
+          .from("google_ads_oauth_states")
           .select("workspace_key, expires_at")
           .eq("state", state)
           .maybeSingle();
         if (!stateRow) return popupResult({ ok: false, error: "invalid_state" });
         const { workspace_key, expires_at } = stateRow as { workspace_key: string; expires_at: string };
         if (new Date(expires_at).getTime() < Date.now()) {
-          await supabaseAdmin.from("google_ads_oauth_states" as never).delete().eq("state", state);
+          await supabaseAdmin.from("google_ads_oauth_states").delete().eq("state", state);
           return popupResult({ ok: false, error: "state_expired" });
         }
-        await supabaseAdmin.from("google_ads_oauth_states" as never).delete().eq("state", state);
+        await supabaseAdmin.from("google_ads_oauth_states").delete().eq("state", state);
 
         const redirectUri = `${url.origin}/api/public/oauth/google-ads/callback`;
 

@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/public/oauth/google-ads/start")({
         const state = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { error } = await supabaseAdmin
-          .from("google_ads_oauth_states" as never)
+          .from("google_ads_oauth_states")
           .insert({ state, workspace_key: workspaceKey } as never);
         if (error) return new Response(`State persist failed: ${error.message}`, { status: 500 });
 
