@@ -14,6 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
+      conversion_uploads: {
+        Row: {
+          attempted_at: string
+          attempts: number
+          click_id: string | null
+          click_id_type: string | null
+          conversion_action: string | null
+          created_at: string
+          currency: string | null
+          error: string | null
+          id: string
+          lead_id: string
+          network: string
+          request_payload: Json
+          response_payload: Json
+          stage: string
+          status: string
+          succeeded_at: string | null
+          updated_at: string
+          value: number | null
+          workspace_key: string
+        }
+        Insert: {
+          attempted_at?: string
+          attempts?: number
+          click_id?: string | null
+          click_id_type?: string | null
+          conversion_action?: string | null
+          created_at?: string
+          currency?: string | null
+          error?: string | null
+          id?: string
+          lead_id: string
+          network: string
+          request_payload?: Json
+          response_payload?: Json
+          stage: string
+          status?: string
+          succeeded_at?: string | null
+          updated_at?: string
+          value?: number | null
+          workspace_key: string
+        }
+        Update: {
+          attempted_at?: string
+          attempts?: number
+          click_id?: string | null
+          click_id_type?: string | null
+          conversion_action?: string | null
+          created_at?: string
+          currency?: string | null
+          error?: string | null
+          id?: string
+          lead_id?: string
+          network?: string
+          request_payload?: Json
+          response_payload?: Json
+          stage?: string
+          status?: string
+          succeeded_at?: string | null
+          updated_at?: string
+          value?: number | null
+          workspace_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversion_uploads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      google_ads_settings: {
+        Row: {
+          conversion_action_lost: string | null
+          conversion_action_new: string | null
+          conversion_action_qualified: string | null
+          conversion_action_won: string | null
+          created_at: string
+          customer_id: string
+          default_currency: string
+          enabled: boolean
+          login_customer_id: string | null
+          updated_at: string
+          workspace_key: string
+        }
+        Insert: {
+          conversion_action_lost?: string | null
+          conversion_action_new?: string | null
+          conversion_action_qualified?: string | null
+          conversion_action_won?: string | null
+          created_at?: string
+          customer_id: string
+          default_currency?: string
+          enabled?: boolean
+          login_customer_id?: string | null
+          updated_at?: string
+          workspace_key: string
+        }
+        Update: {
+          conversion_action_lost?: string | null
+          conversion_action_new?: string | null
+          conversion_action_qualified?: string | null
+          conversion_action_won?: string | null
+          created_at?: string
+          customer_id?: string
+          default_currency?: string
+          enabled?: boolean
+          login_customer_id?: string | null
+          updated_at?: string
+          workspace_key?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           company: string
@@ -25,19 +141,23 @@ export type Database = {
           fbp: string
           ga_client_id: string
           ga_session_id: string
+          gbraid: string
           gclid: string
           id: string
           landing_page_url: string
           li_fat_id: string
+          lost_reason: string | null
           message: string
           msclkid: string
           name: string
           page_path: string
           phone: string
+          qualification: string
           raw_payload: Json
           referrer_url: string
           source: string
           stage: string
+          stage_changed_at: string
           updated_at: string
           user_agent: string
           utm_campaign: string
@@ -45,6 +165,8 @@ export type Database = {
           utm_medium: string
           utm_source: string
           utm_term: string
+          wbraid: string
+          won_value: number | null
           workspace_key: string
         }
         Insert: {
@@ -57,19 +179,23 @@ export type Database = {
           fbp?: string
           ga_client_id?: string
           ga_session_id?: string
+          gbraid?: string
           gclid?: string
           id?: string
           landing_page_url?: string
           li_fat_id?: string
+          lost_reason?: string | null
           message?: string
           msclkid?: string
           name?: string
           page_path?: string
           phone?: string
+          qualification?: string
           raw_payload?: Json
           referrer_url?: string
           source?: string
           stage?: string
+          stage_changed_at?: string
           updated_at?: string
           user_agent?: string
           utm_campaign?: string
@@ -77,6 +203,8 @@ export type Database = {
           utm_medium?: string
           utm_source?: string
           utm_term?: string
+          wbraid?: string
+          won_value?: number | null
           workspace_key: string
         }
         Update: {
@@ -89,19 +217,23 @@ export type Database = {
           fbp?: string
           ga_client_id?: string
           ga_session_id?: string
+          gbraid?: string
           gclid?: string
           id?: string
           landing_page_url?: string
           li_fat_id?: string
+          lost_reason?: string | null
           message?: string
           msclkid?: string
           name?: string
           page_path?: string
           phone?: string
+          qualification?: string
           raw_payload?: Json
           referrer_url?: string
           source?: string
           stage?: string
+          stage_changed_at?: string
           updated_at?: string
           user_agent?: string
           utm_campaign?: string
@@ -109,6 +241,8 @@ export type Database = {
           utm_medium?: string
           utm_source?: string
           utm_term?: string
+          wbraid?: string
+          won_value?: number | null
           workspace_key?: string
         }
         Relationships: []
