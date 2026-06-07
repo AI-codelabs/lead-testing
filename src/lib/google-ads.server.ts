@@ -113,6 +113,25 @@ function gaHeaders(creds: GoogleAdsCreds, accessToken: string, loginCustomerId?:
   return headers;
 }
 
+function googleAdsError(prefix: string, status: number, body: string): string {
+  try {
+    const parsed = JSON.parse(body) as {
+      error?: { message?: string; details?: Array<{ errors?: Array<{ errorCode?: Record<string, string>; message?: string }> }> };
+    };
+    const detail = parsed.error?.details?.flatMap((d) => d.errors ?? [])?.[0];
+    const authCode = detail?.errorCode?.authenticationError;
+    if (authCode === "NOT_ADS_USER") {
+      return `${prefix}: The connected Google account is not associated with any Google Ads account. Re-authenticate and choose a Google user that has access to the Ads account, or add this user in Google Ads under Admin > Access and security.`;
+    }
+    if (authCode === "OAUTH_TOKEN_INVALID" || authCode === "OAUTH_TOKEN_REVOKED") {
+      return `${prefix}: Google rejected the saved authorization. Disconnect and reconnect Google Ads.`;
+    }
+    const message = detail?.message || parsed.error?.message;
+    if (message) return `${prefix}: ${message}`;
+  } catch { /* keep raw fallback */ }
+  return `${prefix}: ${status} ${body.slice(0, 300)}`;
+}
+
 export async function uploadClickConversion(
   creds: GoogleAdsCreds,
   input: ClickConversionInput,
@@ -166,7 +185,7 @@ export async function listAccessibleCustomers(creds: GoogleAdsCreds): Promise<st
   );
   if (!resp.ok) {
     const text = await resp.text();
-    throw new Error(`list_accessible_customers_failed: ${resp.status} ${text.slice(0, 300)}`);
+    throw new Error(googleAdsError("list_accessible_customers_failed", resp.status, text));
   }
   const json = (await resp.json()) as { resourceNames?: string[] };
   return (json.resourceNames ?? []).map((rn) => rn.replace("customers/", ""));
@@ -233,7 +252,7 @@ export async function listConversionActions(
   );
   if (!resp.ok) {
     const text = await resp.text();
-    throw new Error(`list_conversion_actions_failed: ${resp.status} ${text.slice(0, 300)}`);
+    throw new Error(googleAdsError("list_conversion_actions_failed", resp.status, text));
   }
   const json = (await resp.json()) as { results?: Array<{ conversionAction?: { id?: string; name?: string; category?: string; status?: string } }> };
   return (json.results ?? []).flatMap((r) => {

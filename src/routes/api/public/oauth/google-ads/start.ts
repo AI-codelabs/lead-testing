@@ -41,9 +41,9 @@ export const Route = createFileRoute("/api/public/oauth/google-ads/start")({
         auth.searchParams.set("client_id", clientId);
         auth.searchParams.set("redirect_uri", redirectUri);
         auth.searchParams.set("response_type", "code");
-        auth.searchParams.set("scope", "https://www.googleapis.com/auth/adwords");
+        auth.searchParams.set("scope", "https://www.googleapis.com/auth/adwords openid email profile");
         auth.searchParams.set("access_type", "offline");
-        auth.searchParams.set("prompt", "consent"); // force refresh_token issuance
+        auth.searchParams.set("prompt", "consent select_account"); // force refresh_token issuance + account picker
         auth.searchParams.set("include_granted_scopes", "true");
         auth.searchParams.set("state", state);
 

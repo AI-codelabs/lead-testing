@@ -9,6 +9,7 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
     if (tag && tag.dataset) {
       if (!cfg.workspaceId && tag.dataset.workspaceId) cfg.workspaceId = tag.dataset.workspaceId;
       if (!cfg.endpoint && tag.dataset.endpoint) cfg.endpoint = tag.dataset.endpoint;
+      if (!cfg.integrationId && tag.dataset.integrationId) cfg.integrationId = tag.dataset.integrationId;
       if (cfg.debug === undefined && tag.dataset.debug) cfg.debug = tag.dataset.debug === 'true';
       if (!cfg.featureFlags && tag.dataset.featureFlags) {
         try { cfg.featureFlags = JSON.parse(tag.dataset.featureFlags); } catch (e) {}
@@ -232,6 +233,7 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
     var detected = detectConsent();
     return {
       workspace_key: CFG.workspaceId,
+      integration_id: CFG.integrationId || 'gtm',
       utm_source: attribution.utm_source || '',
       utm_medium: attribution.utm_medium || '',
       utm_campaign: attribution.utm_campaign || '',

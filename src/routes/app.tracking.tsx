@@ -124,6 +124,7 @@ function TrackingPage() {
   window.LEADLOGR_CONFIG = {
     workspaceId: ${JSON.stringify(workspaceId)},
     endpoint:    ${JSON.stringify(effectiveEndpoint)},
+    integrationId: "gtm",
     debug:       ${flags.debug},
     featureFlags: ${flagsJson}
   };
@@ -140,6 +141,7 @@ function TrackingPage() {
   src="${trackerSrc}"
   data-workspace-id="${workspaceId}"
   data-endpoint="${effectiveEndpoint}"
+  data-integration-id="gtm"
   data-debug="${flags.debug}"
   data-feature-flags='${flagsJson}'
   async
@@ -256,6 +258,7 @@ window.Leadlogr.submitForm({
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                           workspace_key: workspaceId,
+                          integration_id: "gtm",
                           name: "Test Lead",
                           email: "test@example.com",
                           phone: "+1 555 0100",

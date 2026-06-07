@@ -19,6 +19,7 @@ type IntegrationItem = {
   id: string;
   name: string;
   description: string;
+  setupTo?: "/app/tracking" | "/app/integrations/google-ads";
   comingSoon?: boolean;
 };
 
@@ -26,24 +27,28 @@ const incoming: IntegrationItem[] = [
   {
     id: "gtm",
     name: "Google Tag Manager",
+    setupTo: "/app/tracking",
     description:
       "Manage and deploy marketing tags without modifying code. Track conversions, site analytics, and remarketing with ease.",
   },
   {
     id: "wordpress",
     name: "WordPress",
+    setupTo: "/app/tracking",
     description:
       "Capture leads directly from your WordPress site by installing our official plugin for effortless data synchronization.",
   },
   {
     id: "api",
     name: "REST API",
+    setupTo: "/app/tracking",
     description:
       "Integrate Leadlogr directly into your custom application or backend using our flexible and powerful REST API.",
   },
   {
     id: "zapier",
     name: "Zapier",
+    setupTo: "/app/tracking",
     description:
       "Create multi-step workflows to automatically sync, update, and route lead data between Leadlogr and 5,000+ other apps.",
   },
@@ -53,6 +58,7 @@ const outgoing: IntegrationItem[] = [
   {
     id: "google-ads",
     name: "Google Ads",
+    setupTo: "/app/integrations/google-ads",
     description:
       "Send conversion data to Google Ads to optimize campaigns and improve ROI. Track leads, purchases, and custom conversion events.",
   },
@@ -193,32 +199,21 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
         <h3 className="text-base font-semibold">{item.name}</h3>
         <p className="text-sm text-muted-foreground mt-1.5">{item.description}</p>
       </div>
-      {item.id === "gtm" && !item.comingSoon ? (
-        connected ? (
-          <ConnectedBadge label="Set up" />
-        ) : (
-          <Link
-            to="/app/tracking"
-            className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
-          >
-            Set up
-          </Link>
-        )
-      ) : item.id === "google-ads" && !item.comingSoon ? (
+      {item.setupTo && !item.comingSoon ? (
         connected ? (
           <Link
-            to="/app/integrations/google-ads"
-            className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/30 hover:opacity-90 cursor-pointer text-center flex items-center justify-center gap-1.5"
+            to={item.setupTo}
+            className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-stage-green-soft text-stage-green-ink ring-1 ring-stage-green-line hover:opacity-90 cursor-pointer text-center flex items-center justify-center gap-1.5"
           >
             <Check className="size-4" />
             Connected
           </Link>
         ) : (
           <Link
-            to="/app/integrations/google-ads"
+            to={item.setupTo}
             className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
           >
-            Connect
+            {item.id === "google-ads" ? "Connect" : "Set up"}
           </Link>
         )
       ) : connected ? (
@@ -258,8 +253,8 @@ function IntegrationsPage() {
 
   const connectedIds = useMemo(() => {
     const ids = new Set<string>();
-    if (statuses?.incomingConnected) {
-      for (const i of incoming) ids.add(i.id);
+    if (statuses?.incomingConnectedIds) {
+      for (const id of statuses.incomingConnectedIds) ids.add(id);
     }
     if (statuses?.googleAdsConnected) ids.add("google-ads");
     return ids;
