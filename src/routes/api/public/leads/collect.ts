@@ -67,6 +67,8 @@ export const Route = createFileRoute("/api/public/leads/collect")({
             utm_term: str(body?.utm_term, 200),
             utm_content: str(body?.utm_content, 200),
             gclid: str(body?.gclid, 500),
+            wbraid: str(body?.wbraid, 500),
+            gbraid: str(body?.gbraid, 500),
             fbclid: str(body?.fbclid, 500),
             msclkid: str(body?.msclkid, 500),
             li_fat_id: str(body?.li_fat_id, 500),
