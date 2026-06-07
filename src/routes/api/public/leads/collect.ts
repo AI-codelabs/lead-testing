@@ -39,6 +39,9 @@ export const Route = createFileRoute("/api/public/leads/collect")({
           for (const [k, v] of Object.entries(body ?? {})) {
             if (!KNOWN_FIELDS.has(k)) custom[k] = v;
           }
+          const customJson = JSON.parse(JSON.stringify(custom));
+          const rawJson = JSON.parse(JSON.stringify(body ?? {}));
+
 
           const row = {
             workspace_key,
@@ -66,8 +69,8 @@ export const Route = createFileRoute("/api/public/leads/collect")({
             referrer_url: str(body?.referrer_url, 2000),
             user_agent: str(request.headers.get("user-agent") ?? body?.user_agent, 500),
             consent: str(body?.consent, 32) || "Unknown",
-            custom_fields: custom,
-            raw_payload: body ?? {},
+            custom_fields: customJson,
+            raw_payload: rawJson,
           };
 
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
