@@ -14,7 +14,105 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      leads: {
+        Row: {
+          company: string
+          consent: string
+          created_at: string
+          custom_fields: Json
+          email: string
+          fbclid: string
+          fbp: string
+          ga_client_id: string
+          ga_session_id: string
+          gclid: string
+          id: string
+          landing_page_url: string
+          li_fat_id: string
+          message: string
+          msclkid: string
+          name: string
+          page_path: string
+          phone: string
+          raw_payload: Json
+          referrer_url: string
+          source: string
+          stage: string
+          updated_at: string
+          user_agent: string
+          utm_campaign: string
+          utm_content: string
+          utm_medium: string
+          utm_source: string
+          utm_term: string
+          workspace_key: string
+        }
+        Insert: {
+          company?: string
+          consent?: string
+          created_at?: string
+          custom_fields?: Json
+          email?: string
+          fbclid?: string
+          fbp?: string
+          ga_client_id?: string
+          ga_session_id?: string
+          gclid?: string
+          id?: string
+          landing_page_url?: string
+          li_fat_id?: string
+          message?: string
+          msclkid?: string
+          name?: string
+          page_path?: string
+          phone?: string
+          raw_payload?: Json
+          referrer_url?: string
+          source?: string
+          stage?: string
+          updated_at?: string
+          user_agent?: string
+          utm_campaign?: string
+          utm_content?: string
+          utm_medium?: string
+          utm_source?: string
+          utm_term?: string
+          workspace_key: string
+        }
+        Update: {
+          company?: string
+          consent?: string
+          created_at?: string
+          custom_fields?: Json
+          email?: string
+          fbclid?: string
+          fbp?: string
+          ga_client_id?: string
+          ga_session_id?: string
+          gclid?: string
+          id?: string
+          landing_page_url?: string
+          li_fat_id?: string
+          message?: string
+          msclkid?: string
+          name?: string
+          page_path?: string
+          phone?: string
+          raw_payload?: Json
+          referrer_url?: string
+          source?: string
+          stage?: string
+          updated_at?: string
+          user_agent?: string
+          utm_campaign?: string
+          utm_content?: string
+          utm_medium?: string
+          utm_source?: string
+          utm_term?: string
+          workspace_key?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
