@@ -26,13 +26,12 @@ import { LeadDialog } from "@/components/leadlogr/lead-dialog";
 import {
   LABEL_STYLES,
   LEAD_LABELS,
-  SEED_LEADS,
   type Lead,
   type LeadLabel,
   type Source,
 } from "@/components/leadlogr/lead-types";
 import { useAccess, useAccount } from "@/lib/account-context";
-import { deriveWorkspaceKey, useLiveLeads } from "@/hooks/use-live-leads";
+import { useLiveLeads } from "@/hooks/use-live-leads";
 
 export const Route = createFileRoute("/app/crm")({
   head: () => ({ meta: [{ title: "CRM — Leadlogr" }] }),
@@ -125,7 +124,7 @@ function CrmPage() {
   const { activeWorkspace } = useAccount();
   const workspaceKey = activeWorkspace.key;
   const liveLeads = useLiveLeads(workspaceKey);
-  const [seedLeads, setLeads] = useState<Lead[]>(SEED_LEADS);
+  const [seedLeads, setLeads] = useState<Lead[]>([]);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const deleteLeadFn = useServerFn(deleteLead);
   const leads = useMemo(() => {
@@ -150,7 +149,7 @@ function CrmPage() {
     return (
       <>
         <PageHeader eyebrow="Contacts" title="CRM" description="Individual leads are hidden by the client." />
-        <RestrictedNotice leadsCount={SEED_LEADS.length} />
+        <RestrictedNotice leadsCount={liveLeads.length} />
       </>
     );
   }

@@ -31,12 +31,21 @@ const TYPES: { value: AccountType; label: string; hint: string; icon: typeof Bui
 
 function SignupPage() {
   const navigate = useNavigate();
-  const { setAccountType } = useAccount();
+  const { createAccount } = useAccount();
   const [type, setType] = useState<AccountType>("standard");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [workspaceName, setWorkspaceName] = useState("");
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    setAccountType(type);
+    createAccount({
+      accountType: type,
+      workspaceName,
+      ownerName: [firstName, lastName].filter(Boolean).join(" "),
+      ownerEmail: email,
+    });
     navigate({ to: type === "agency" ? "/agency" : "/app/dashboard" });
   };
 
@@ -85,15 +94,18 @@ function SignupPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="First name" placeholder="Jane" autoComplete="given-name" />
-          <Field label="Last name" placeholder="Doe" autoComplete="family-name" />
+          <Field label="First name" placeholder="Jane" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+          <Field label="Last name" placeholder="Doe" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
         </div>
-        <Field label="Work email" type="email" placeholder="you@company.com" autoComplete="email" />
+        <Field label="Work email" type="email" placeholder="you@company.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <Field
           label={isAgency ? "Agency name" : "Workspace name"}
-          placeholder={isAgency ? "Acme Media" : "My business"}
+          placeholder={isAgency ? "Hive Hive" : "My business"}
+          value={workspaceName}
+          onChange={(e) => setWorkspaceName(e.target.value)}
+          required
         />
-        <Field label="Password" type="password" placeholder="At least 8 characters" autoComplete="new-password" />
+        <Field label="Password" type="password" placeholder="At least 8 characters" autoComplete="new-password" required />
         <button
           type="submit"
           className="w-full bg-primary text-primary-foreground text-sm font-medium px-4 py-2.5 rounded-md ring-1 ring-primary shadow-sm hover:opacity-90 transition-opacity"

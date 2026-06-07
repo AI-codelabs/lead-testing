@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Mail, Monitor, Moon, Plus, Sun, Trash2, X } from "lucide-react";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useTheme, type Theme } from "@/components/theme-provider";
+import { useAccount } from "@/lib/account-context";
 
 export const Route = createFileRoute("/agency/account")({
   head: () => ({ meta: [{ title: "Account — Leadlogr Agency" }] }),
@@ -11,17 +12,12 @@ export const Route = createFileRoute("/agency/account")({
 });
 
 type TeamRole = "Owner" | "Admin" | "Member";
-type TeamMember = { id: string; name: string; email: string; role: TeamRole };
+type TeamMember = { id: string; name: string; email: string; role: Exclude<TeamRole, "Owner"> };
 type Invite = { id: string; email: string; role: TeamRole };
 
-const SEED_TEAM: TeamMember[] = [
-  { id: "u1", name: "Jane Doe", email: "jane@acmemedia.com", role: "Owner" },
-  { id: "u2", name: "Mark Lin", email: "mark@acmemedia.com", role: "Admin" },
-  { id: "u3", name: "Sara Park", email: "sara@acmemedia.com", role: "Member" },
-];
-
 function AgencyAccountPage() {
-  const [team, setTeam] = useState<TeamMember[]>(SEED_TEAM);
+  const { ownWorkspace } = useAccount();
+  const [team, setTeam] = useState<TeamMember[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<TeamRole>("Member");
@@ -35,7 +31,7 @@ function AgencyAccountPage() {
   };
 
   const removeMember = (id: string) =>
-    setTeam((p) => p.filter((m) => m.id !== id || m.role === "Owner"));
+    setTeam((p) => p.filter((m) => m.id !== id));
 
   const revokeInvite = (id: string) =>
     setInvites((p) => p.filter((i) => i.id !== id));
@@ -93,6 +89,16 @@ function AgencyAccountPage() {
                 </tr>
               </thead>
               <tbody>
+                <tr className="border-b border-border last:border-0">
+                  <td className="px-4 py-2.5 font-medium">{ownWorkspace.ownerName}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{ownWorkspace.ownerEmail || "Not set"}</td>
+                  <td className="px-4 py-2.5">
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded ring-1 ring-border bg-muted/40">
+                      Owner
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5" />
+                </tr>
                 {team.map((m) => (
                   <tr key={m.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-2.5 font-medium">{m.name}</td>
@@ -103,15 +109,13 @@ function AgencyAccountPage() {
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      {m.role !== "Owner" && (
-                        <button
-                          onClick={() => removeMember(m.id)}
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                          aria-label="Remove"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => removeMember(m.id)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        aria-label="Remove"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -146,8 +150,8 @@ function AgencyAccountPage() {
 
         <SectionCard title="Agency" description="Public-facing details for your agency.">
           <div className="grid md:grid-cols-2 gap-4">
-            <Row label="Agency name" value="Acme Media" />
-            <Row label="Primary contact" value="jane@acmemedia.com" />
+            <Row label="Agency name" value={ownWorkspace.name} />
+            <Row label="Primary contact" value={ownWorkspace.ownerEmail || "Not set"} />
             <Row label="Seats used" value={`${team.length + invites.length} of 10`} />
             <Row label="Plan" value="Agency · €199/mo" />
           </div>

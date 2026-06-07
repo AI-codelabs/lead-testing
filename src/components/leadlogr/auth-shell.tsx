@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ChangeEventHandler, ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Logo } from "./logo";
 
@@ -59,11 +59,17 @@ export function Field({
   type = "text",
   placeholder,
   autoComplete,
+  value,
+  onChange,
+  required,
 }: {
   label: string;
   type?: string;
   placeholder?: string;
   autoComplete?: string;
+  value?: string;
+  onChange?: ChangeEventHandler<HTMLInputElement>;
+  required?: boolean;
 }) {
   return (
     <label className="block">
@@ -74,6 +80,9 @@ export function Field({
         type={type}
         placeholder={placeholder}
         autoComplete={autoComplete}
+        value={value}
+        onChange={onChange}
+        required={required}
         className="mt-2 w-full bg-card ring-1 ring-border rounded-md px-3 py-2.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
       />
     </label>
