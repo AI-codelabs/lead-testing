@@ -13,7 +13,7 @@ export const Route = createFileRoute("/app/account")({
 });
 
 function AccountPage() {
-  const { isAgencyViewing } = useAccount();
+  const { isAgencyViewing, ownWorkspace } = useAccount();
   if (isAgencyViewing) {
     return (
       <div className="max-w-xl mx-auto mt-20 bg-card ring-1 ring-border rounded-lg p-8 text-center">
@@ -48,8 +48,8 @@ function AccountPage() {
 
         <SectionCard title="Profile" description="How your name appears across the workspace.">
           <div className="grid md:grid-cols-2 gap-4">
-            <Row label="Full name" value="Jane Doe" />
-            <Row label="Email" value="jane@acmemedia.com" />
+            <Row label="Full name" value={ownWorkspace.ownerName} />
+            <Row label="Email" value={ownWorkspace.ownerEmail || "Not set"} />
             <Row label="Role" value="Owner" />
             <Row label="Timezone" value="America/New_York" />
           </div>
@@ -62,8 +62,8 @@ function AccountPage() {
         <SectionCard title="Workspace" description="Branding and defaults applied to every client account.">
 
           <div className="grid md:grid-cols-2 gap-4">
-            <Row label="Agency name" value="Acme Media" />
-            <Row label="Workspace ID" value="ws_8f3a2c1b" mono />
+            <Row label="Workspace name" value={ownWorkspace.name} />
+            <Row label="Workspace ID" value={ownWorkspace.key} mono />
             <Row label="Default currency" value="USD" />
             <Row label="Seats used" value="4 of 10" />
           </div>

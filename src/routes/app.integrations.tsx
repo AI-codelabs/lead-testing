@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/leadlogr/page-header";
 import { IntegrationLogo } from "@/components/leadlogr/integration-logo";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAccount } from "@/lib/account-context";
-import { deriveWorkspaceKey } from "@/hooks/use-live-leads";
 import { getIntegrationStatuses } from "@/lib/integration-status.functions";
 import { Check } from "lucide-react";
 

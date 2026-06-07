@@ -3,7 +3,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useAccount } from "@/lib/account-context";
-import { deriveWorkspaceKey } from "@/hooks/use-live-leads";
 import {
   getGoogleAdsSettings,
   saveGoogleAdsSettings,

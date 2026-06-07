@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Mail, Monitor, Moon, Plus, Sun, Trash2, X } from "lucide-react";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useTheme, type Theme } from "@/components/theme-provider";
+import { useAccount } from "@/lib/account-context";
 
 export const Route = createFileRoute("/agency/account")({
   head: () => ({ meta: [{ title: "Account — Leadlogr Agency" }] }),
@@ -21,6 +22,7 @@ const SEED_TEAM: TeamMember[] = [
 ];
 
 function AgencyAccountPage() {
+  const { ownWorkspace } = useAccount();
   const [team, setTeam] = useState<TeamMember[]>(SEED_TEAM);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [email, setEmail] = useState("");
@@ -146,8 +148,8 @@ function AgencyAccountPage() {
 
         <SectionCard title="Agency" description="Public-facing details for your agency.">
           <div className="grid md:grid-cols-2 gap-4">
-            <Row label="Agency name" value="Acme Media" />
-            <Row label="Primary contact" value="jane@acmemedia.com" />
+            <Row label="Agency name" value={ownWorkspace.name} />
+            <Row label="Primary contact" value={ownWorkspace.ownerEmail || "Not set"} />
             <Row label="Seats used" value={`${team.length + invites.length} of 10`} />
             <Row label="Plan" value="Agency · €199/mo" />
           </div>
