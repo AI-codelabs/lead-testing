@@ -1,11 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Max-Age": "86400",
-};
+function corsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get("origin") || "*";
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Vary": "Origin",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Max-Age": "86400",
+  };
+}
 
 const KNOWN_FIELDS = new Set([
   "workspace_key", "name", "email", "phone", "company", "message",
@@ -23,10 +28,14 @@ function str(v: unknown, max = 2000): string {
 export const Route = createFileRoute("/api/public/leads/collect")({
   server: {
     handlers: {
-      OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
+      OPTIONS: async ({ request }) => new Response(null, { status: 204, headers: corsHeaders(request) }),
       POST: async ({ request }) => {
+        const CORS = corsHeaders(request);
         try {
-          const body = await request.json().catch(() => ({}));
+          // Accept JSON or text/plain (sendBeacon) bodies
+          const raw = await request.text().catch(() => "");
+          let body: any = {};
+          try { body = raw ? JSON.parse(raw) : {}; } catch { body = {}; }
           const workspace_key = str(body?.workspace_key, 128).trim();
           if (!workspace_key) {
             return new Response(JSON.stringify({ error: "workspace_key is required" }), {
