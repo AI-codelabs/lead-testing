@@ -143,6 +143,7 @@ function CrmPage() {
   const [visibleCols, setVisibleCols] = useState<Set<Column>>(new Set(ALL_COLUMNS));
   const [labelMenuFor, setLabelMenuFor] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rowsPerPage, setRowsPerPage] = useState(50);
 
   if (access.metricsOnly) {
@@ -250,33 +251,60 @@ function CrmPage() {
     setLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
   };
 
-  const handleDelete = async (lead: Lead) => {
-    if (!access.canSeeDetails) return;
-    const label = lead.name || lead.email || "this lead";
-    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
-    // Optimistically hide
-    setDeletedIds((prev) => {
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.add(lead.id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
-    setLeads((prev) => prev.filter((l) => l.id !== lead.id));
-    // If it's a live (DB-backed) lead, delete server-side
-    const isLive = liveLeads.some((l) => l.id === lead.id);
-    if (isLive) {
-      try {
-        await deleteLeadFn({ data: { id: lead.id, workspaceKey } });
-      } catch (err) {
-        console.error("[crm] delete failed", err);
-        window.alert("Failed to delete lead. Please try again.");
-        setDeletedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(lead.id);
-          return next;
-        });
-      }
+  };
+
+  const pageIds = pageRows.map((l) => l.id);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+
+  const handleDeleteSelected = async () => {
+    if (!access.canSeeDetails) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (!window.confirm(`Delete ${ids.length} lead${ids.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
+
+    setDeletedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
+    setLeads((prev) => prev.filter((l) => !selectedIds.has(l.id)));
+    setSelectedIds(new Set());
+
+    const liveIdSet = new Set(liveLeads.map((l) => l.id));
+    const liveTargets = ids.filter((id) => liveIdSet.has(id));
+    const results = await Promise.allSettled(
+      liveTargets.map((id) => deleteLeadFn({ data: { id, workspaceKey } })),
+    );
+    const failed = results
+      .map((r, i) => (r.status === "rejected" ? liveTargets[i] : null))
+      .filter((x): x is string => x !== null);
+    if (failed.length > 0) {
+      console.error("[crm] delete failed for", failed);
+      window.alert(`Failed to delete ${failed.length} lead${failed.length === 1 ? "" : "s"}.`);
+      setDeletedIds((prev) => {
+        const next = new Set(prev);
+        failed.forEach((id) => next.delete(id));
+        return next;
+      });
     }
   };
+
 
 
   return (
@@ -369,6 +397,15 @@ function CrmPage() {
             <Download className="size-3.5" />
             Export
           </button>
+          {selectedIds.size > 0 && access.canSeeDetails && (
+            <button
+              onClick={handleDeleteSelected}
+              className="text-sm font-medium px-3 py-2 rounded-md bg-stage-red-soft text-stage-red-ink ring-1 ring-stage-red-line flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+            >
+              <Trash2 className="size-3.5" />
+              Delete ({selectedIds.size})
+            </button>
+          )}
           <button className="text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground ring-1 ring-primary flex items-center gap-1.5 hover:bg-primary/90 transition-colors">
             <Plus className="size-3.5" />
             Add Lead
@@ -382,7 +419,15 @@ function CrmPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b border-border">
               <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                <th className="px-3 py-3 w-10"></th>
+                <th className="px-3 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    className="size-3.5 accent-primary cursor-pointer"
+                    checked={allOnPageSelected}
+                    onChange={toggleSelectAllOnPage}
+                    aria-label="Select all on page"
+                  />
+                </th>
                 <th className="px-3 py-3 w-8 text-muted-foreground/60">#</th>
                 {showCol("Expires In") && <th className="px-3 py-3">Expires In</th>}
                 {showCol("Channel") && <th className="px-3 py-3">Channel</th>}
@@ -405,7 +450,13 @@ function CrmPage() {
                     className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${access.canSeeDetails ? "cursor-pointer" : ""}`}
                   >
                     <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" className="size-3.5 accent-primary cursor-pointer" />
+                      <input
+                        type="checkbox"
+                        className="size-3.5 accent-primary cursor-pointer"
+                        checked={selectedIds.has(l.id)}
+                        onChange={() => toggleSelect(l.id)}
+                        aria-label={`Select ${l.name || l.email || "lead"}`}
+                      />
                     </td>
                     <td className="px-3 py-2.5 text-xs font-mono text-muted-foreground/70">
                       {startIdx + i + 1}
@@ -507,14 +558,6 @@ function CrmPage() {
                           >
                             <Check className="size-3" />
                             Won
-                          </button>
-                          <button
-                            onClick={() => handleDelete(l)}
-                            className="p-1 rounded hover:bg-stage-red-soft text-muted-foreground hover:text-stage-red-ink transition-colors"
-                            aria-label="Delete lead"
-                            title="Delete lead"
-                          >
-                            <Trash2 className="size-3.5" />
                           </button>
                         </div>
                       </td>
