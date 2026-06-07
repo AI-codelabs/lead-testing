@@ -144,6 +144,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [clientWorkspaces, setClientWorkspaces] = useState<ClientWorkspace[]>(DEFAULT_CLIENTS);
   const [viewingClientId, setViewingClientId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const saved = loadFromStorage();
@@ -168,6 +170,55 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     }
     setHydrated(true);
   }, []);
+
+  // Hydrate workspace state from the authenticated user's profile row.
+  useEffect(() => {
+    let cancelled = false;
+    async function hydrateFromProfile(userId: string, userEmail: string | null) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("account_type,workspace_key,workspace_name,owner_name,owner_email")
+        .eq("id", userId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !data) return;
+      _setAccountType((data.account_type === "agency" ? "agency" : "standard"));
+      setOwnWorkspace({
+        key: data.workspace_key,
+        name: data.workspace_name,
+        ownerName: data.owner_name || userEmail || "Workspace owner",
+        ownerEmail: data.owner_email || userEmail || "",
+        invitedAgencyEmail: null,
+        grantedAccess: "full",
+      });
+      if (data.account_type === "agency") setClientWorkspaces([]);
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      setIsAuthenticated(!!data.session);
+      setAuthReady(true);
+      if (data.session?.user) hydrateFromProfile(data.session.user.id, data.session.user.email ?? null);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      setIsAuthenticated(!!session);
+      if (session?.user) hydrateFromProfile(session.user.id, session.user.email ?? null);
+    });
+    return () => {
+      cancelled = true;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setOwnWorkspace(DEFAULT_OWN_WORKSPACE);
+    setClientWorkspaces(DEFAULT_CLIENTS);
+    _setAccountType("standard");
+    setViewingClientId(null);
+    if (typeof window !== "undefined") window.localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
 
   useEffect(() => {
     if (!hydrated || typeof window === "undefined") return;
