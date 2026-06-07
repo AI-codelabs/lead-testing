@@ -37,7 +37,7 @@ export const TRACKER = `/* Leadlogr tracker v1 — autodetects forms, captures a
     var out = '';
     for (var i = 0; i < s.length; i++) {
       var ch = s.charAt(i);
-      out += '.$?*|{}()[]\\/+^'.indexOf(ch) === -1 ? ch : '\\' + ch;
+      out += '.$?*|{}()[]\\\\/+^'.indexOf(ch) === -1 ? ch : '\\\\' + ch;
     }
     return out;
   }
