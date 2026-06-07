@@ -99,6 +99,15 @@ export const Route = createFileRoute("/api/public/leads/collect")({
             });
           }
 
+          // Fire conversions for the New stage in the background.
+          if (data?.id) {
+            try {
+              const { sendGoogleAdsConversion, sendMetaConversion } = await import("@/lib/conversions.functions");
+              void sendGoogleAdsConversion({ data: { leadId: data.id, stage: "New" } });
+              void sendMetaConversion({ data: { leadId: data.id, stage: "New" } });
+            } catch { /* never block ingest on conversion uploads */ }
+          }
+
           return new Response(JSON.stringify({ ok: true, id: data?.id }), {
             status: 200,
             headers: { "Content-Type": "application/json", ...CORS },
