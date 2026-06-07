@@ -61,6 +61,13 @@ type AccountState = {
   effectiveAccess: AccessLevel;
   /** True when the current view is an agency looking at a client (read-mostly). */
   isAgencyViewing: boolean;
+
+  /** Sign out the current user (clears session and resets workspace state). */
+  signOut: () => Promise<void>;
+  /** True once the auth session has been checked. */
+  authReady: boolean;
+  /** True when a Supabase session is active. */
+  isAuthenticated: boolean;
 };
 
 const STORAGE_KEY = "leadlogr.account.v2";
