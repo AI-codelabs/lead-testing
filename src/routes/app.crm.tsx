@@ -15,8 +15,12 @@ import {
   Plus,
   Search,
   Star,
+  Trash2,
   X,
 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { deleteLead } from "@/lib/leads.functions";
+import { toast } from "sonner";
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
 import {
