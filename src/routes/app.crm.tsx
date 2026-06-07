@@ -260,15 +260,17 @@ function CrmPage() {
     });
   };
 
-  const allOnPageSelected =
-    pageRowsExist() && pageIdsRef().every((id) => selectedIds.has(id));
+  const pageIds = pageRows.map((l) => l.id);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
 
-  function pageRowsExist() {
-    return true; // placeholder, replaced below via inline derivation
-  }
-  function pageIdsRef(): string[] {
-    return [];
-  }
 
   const handleDeleteSelected = async () => {
     if (!access.canSeeDetails) return;
