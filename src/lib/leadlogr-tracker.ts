@@ -58,7 +58,7 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
   function setLS(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function getLS(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
 
-  var KEYS = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','msclkid','li_fat_id'];
+  var KEYS = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','wbraid','gbraid','fbclid','msclkid','li_fat_id'];
   var attribution = {};
   KEYS.forEach(function (k) {
     var fromUrl = getParam(k);
