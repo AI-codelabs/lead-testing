@@ -60,13 +60,14 @@ export function AppSidebar() {
               <div className="text-sm font-medium truncate">{ownWorkspace.ownerName}</div>
               <div className="text-xs text-muted-foreground truncate">{ownWorkspace.name}</div>
             </div>
-            <Link
-              to="/"
+            <button
+              type="button"
+              onClick={handleSignOut}
               className="text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Sign out"
             >
               <LogOut className="size-4" />
-            </Link>
+            </button>
           </div>
         )}
       </div>
