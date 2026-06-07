@@ -32,8 +32,17 @@ export const TRACKER = `/* Leadlogr tracker v1 — autodetects forms, captures a
   function getParam(name) {
     try { return new URLSearchParams(window.location.search).get(name) || ''; } catch (e) { return ''; }
   }
+  function escapeCookieName(name) {
+    var s = String(name || '');
+    var out = '';
+    for (var i = 0; i < s.length; i++) {
+      var ch = s.charAt(i);
+      out += '.$?*|{}()[]\\/+^'.indexOf(ch) === -1 ? ch : '\\' + ch;
+    }
+    return out;
+  }
   function getCookie(name) {
-    var m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/+^])/g, '\\$1') + '=([^;]*)'));
+    var m = document.cookie.match(new RegExp('(?:^|; )' + escapeCookieName(name) + '=([^;]*)'));
     return m ? decodeURIComponent(m[1]) : '';
   }
   function setLS(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
