@@ -39,8 +39,8 @@ const STAGES: Array<{ key: keyof FormState; label: string; hint: string; placeho
 ];
 
 function MetaAdsPage() {
-  const { ownWorkspace } = useAccount();
-  const workspaceKey = deriveWorkspaceKey(ownWorkspace.name);
+  const { activeWorkspace } = useAccount();
+  const workspaceKey = activeWorkspace.key;
   const load = useServerFn(getMetaAdsSettings);
   const save = useServerFn(saveMetaAdsSettings);
   const disconnect = useServerFn(disconnectMetaAds);

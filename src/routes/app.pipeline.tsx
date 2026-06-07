@@ -58,8 +58,8 @@ function PipelinePage() {
       </>
     );
   }
-  const { ownWorkspace } = useAccount();
-  const workspaceKey = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
+  const { activeWorkspace } = useAccount();
+  const workspaceKey = activeWorkspace.key;
   const liveLeads = useLiveLeads(workspaceKey);
   const [seedLeads, setLeads] = useState<Lead[]>(SEED_LEADS);
   // Merge live (tracker-captured) leads in front of the demo seed data.

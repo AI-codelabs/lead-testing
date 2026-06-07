@@ -264,8 +264,8 @@ function Grid({ items, connectedIds }: { items: IntegrationItem[]; connectedIds:
 
 function IntegrationsPage() {
   const location = useLocation();
-  const { ownWorkspace } = useAccount();
-  const workspaceKey = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
+  const { activeWorkspace } = useAccount();
+  const workspaceKey = activeWorkspace.key;
   const fetchStatuses = useServerFn(getIntegrationStatuses);
   const { data: statuses } = useQuery({
     queryKey: ["integration-statuses", workspaceKey],

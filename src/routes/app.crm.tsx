@@ -122,8 +122,8 @@ type Column = (typeof ALL_COLUMNS)[number];
 
 function CrmPage() {
   const access = useAccess();
-  const { ownWorkspace } = useAccount();
-  const workspaceKey = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
+  const { activeWorkspace } = useAccount();
+  const workspaceKey = activeWorkspace.key;
   const liveLeads = useLiveLeads(workspaceKey);
   const [seedLeads, setLeads] = useState<Lead[]>(SEED_LEADS);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
