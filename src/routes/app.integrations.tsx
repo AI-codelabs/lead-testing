@@ -201,22 +201,41 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
       </div>
       {item.setupTo && !item.comingSoon ? (
         connected ? (
-          <Link
-            to={item.setupTo}
-            search={item.setupTo === "/app/tracking" ? { integration: item.id } : undefined}
-            className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-stage-green-soft text-stage-green-ink ring-1 ring-stage-green-line hover:opacity-90 cursor-pointer text-center flex items-center justify-center gap-1.5"
-          >
-            <Check className="size-4" />
-            Connected
-          </Link>
+          item.setupTo === "/app/tracking" ? (
+            <Link
+              to="/app/tracking"
+              search={{ integration: item.id }}
+              className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-stage-green-soft text-stage-green-ink ring-1 ring-stage-green-line hover:opacity-90 cursor-pointer text-center flex items-center justify-center gap-1.5"
+            >
+              <Check className="size-4" />
+              Connected
+            </Link>
+          ) : (
+            <Link
+              to="/app/integrations/google-ads"
+              className="mt-5 text-sm font-medium px-3 py-2 rounded-md bg-stage-green-soft text-stage-green-ink ring-1 ring-stage-green-line hover:opacity-90 cursor-pointer text-center flex items-center justify-center gap-1.5"
+            >
+              <Check className="size-4" />
+              Connected
+            </Link>
+          )
         ) : (
-          <Link
-            to={item.setupTo}
-            search={item.setupTo === "/app/tracking" ? { integration: item.id } : undefined}
-            className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
-          >
-            {item.id === "google-ads" ? "Connect" : "Set up"}
-          </Link>
+          item.setupTo === "/app/tracking" ? (
+            <Link
+              to="/app/tracking"
+              search={{ integration: item.id }}
+              className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
+            >
+              Set up
+            </Link>
+          ) : (
+            <Link
+              to="/app/integrations/google-ads"
+              className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
+            >
+              Connect
+            </Link>
+          )
         )
       ) : connected ? (
         <ConnectedBadge />
