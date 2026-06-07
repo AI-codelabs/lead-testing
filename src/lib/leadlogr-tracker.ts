@@ -238,6 +238,8 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
       utm_term: attribution.utm_term || '',
       utm_content: attribution.utm_content || '',
       gclid: attribution.gclid || '',
+      wbraid: attribution.wbraid || '',
+      gbraid: attribution.gbraid || '',
       fbclid: attribution.fbclid || '',
       msclkid: attribution.msclkid || '',
       li_fat_id: attribution.li_fat_id || '',
@@ -254,7 +256,7 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
       consent_source: detected.source,
       consent_state: detected.state,
       client_context: clientContext(),
-      source: (attribution.gclid ? 'Google'
+      source: ((attribution.gclid || attribution.wbraid || attribution.gbraid) ? 'Google'
               : attribution.fbclid ? 'Meta'
               : attribution.li_fat_id ? 'LinkedIn'
               : attribution.msclkid ? 'Microsoft'
