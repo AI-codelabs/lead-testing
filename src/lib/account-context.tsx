@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AccountType = "standard" | "agency";
 export type AccessLevel = "full" | "names_only" | "metrics_only";
