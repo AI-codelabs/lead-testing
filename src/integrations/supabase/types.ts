@@ -277,6 +277,54 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_ads_settings: {
+        Row: {
+          access_token: string | null
+          connected_at: string | null
+          created_at: string
+          default_currency: string
+          enabled: boolean
+          event_name_lost: string | null
+          event_name_new: string | null
+          event_name_qualified: string | null
+          event_name_won: string | null
+          pixel_id: string
+          test_event_code: string | null
+          updated_at: string
+          workspace_key: string
+        }
+        Insert: {
+          access_token?: string | null
+          connected_at?: string | null
+          created_at?: string
+          default_currency?: string
+          enabled?: boolean
+          event_name_lost?: string | null
+          event_name_new?: string | null
+          event_name_qualified?: string | null
+          event_name_won?: string | null
+          pixel_id?: string
+          test_event_code?: string | null
+          updated_at?: string
+          workspace_key: string
+        }
+        Update: {
+          access_token?: string | null
+          connected_at?: string | null
+          created_at?: string
+          default_currency?: string
+          enabled?: boolean
+          event_name_lost?: string | null
+          event_name_new?: string | null
+          event_name_qualified?: string | null
+          event_name_won?: string | null
+          pixel_id?: string
+          test_event_code?: string | null
+          updated_at?: string
+          workspace_key?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
