@@ -160,16 +160,24 @@ function GoogleAdsPage() {
 
   const onConnect = () => {
     setError(null);
-    // Remember where to return after the OAuth round-trip in case the popup
-    // is blocked (preview iframe) and we fall back to a top-level redirect.
     try { sessionStorage.setItem("leadlogr.googleads.returnTo", window.location.pathname); } catch { /* ignore */ }
-    const url = `/api/public/oauth/google-ads/start?workspace_key=${encodeURIComponent(workspaceKey)}`;
+    // Always run the OAuth round-trip against the PUBLISHED origin. The
+    // Lovable preview hosts (lovableproject.com / id-preview--*.lovable.app)
+    // sit behind an auth-bridge that intercepts every request — including
+    // /api/public/* — so the popup never reaches Google from inside the
+    // preview iframe. The published origin has no such interception and is
+    // the redirect_uri registered in Google Cloud Console.
+    const PUBLISHED_ORIGIN = "https://lead-testing.lovable.app";
+    const host = window.location.host;
+    const isPreview = host.endsWith(".lovableproject.com") || host.startsWith("id-preview--");
+    const base = isPreview ? PUBLISHED_ORIGIN : window.location.origin;
+    const url = `${base}/api/public/oauth/google-ads/start?workspace_key=${encodeURIComponent(workspaceKey)}`;
     const w = 520, h = 640;
     const left = window.screenX + (window.outerWidth - w) / 2;
     const top = window.screenY + (window.outerHeight - h) / 2;
     const popup = window.open(url, "leadlogr-google-ads", `width=${w},height=${h},left=${left},top=${top}`);
     if (!popup || popup.closed || typeof popup.closed === "undefined") {
-      // Popup blocked (common inside sandboxed preview iframes) — full-redirect the top window.
+      // Popup blocked — fall back to a top-window redirect.
       try { window.top!.location.href = url; } catch { window.location.href = url; }
     }
   };
