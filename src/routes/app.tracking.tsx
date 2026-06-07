@@ -144,11 +144,7 @@ window.Leadlogr.submitForm({
   return (
     <>
       <PageHeader
-        eyebrow={
-          <Link to="/app/integrations" className="hover:text-foreground transition-colors">
-            ← Integrations
-          </Link>
-        }
+        eyebrow="Integrations › Tracking"
         title="Tracking setup"
         description="One snippet. Auto-detects forms, captures UTMs and click IDs, respects consent. Paste it once — no code changes per form."
       />
