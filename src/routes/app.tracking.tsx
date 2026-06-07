@@ -14,8 +14,9 @@ export const Route = createFileRoute("/app/tracking")({
 
 
 
-const DEFAULT_ENDPOINT = "https://leadlogr.com/api/leads/collect";
-const TRACKER_SRC = "https://cdn.leadlogr.com/tracker.v1.js";
+// These are derived at runtime from the app's own origin so the tracker
+// always points at this Leadlogr deployment (preview or published).
+
 
 type Flags = {
   showConsentPopup: boolean;
@@ -83,18 +84,26 @@ function FlagToggle({
 
 function TrackingPage() {
   const { ownWorkspace } = useAccount();
-  const workspaceId = useMemo(
-    () => "ws_" + (ownWorkspace.name || "acme").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) + "_a1b2c3",
-    [ownWorkspace.name],
-  );
+  const workspaceId = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
 
-  const [endpoint, setEndpoint] = useState(DEFAULT_ENDPOINT);
+  const [origin, setOrigin] = useState<string>("");
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  const defaultEndpoint = origin ? `${origin}/api/public/leads/collect` : "/api/public/leads/collect";
+  const trackerSrc = origin ? `${origin}/tracker.v1.js` : "/tracker.v1.js";
+
+  const [endpoint, setEndpoint] = useState<string>("");
+  const effectiveEndpoint = endpoint || defaultEndpoint;
   const [flags, setFlags] = useState<Flags>({
     showConsentPopup: true,
     allowConsentFallback: true,
     allowDynamicForms: true,
     debug: true,
   });
+
+  // Live ingestion status
+  const liveLeads = useLiveLeads(workspaceId);
+  const hasEvents = liveLeads.length > 0;
+
 
   const flagsJson = JSON.stringify(
     {
