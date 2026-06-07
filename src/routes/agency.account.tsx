@@ -31,7 +31,7 @@ function AgencyAccountPage() {
   };
 
   const removeMember = (id: string) =>
-    setTeam((p) => p.filter((m) => m.id !== id || m.role === "Owner"));
+    setTeam((p) => p.filter((m) => m.id !== id));
 
   const revokeInvite = (id: string) =>
     setInvites((p) => p.filter((i) => i.id !== id));
