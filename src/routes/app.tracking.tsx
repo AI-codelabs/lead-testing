@@ -239,13 +239,41 @@ window.Leadlogr.submitForm({
                   Once the snippet is live, submit a test form on your site. We'll show the event here within seconds.
                 </p>
                 <div className="mt-3 flex items-center gap-2 text-xs">
-                  <span className="inline-flex items-center gap-1.5 text-muted-foreground bg-muted/40 ring-1 ring-border px-2 py-1 rounded">
-                    <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse" /> Waiting for first event…
-                  </span>
-                  <button className="text-xs font-medium px-2.5 py-1.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors">
+                  {hasEvents ? (
+                    <span className="inline-flex items-center gap-1.5 text-stage-green-ink bg-stage-green-soft ring-1 ring-stage-green-line px-2 py-1 rounded">
+                      <span className="size-1.5 rounded-full bg-stage-green-ink" />
+                      {liveLeads.length} event{liveLeads.length === 1 ? "" : "s"} received — newest from {liveLeads[0]?.email || liveLeads[0]?.name || "anonymous"}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-muted-foreground bg-muted/40 ring-1 ring-border px-2 py-1 rounded">
+                      <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse" /> Waiting for first event…
+                    </span>
+                  )}
+                  <button
+                    onClick={async () => {
+                      await fetch(effectiveEndpoint, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          workspace_key: workspaceId,
+                          name: "Test Lead",
+                          email: "test@example.com",
+                          phone: "+1 555 0100",
+                          company: "Test Co.",
+                          message: "Sent from Leadlogr tracking page",
+                          source: "Direct",
+                          landing_page_url: window.location.href,
+                          page_path: "/app/tracking",
+                          consent: "Accepted",
+                        }),
+                      });
+                    }}
+                    className="text-xs font-medium px-2.5 py-1.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors"
+                  >
                     Send test event
                   </button>
                 </div>
+
               </div>
             </div>
           </div>
@@ -274,6 +302,7 @@ window.Leadlogr.submitForm({
             </label>
             <input
               value={endpoint}
+              placeholder={defaultEndpoint}
               onChange={(e) => setEndpoint(e.target.value)}
               className="mt-1.5 w-full text-xs font-mono px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
             />
