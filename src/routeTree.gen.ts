@@ -26,6 +26,7 @@ import { Route as AppCrmRouteImport } from './routes/app.crm'
 import { Route as AppAccountRouteImport } from './routes/app.account'
 import { Route as AgencyNewClientRouteImport } from './routes/agency.new-client'
 import { Route as AgencyAccountRouteImport } from './routes/agency.account'
+import { Route as ApiPublicTrackerV1RouteImport } from './routes/api/public/tracker.v1'
 import { Route as ApiPublicLeadsCollectRouteImport } from './routes/api/public/leads/collect'
 
 const TrackerDotv1DotjsRoute = TrackerDotv1DotjsRouteImport.update({
@@ -113,6 +114,11 @@ const AgencyAccountRoute = AgencyAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AgencyRoute,
 } as any)
+const ApiPublicTrackerV1Route = ApiPublicTrackerV1RouteImport.update({
+  id: '/api/public/tracker/v1',
+  path: '/api/public/tracker/v1',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicLeadsCollectRoute = ApiPublicLeadsCollectRouteImport.update({
   id: '/api/public/leads/collect',
   path: '/api/public/leads/collect',
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
+  '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/agency': typeof AgencyIndexRoute
   '/app': typeof AppIndexRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
+  '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -177,6 +185,7 @@ export interface FileRoutesById {
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
+  '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/agency/'
     | '/app/'
     | '/api/public/leads/collect'
+    | '/api/public/tracker/v1'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/agency'
     | '/app'
     | '/api/public/leads/collect'
+    | '/api/public/tracker/v1'
   id:
     | '__root__'
     | '/'
@@ -237,6 +248,7 @@ export interface FileRouteTypes {
     | '/agency/'
     | '/app/'
     | '/api/public/leads/collect'
+    | '/api/public/tracker/v1'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -248,6 +260,7 @@ export interface RootRouteChildren {
   TrackerDotv1DotjsRoute: typeof TrackerDotv1DotjsRoute
   TrackerV1DotjsRoute: typeof TrackerV1DotjsRoute
   ApiPublicLeadsCollectRoute: typeof ApiPublicLeadsCollectRoute
+  ApiPublicTrackerV1Route: typeof ApiPublicTrackerV1Route
 }
 
 declare module '@tanstack/react-router' {
@@ -371,6 +384,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgencyAccountRouteImport
       parentRoute: typeof AgencyRoute
     }
+    '/api/public/tracker/v1': {
+      id: '/api/public/tracker/v1'
+      path: '/api/public/tracker/v1'
+      fullPath: '/api/public/tracker/v1'
+      preLoaderRoute: typeof ApiPublicTrackerV1RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/leads/collect': {
       id: '/api/public/leads/collect'
       path: '/api/public/leads/collect'
@@ -427,6 +447,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrackerDotv1DotjsRoute: TrackerDotv1DotjsRoute,
   TrackerV1DotjsRoute: TrackerV1DotjsRoute,
   ApiPublicLeadsCollectRoute: ApiPublicLeadsCollectRoute,
+  ApiPublicTrackerV1Route: ApiPublicTrackerV1Route,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
