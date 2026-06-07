@@ -325,6 +325,39 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          account_type: string
+          created_at: string
+          id: string
+          owner_email: string
+          owner_name: string
+          updated_at: string
+          workspace_key: string
+          workspace_name: string
+        }
+        Insert: {
+          account_type?: string
+          created_at?: string
+          id: string
+          owner_email?: string
+          owner_name?: string
+          updated_at?: string
+          workspace_key: string
+          workspace_name?: string
+        }
+        Update: {
+          account_type?: string
+          created_at?: string
+          id?: string
+          owner_email?: string
+          owner_name?: string
+          updated_at?: string
+          workspace_key?: string
+          workspace_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

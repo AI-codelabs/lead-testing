@@ -3,6 +3,7 @@ import { AuthShell, Field } from "@/components/leadlogr/auth-shell";
 import { useState, type FormEvent } from "react";
 import { Briefcase, Building2 } from "lucide-react";
 import { useAccount, type AccountType } from "@/lib/account-context";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -37,16 +38,47 @@ function SignupPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    createAccount({
-      accountType: type,
-      workspaceName,
-      ownerName: [firstName, lastName].filter(Boolean).join(" "),
-      ownerEmail: email,
-    });
-    navigate({ to: type === "agency" ? "/agency" : "/app/dashboard" });
+    setError(null);
+    setSubmitting(true);
+    const ownerName = [firstName, lastName].filter(Boolean).join(" ");
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/app/dashboard`,
+          data: {
+            account_type: type,
+            workspace_name: workspaceName.trim(),
+            owner_name: ownerName,
+          },
+        },
+      });
+      if (signUpError) throw signUpError;
+      // Optimistic local hydration so the UI reflects the new workspace immediately.
+      createAccount({
+        accountType: type,
+        workspaceName,
+        ownerName,
+        ownerEmail: email,
+      });
+      if (data.session) {
+        navigate({ to: type === "agency" ? "/agency" : "/app/dashboard" });
+      } else {
+        // Email confirmation is enabled — tell the user to verify.
+        setError("Account created. Check your inbox to confirm your email, then sign in.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create account");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const isAgency = type === "agency";
@@ -105,12 +137,22 @@ function SignupPage() {
           onChange={(e) => setWorkspaceName(e.target.value)}
           required
         />
-        <Field label="Password" type="password" placeholder="At least 8 characters" autoComplete="new-password" required />
+        <Field
+          label="Password"
+          type="password"
+          placeholder="At least 8 characters"
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        {error ? <p className="text-xs text-destructive">{error}</p> : null}
         <button
           type="submit"
-          className="w-full bg-primary text-primary-foreground text-sm font-medium px-4 py-2.5 rounded-md ring-1 ring-primary shadow-sm hover:opacity-90 transition-opacity"
+          disabled={submitting}
+          className="w-full bg-primary text-primary-foreground text-sm font-medium px-4 py-2.5 rounded-md ring-1 ring-primary shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
         >
-          {isAgency ? "Create agency account" : "Create workspace"}
+          {submitting ? "Creating…" : isAgency ? "Create agency account" : "Create workspace"}
         </button>
         <p className="text-xs text-muted-foreground">
           By creating an account you agree to our Terms of Service and Privacy Policy.

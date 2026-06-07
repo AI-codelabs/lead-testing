@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Logo } from "./logo";
 import {
   LayoutDashboard,
@@ -20,10 +20,15 @@ const nav = [
 ] as const;
 
 export function AppSidebar() {
-  const { accountType, isAgencyViewing, ownWorkspace } = useAccount();
+  const { accountType, isAgencyViewing, ownWorkspace, signOut } = useAccount();
+  const navigate = useNavigate();
   const isAgency = accountType === "agency";
   // Agencies inside a client workspace cannot access the client's Account page.
   const visibleNav = isAgencyViewing ? nav.filter((n) => n.to !== "/app/account") : nav;
+  const handleSignOut = async () => {
+    await signOut();
+    navigate({ to: "/login", replace: true });
+  };
   return (
     <aside className="w-60 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col h-screen sticky top-0">
       <div className="h-16 px-5 flex items-center border-b border-sidebar-border">
@@ -55,13 +60,14 @@ export function AppSidebar() {
               <div className="text-sm font-medium truncate">{ownWorkspace.ownerName}</div>
               <div className="text-xs text-muted-foreground truncate">{ownWorkspace.name}</div>
             </div>
-            <Link
-              to="/"
+            <button
+              type="button"
+              onClick={handleSignOut}
               className="text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Sign out"
             >
               <LogOut className="size-4" />
-            </Link>
+            </button>
           </div>
         )}
       </div>
