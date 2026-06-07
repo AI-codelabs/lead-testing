@@ -124,6 +124,22 @@ function GoogleAdsPage() {
     return () => window.removeEventListener("message", onMsg);
   }, [refresh]);
 
+  // Handle full-redirect OAuth return (?ga_connected=1|0&error=...).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("ga_connected")) return;
+    const ok = params.get("ga_connected") === "1";
+    if (ok) {
+      setError(null);
+      void refresh();
+    } else {
+      setError(params.get("error") || "Connection failed");
+    }
+    // Clean the URL.
+    const clean = window.location.pathname;
+    window.history.replaceState({}, "", clean);
+  }, [refresh]);
+
   // Auto-load customers when connected.
   useEffect(() => {
     if (!connection.connected) { setCustomers([]); return; }
@@ -144,11 +160,18 @@ function GoogleAdsPage() {
 
   const onConnect = () => {
     setError(null);
+    // Remember where to return after the OAuth round-trip in case the popup
+    // is blocked (preview iframe) and we fall back to a top-level redirect.
+    try { sessionStorage.setItem("leadlogr.googleads.returnTo", window.location.pathname); } catch { /* ignore */ }
     const url = `/api/public/oauth/google-ads/start?workspace_key=${encodeURIComponent(workspaceKey)}`;
     const w = 520, h = 640;
     const left = window.screenX + (window.outerWidth - w) / 2;
     const top = window.screenY + (window.outerHeight - h) / 2;
-    window.open(url, "leadlogr-google-ads", `width=${w},height=${h},left=${left},top=${top}`);
+    const popup = window.open(url, "leadlogr-google-ads", `width=${w},height=${h},left=${left},top=${top}`);
+    if (!popup || popup.closed || typeof popup.closed === "undefined") {
+      // Popup blocked (common inside sandboxed preview iframes) — full-redirect the top window.
+      try { window.top!.location.href = url; } catch { window.location.href = url; }
+    }
   };
 
   const onDisconnect = async () => {
