@@ -53,6 +53,12 @@ type AccountState = {
 
 const STORAGE_KEY = "leadlogr.account.v1";
 
+/** Inline copy of deriveWorkspaceKey (kept in sync with use-live-leads.ts) to avoid an import cycle. */
+function deriveWorkspaceKey(name: string): string {
+  const slug = (name || "workspace").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24) || "workspace";
+  return `ws_${slug}`;
+}
+
 const DEFAULT_CLIENTS: ClientWorkspace[] = [
   {
     id: "ws_acme",
