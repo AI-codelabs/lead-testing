@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { IntegrationLogo } from "@/components/leadlogr/integration-logo";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -184,6 +184,13 @@ function IntegrationCard({ item }: { item: IntegrationItem }) {
         >
           Set up
         </Link>
+      ) : item.id === "google-ads" && !item.comingSoon ? (
+        <Link
+          to="/app/integrations/google-ads"
+          className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
+        >
+          Connect
+        </Link>
       ) : (
         <button
           disabled={item.comingSoon}
@@ -207,6 +214,12 @@ function Grid({ items }: { items: IntegrationItem[] }) {
 }
 
 function IntegrationsPage() {
+  const location = useLocation();
+
+  if (location.pathname.replace(/\/$/, "") !== "/app/integrations") {
+    return <Outlet />;
+  }
+
   return (
     <>
       <PageHeader
