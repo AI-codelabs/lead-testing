@@ -114,6 +114,18 @@ function DashboardPage() {
   const perf = performanceData[range];
   const sources = sourcesData[range];
 
+  const { ownWorkspace } = useAccount();
+  const workspaceKey = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
+  const fetchStatuses = useServerFn(getIntegrationStatuses);
+  const { data: statuses } = useQuery({
+    queryKey: ["integration-statuses", workspaceKey],
+    queryFn: () => fetchStatuses({ data: { workspaceKey } }),
+    staleTime: 30_000,
+  });
+  const hasLeads = (statuses?.incomingConnectedIds.length ?? 0) > 0;
+  const hasAds = !!statuses?.googleAdsConnected;
+  const hasPerf = hasLeads && hasAds;
+
   return (
     <>
       <PageHeader
@@ -140,8 +152,8 @@ function DashboardPage() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-8">
-        <FunnelCard stages={stages} />
-        <PerformanceCard perf={perf} />
+        <FunnelCard stages={stages} hasData={hasLeads} />
+        <PerformanceCard perf={perf} hasData={hasPerf} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
@@ -160,28 +172,47 @@ function DashboardPage() {
               </span>
             </div>
           </div>
-          <ChartMock range={range} />
+          {hasPerf ? (
+            <ChartMock range={range} />
+          ) : (
+            <EmptyState
+              className="h-48"
+              message={hasLeads ? "Connect an ad platform to track conversions" : "Start a campaign to see conversions flow in"}
+            />
+          )}
         </div>
 
         <div className="bg-card ring-1 ring-border rounded-lg p-6">
           <h3 className="font-semibold mb-1">Top sources</h3>
           <p className="text-xs text-muted-foreground mb-4">By qualified leads.</p>
-          <div className="space-y-3">
-            {sources.map((s) => (
-              <div key={s.name} className="flex items-center justify-between text-sm">
-                <div>
-                  <div className="font-medium">{s.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {s.leads} leads · {s.conv} conv
+          {hasLeads ? (
+            <div className="space-y-3">
+              {sources.map((s) => (
+                <div key={s.name} className="flex items-center justify-between text-sm">
+                  <div>
+                    <div className="font-medium">{s.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {s.leads} leads · {s.conv} conv
+                    </div>
                   </div>
+                  <div className="text-sm font-mono text-foreground">{s.roas}</div>
                 </div>
-                <div className="text-sm font-mono text-foreground">{s.roas}</div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState className="h-32" message="Connect an integration to rank your top sources" />
+          )}
         </div>
       </div>
     </>
+  );
+}
+
+function EmptyState({ message, className = "" }: { message: string; className?: string }) {
+  return (
+    <div className={`flex items-center justify-center rounded-md border border-dashed border-border bg-muted/30 px-4 text-center ${className}`}>
+      <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
   );
 }
 
