@@ -16,6 +16,7 @@ import { Route as AgencyRouteImport } from './routes/agency'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AgencyIndexRouteImport } from './routes/agency.index'
+import { Route as TrackerV1DotjsRouteImport } from './routes/tracker.v1[.]js'
 import { Route as AppTrackingRouteImport } from './routes/app.tracking'
 import { Route as AppPipelineRouteImport } from './routes/app.pipeline'
 import { Route as AppIntegrationsRouteImport } from './routes/app.integrations'
@@ -24,6 +25,7 @@ import { Route as AppCrmRouteImport } from './routes/app.crm'
 import { Route as AppAccountRouteImport } from './routes/app.account'
 import { Route as AgencyNewClientRouteImport } from './routes/agency.new-client'
 import { Route as AgencyAccountRouteImport } from './routes/agency.account'
+import { Route as ApiPublicLeadsCollectRouteImport } from './routes/api/public/leads/collect'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -59,6 +61,11 @@ const AgencyIndexRoute = AgencyIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AgencyRoute,
+} as any)
+const TrackerV1DotjsRoute = TrackerV1DotjsRouteImport.update({
+  id: '/tracker/v1.js',
+  path: '/tracker/v1.js',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppTrackingRoute = AppTrackingRouteImport.update({
   id: '/tracking',
@@ -100,6 +107,11 @@ const AgencyAccountRoute = AgencyAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AgencyRoute,
 } as any)
+const ApiPublicLeadsCollectRoute = ApiPublicLeadsCollectRouteImport.update({
+  id: '/api/public/leads/collect',
+  path: '/api/public/leads/collect',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -115,8 +127,10 @@ export interface FileRoutesByFullPath {
   '/app/integrations': typeof AppIntegrationsRoute
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
+  '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
+  '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -130,8 +144,10 @@ export interface FileRoutesByTo {
   '/app/integrations': typeof AppIntegrationsRoute
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
+  '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency': typeof AgencyIndexRoute
   '/app': typeof AppIndexRoute
+  '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -148,8 +164,10 @@ export interface FileRoutesById {
   '/app/integrations': typeof AppIntegrationsRoute
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
+  '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
+  '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -167,8 +185,10 @@ export interface FileRouteTypes {
     | '/app/integrations'
     | '/app/pipeline'
     | '/app/tracking'
+    | '/tracker/v1.js'
     | '/agency/'
     | '/app/'
+    | '/api/public/leads/collect'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -182,8 +202,10 @@ export interface FileRouteTypes {
     | '/app/integrations'
     | '/app/pipeline'
     | '/app/tracking'
+    | '/tracker/v1.js'
     | '/agency'
     | '/app'
+    | '/api/public/leads/collect'
   id:
     | '__root__'
     | '/'
@@ -199,8 +221,10 @@ export interface FileRouteTypes {
     | '/app/integrations'
     | '/app/pipeline'
     | '/app/tracking'
+    | '/tracker/v1.js'
     | '/agency/'
     | '/app/'
+    | '/api/public/leads/collect'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -209,6 +233,8 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  TrackerV1DotjsRoute: typeof TrackerV1DotjsRoute
+  ApiPublicLeadsCollectRoute: typeof ApiPublicLeadsCollectRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -261,6 +287,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/agency/'
       preLoaderRoute: typeof AgencyIndexRouteImport
       parentRoute: typeof AgencyRoute
+    }
+    '/tracker/v1.js': {
+      id: '/tracker/v1.js'
+      path: '/tracker/v1.js'
+      fullPath: '/tracker/v1.js'
+      preLoaderRoute: typeof TrackerV1DotjsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/app/tracking': {
       id: '/app/tracking'
@@ -318,6 +351,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgencyAccountRouteImport
       parentRoute: typeof AgencyRoute
     }
+    '/api/public/leads/collect': {
+      id: '/api/public/leads/collect'
+      path: '/api/public/leads/collect'
+      fullPath: '/api/public/leads/collect'
+      preLoaderRoute: typeof ApiPublicLeadsCollectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -364,6 +404,8 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  TrackerV1DotjsRoute: TrackerV1DotjsRoute,
+  ApiPublicLeadsCollectRoute: ApiPublicLeadsCollectRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

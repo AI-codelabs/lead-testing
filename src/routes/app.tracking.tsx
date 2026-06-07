@@ -1,17 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAccount } from "@/lib/account-context";
+import { deriveWorkspaceKey, useLiveLeads } from "@/hooks/use-live-leads";
 import { Check, Copy, ExternalLink, ShieldCheck, Sparkles, Zap, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/app/tracking")({
   head: () => ({ meta: [{ title: "Tracking Setup — Leadlogr" }] }),
+  ssr: false,
   component: TrackingPage,
 });
 
-const DEFAULT_ENDPOINT = "https://leadlogr.com/api/leads/collect";
-const TRACKER_SRC = "https://cdn.leadlogr.com/tracker.v1.js";
+
+
+// These are derived at runtime from the app's own origin so the tracker
+// always points at this Leadlogr deployment (preview or published).
+
 
 type Flags = {
   showConsentPopup: boolean;
@@ -79,18 +84,26 @@ function FlagToggle({
 
 function TrackingPage() {
   const { ownWorkspace } = useAccount();
-  const workspaceId = useMemo(
-    () => "ws_" + (ownWorkspace.name || "acme").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) + "_a1b2c3",
-    [ownWorkspace.name],
-  );
+  const workspaceId = useMemo(() => deriveWorkspaceKey(ownWorkspace.name), [ownWorkspace.name]);
 
-  const [endpoint, setEndpoint] = useState(DEFAULT_ENDPOINT);
+  const [origin, setOrigin] = useState<string>("");
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  const defaultEndpoint = origin ? `${origin}/api/public/leads/collect` : "/api/public/leads/collect";
+  const trackerSrc = origin ? `${origin}/tracker.v1.js` : "/tracker.v1.js";
+
+  const [endpoint, setEndpoint] = useState<string>("");
+  const effectiveEndpoint = endpoint || defaultEndpoint;
   const [flags, setFlags] = useState<Flags>({
     showConsentPopup: true,
     allowConsentFallback: true,
     allowDynamicForms: true,
     debug: true,
   });
+
+  // Live ingestion status
+  const liveLeads = useLiveLeads(workspaceId);
+  const hasEvents = liveLeads.length > 0;
+
 
   const flagsJson = JSON.stringify(
     {
@@ -110,13 +123,13 @@ function TrackingPage() {
   window.__LEADLOGR_LOADED__ = true;
   window.LEADLOGR_CONFIG = {
     workspaceId: ${JSON.stringify(workspaceId)},
-    endpoint:    ${JSON.stringify(endpoint)},
+    endpoint:    ${JSON.stringify(effectiveEndpoint)},
     debug:       ${flags.debug},
     featureFlags: ${flagsJson}
   };
   var s = document.createElement('script');
   s.async = true;
-  s.src = ${JSON.stringify(TRACKER_SRC)};
+  s.src = ${JSON.stringify(trackerSrc)};
   document.head.appendChild(s);
 })();
 </script>`;
@@ -124,13 +137,14 @@ function TrackingPage() {
   const directHtmlSnippet = `<!-- Leadlogr Tracker — Paste before </body> on every page -->
 <script
   id="leadlogr-tracker"
-  src="${TRACKER_SRC}"
+  src="${trackerSrc}"
   data-workspace-id="${workspaceId}"
-  data-endpoint="${endpoint}"
+  data-endpoint="${effectiveEndpoint}"
   data-debug="${flags.debug}"
   data-feature-flags='${flagsJson}'
   async
 ></script>`;
+
 
   const spaSnippet = `// Single-page apps: fire after a successful submit.
 window.Leadlogr.submitForm({
@@ -225,13 +239,41 @@ window.Leadlogr.submitForm({
                   Once the snippet is live, submit a test form on your site. We'll show the event here within seconds.
                 </p>
                 <div className="mt-3 flex items-center gap-2 text-xs">
-                  <span className="inline-flex items-center gap-1.5 text-muted-foreground bg-muted/40 ring-1 ring-border px-2 py-1 rounded">
-                    <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse" /> Waiting for first event…
-                  </span>
-                  <button className="text-xs font-medium px-2.5 py-1.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors">
+                  {hasEvents ? (
+                    <span className="inline-flex items-center gap-1.5 text-stage-green-ink bg-stage-green-soft ring-1 ring-stage-green-line px-2 py-1 rounded">
+                      <span className="size-1.5 rounded-full bg-stage-green-ink" />
+                      {liveLeads.length} event{liveLeads.length === 1 ? "" : "s"} received — newest from {liveLeads[0]?.email || liveLeads[0]?.name || "anonymous"}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-muted-foreground bg-muted/40 ring-1 ring-border px-2 py-1 rounded">
+                      <span className="size-1.5 rounded-full bg-muted-foreground animate-pulse" /> Waiting for first event…
+                    </span>
+                  )}
+                  <button
+                    onClick={async () => {
+                      await fetch(effectiveEndpoint, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          workspace_key: workspaceId,
+                          name: "Test Lead",
+                          email: "test@example.com",
+                          phone: "+1 555 0100",
+                          company: "Test Co.",
+                          message: "Sent from Leadlogr tracking page",
+                          source: "Direct",
+                          landing_page_url: window.location.href,
+                          page_path: "/app/tracking",
+                          consent: "Accepted",
+                        }),
+                      });
+                    }}
+                    className="text-xs font-medium px-2.5 py-1.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors"
+                  >
                     Send test event
                   </button>
                 </div>
+
               </div>
             </div>
           </div>
@@ -260,6 +302,7 @@ window.Leadlogr.submitForm({
             </label>
             <input
               value={endpoint}
+              placeholder={defaultEndpoint}
               onChange={(e) => setEndpoint(e.target.value)}
               className="mt-1.5 w-full text-xs font-mono px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
             />
