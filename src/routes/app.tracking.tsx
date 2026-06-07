@@ -89,7 +89,7 @@ function TrackingPage() {
   const [origin, setOrigin] = useState<string>("");
   useEffect(() => { setOrigin(window.location.origin); }, []);
   const defaultEndpoint = origin ? `${origin}/api/public/leads/collect` : "/api/public/leads/collect";
-  const trackerSrc = origin ? `${origin}/tracker.v1.js` : "/tracker.v1.js";
+  const trackerSrc = origin ? `${origin}/api/public/tracker/v1` : "/api/public/tracker/v1";
 
   const [endpoint, setEndpoint] = useState<string>("");
   const effectiveEndpoint = endpoint || defaultEndpoint;
