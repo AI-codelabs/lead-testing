@@ -123,13 +123,13 @@ function TrackingPage() {
   window.__LEADLOGR_LOADED__ = true;
   window.LEADLOGR_CONFIG = {
     workspaceId: ${JSON.stringify(workspaceId)},
-    endpoint:    ${JSON.stringify(endpoint)},
+    endpoint:    ${JSON.stringify(effectiveEndpoint)},
     debug:       ${flags.debug},
     featureFlags: ${flagsJson}
   };
   var s = document.createElement('script');
   s.async = true;
-  s.src = ${JSON.stringify(TRACKER_SRC)};
+  s.src = ${JSON.stringify(trackerSrc)};
   document.head.appendChild(s);
 })();
 </script>`;
@@ -137,13 +137,14 @@ function TrackingPage() {
   const directHtmlSnippet = `<!-- Leadlogr Tracker — Paste before </body> on every page -->
 <script
   id="leadlogr-tracker"
-  src="${TRACKER_SRC}"
+  src="${trackerSrc}"
   data-workspace-id="${workspaceId}"
-  data-endpoint="${endpoint}"
+  data-endpoint="${effectiveEndpoint}"
   data-debug="${flags.debug}"
   data-feature-flags='${flagsJson}'
   async
 ></script>`;
+
 
   const spaSnippet = `// Single-page apps: fire after a successful submit.
 window.Leadlogr.submitForm({
