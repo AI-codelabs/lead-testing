@@ -74,7 +74,7 @@ export const sendGoogleAdsConversion = createServerFn({ method: "POST" })
     if (!settings || !settings.enabled) {
       return { ok: false, skipped: true, reason: "google_ads_not_configured" };
     }
-    const conversionActionId = (settings as Record<string, string | null>)[settingsField];
+    const conversionActionId = (settings as unknown as Record<string, string | null>)[settingsField];
     if (!conversionActionId) {
       return { ok: false, skipped: true, reason: `no_conversion_action_for:${stage}` };
     }
