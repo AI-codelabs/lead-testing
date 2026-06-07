@@ -26,6 +26,7 @@ import { Route as AppCrmRouteImport } from './routes/app.crm'
 import { Route as AppAccountRouteImport } from './routes/app.account'
 import { Route as AgencyNewClientRouteImport } from './routes/agency.new-client'
 import { Route as AgencyAccountRouteImport } from './routes/agency.account'
+import { Route as AppIntegrationsGoogleAdsRouteImport } from './routes/app.integrations.google-ads'
 import { Route as ApiPublicTrackerV1RouteImport } from './routes/api/public/tracker.v1'
 import { Route as ApiPublicLeadsCollectRouteImport } from './routes/api/public/leads/collect'
 
@@ -114,6 +115,12 @@ const AgencyAccountRoute = AgencyAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AgencyRoute,
 } as any)
+const AppIntegrationsGoogleAdsRoute =
+  AppIntegrationsGoogleAdsRouteImport.update({
+    id: '/google-ads',
+    path: '/google-ads',
+    getParentRoute: () => AppIntegrationsRoute,
+  } as any)
 const ApiPublicTrackerV1Route = ApiPublicTrackerV1RouteImport.update({
   id: '/api/public/tracker/v1',
   path: '/api/public/tracker/v1',
@@ -137,12 +144,13 @@ export interface FileRoutesByFullPath {
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
   '/app/dashboard': typeof AppDashboardRoute
-  '/app/integrations': typeof AppIntegrationsRoute
+  '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
+  '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
 }
@@ -156,12 +164,13 @@ export interface FileRoutesByTo {
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
   '/app/dashboard': typeof AppDashboardRoute
-  '/app/integrations': typeof AppIntegrationsRoute
+  '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency': typeof AgencyIndexRoute
   '/app': typeof AppIndexRoute
+  '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
 }
@@ -178,12 +187,13 @@ export interface FileRoutesById {
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
   '/app/dashboard': typeof AppDashboardRoute
-  '/app/integrations': typeof AppIntegrationsRoute
+  '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
+  '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
 }
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/tracker/v1.js'
     | '/agency/'
     | '/app/'
+    | '/app/integrations/google-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
   fileRoutesByTo: FileRoutesByTo
@@ -226,6 +237,7 @@ export interface FileRouteTypes {
     | '/tracker/v1.js'
     | '/agency'
     | '/app'
+    | '/app/integrations/google-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
   id:
@@ -247,6 +259,7 @@ export interface FileRouteTypes {
     | '/tracker/v1.js'
     | '/agency/'
     | '/app/'
+    | '/app/integrations/google-ads'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
   fileRoutesById: FileRoutesById
@@ -384,6 +397,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgencyAccountRouteImport
       parentRoute: typeof AgencyRoute
     }
+    '/app/integrations/google-ads': {
+      id: '/app/integrations/google-ads'
+      path: '/google-ads'
+      fullPath: '/app/integrations/google-ads'
+      preLoaderRoute: typeof AppIntegrationsGoogleAdsRouteImport
+      parentRoute: typeof AppIntegrationsRoute
+    }
     '/api/public/tracker/v1': {
       id: '/api/public/tracker/v1'
       path: '/api/public/tracker/v1'
@@ -416,11 +436,23 @@ const AgencyRouteChildren: AgencyRouteChildren = {
 const AgencyRouteWithChildren =
   AgencyRoute._addFileChildren(AgencyRouteChildren)
 
+interface AppIntegrationsRouteChildren {
+  AppIntegrationsGoogleAdsRoute: typeof AppIntegrationsGoogleAdsRoute
+}
+
+const AppIntegrationsRouteChildren: AppIntegrationsRouteChildren = {
+  AppIntegrationsGoogleAdsRoute: AppIntegrationsGoogleAdsRoute,
+}
+
+const AppIntegrationsRouteWithChildren = AppIntegrationsRoute._addFileChildren(
+  AppIntegrationsRouteChildren,
+)
+
 interface AppRouteChildren {
   AppAccountRoute: typeof AppAccountRoute
   AppCrmRoute: typeof AppCrmRoute
   AppDashboardRoute: typeof AppDashboardRoute
-  AppIntegrationsRoute: typeof AppIntegrationsRoute
+  AppIntegrationsRoute: typeof AppIntegrationsRouteWithChildren
   AppPipelineRoute: typeof AppPipelineRoute
   AppTrackingRoute: typeof AppTrackingRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -430,7 +462,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAccountRoute: AppAccountRoute,
   AppCrmRoute: AppCrmRoute,
   AppDashboardRoute: AppDashboardRoute,
-  AppIntegrationsRoute: AppIntegrationsRoute,
+  AppIntegrationsRoute: AppIntegrationsRouteWithChildren,
   AppPipelineRoute: AppPipelineRoute,
   AppTrackingRoute: AppTrackingRoute,
   AppIndexRoute: AppIndexRoute,

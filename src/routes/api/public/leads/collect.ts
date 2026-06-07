@@ -15,7 +15,7 @@ function corsHeaders(request: Request): Record<string, string> {
 const KNOWN_FIELDS = new Set([
   "workspace_key", "name", "email", "phone", "company", "message",
   "source", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-  "gclid", "fbclid", "msclkid", "li_fat_id", "fbp", "ga_client_id", "ga_session_id",
+  "gclid", "wbraid", "gbraid", "fbclid", "msclkid", "li_fat_id", "fbp", "ga_client_id", "ga_session_id",
   "landing_page_url", "page_path", "referrer_url", "user_agent", "consent",
 ]);
 
@@ -67,6 +67,8 @@ export const Route = createFileRoute("/api/public/leads/collect")({
             utm_term: str(body?.utm_term, 200),
             utm_content: str(body?.utm_content, 200),
             gclid: str(body?.gclid, 500),
+            wbraid: str(body?.wbraid, 500),
+            gbraid: str(body?.gbraid, 500),
             fbclid: str(body?.fbclid, 500),
             msclkid: str(body?.msclkid, 500),
             li_fat_id: str(body?.li_fat_id, 500),

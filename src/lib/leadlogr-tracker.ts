@@ -58,7 +58,7 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
   function setLS(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function getLS(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
 
-  var KEYS = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid','msclkid','li_fat_id'];
+  var KEYS = ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','wbraid','gbraid','fbclid','msclkid','li_fat_id'];
   var attribution = {};
   KEYS.forEach(function (k) {
     var fromUrl = getParam(k);
@@ -238,6 +238,8 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
       utm_term: attribution.utm_term || '',
       utm_content: attribution.utm_content || '',
       gclid: attribution.gclid || '',
+      wbraid: attribution.wbraid || '',
+      gbraid: attribution.gbraid || '',
       fbclid: attribution.fbclid || '',
       msclkid: attribution.msclkid || '',
       li_fat_id: attribution.li_fat_id || '',
@@ -254,7 +256,7 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
       consent_source: detected.source,
       consent_state: detected.state,
       client_context: clientContext(),
-      source: (attribution.gclid ? 'Google'
+      source: ((attribution.gclid || attribution.wbraid || attribution.gbraid) ? 'Google'
               : attribution.fbclid ? 'Meta'
               : attribution.li_fat_id ? 'LinkedIn'
               : attribution.msclkid ? 'Microsoft'
