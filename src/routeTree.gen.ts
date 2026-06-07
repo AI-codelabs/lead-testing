@@ -16,6 +16,7 @@ import { Route as AgencyRouteImport } from './routes/agency'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AgencyIndexRouteImport } from './routes/agency.index'
+import { Route as AppTrackingRouteImport } from './routes/app.tracking'
 import { Route as AppPipelineRouteImport } from './routes/app.pipeline'
 import { Route as AppIntegrationsRouteImport } from './routes/app.integrations'
 import { Route as AppDashboardRouteImport } from './routes/app.dashboard'
@@ -58,6 +59,11 @@ const AgencyIndexRoute = AgencyIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AgencyRoute,
+} as any)
+const AppTrackingRoute = AppTrackingRouteImport.update({
+  id: '/tracking',
+  path: '/tracking',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppPipelineRoute = AppPipelineRouteImport.update({
   id: '/pipeline',
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRoute
   '/app/pipeline': typeof AppPipelineRoute
+  '/app/tracking': typeof AppTrackingRoute
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
 }
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRoute
   '/app/pipeline': typeof AppPipelineRoute
+  '/app/tracking': typeof AppTrackingRoute
   '/agency': typeof AgencyIndexRoute
   '/app': typeof AppIndexRoute
 }
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRoute
   '/app/pipeline': typeof AppPipelineRoute
+  '/app/tracking': typeof AppTrackingRoute
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
 }
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/app/dashboard'
     | '/app/integrations'
     | '/app/pipeline'
+    | '/app/tracking'
     | '/agency/'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/app/dashboard'
     | '/app/integrations'
     | '/app/pipeline'
+    | '/app/tracking'
     | '/agency'
     | '/app'
   id:
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/app/dashboard'
     | '/app/integrations'
     | '/app/pipeline'
+    | '/app/tracking'
     | '/agency/'
     | '/app/'
   fileRoutesById: FileRoutesById
@@ -249,6 +261,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/agency/'
       preLoaderRoute: typeof AgencyIndexRouteImport
       parentRoute: typeof AgencyRoute
+    }
+    '/app/tracking': {
+      id: '/app/tracking'
+      path: '/tracking'
+      fullPath: '/app/tracking'
+      preLoaderRoute: typeof AppTrackingRouteImport
+      parentRoute: typeof AppRoute
     }
     '/app/pipeline': {
       id: '/app/pipeline'
@@ -323,6 +342,7 @@ interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppIntegrationsRoute: typeof AppIntegrationsRoute
   AppPipelineRoute: typeof AppPipelineRoute
+  AppTrackingRoute: typeof AppTrackingRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -332,6 +352,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppIntegrationsRoute: AppIntegrationsRoute,
   AppPipelineRoute: AppPipelineRoute,
+  AppTrackingRoute: AppTrackingRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
