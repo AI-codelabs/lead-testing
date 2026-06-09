@@ -3,6 +3,22 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
   if (window.__LEADLOGR_RUNNING__) return;
   window.__LEADLOGR_RUNNING__ = true;
 
+  var LEADLOGR_BACKEND_ORIGIN = 'https://lead-testing.lovable.app';
+  var LEADLOGR_INGEST_PATH = '/api/public/leads/collect';
+
+  function normalizeEndpoint(endpoint) {
+    var fallback = LEADLOGR_BACKEND_ORIGIN + LEADLOGR_INGEST_PATH;
+    if (!endpoint) return fallback;
+    try {
+      var url = new URL(endpoint, window.location.href);
+      var host = url.hostname.replace(/^www\./, '');
+      if (host === 'leadlogr.com' && url.pathname === LEADLOGR_INGEST_PATH) return fallback;
+      return url.href;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
   function readConfig() {
     var cfg = window.LEADLOGR_CONFIG || {};
     var tag = document.getElementById('leadlogr-tracker') || document.currentScript;
@@ -19,6 +35,7 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
   }
 
   var CFG = readConfig();
+  CFG.endpoint = normalizeEndpoint(CFG.endpoint);
   if (!CFG.workspaceId || !CFG.endpoint) {
     console.warn('[leadlogr] missing workspaceId or endpoint');
     return;

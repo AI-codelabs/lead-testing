@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/public/:path*",
+      "destination": "https://lead-testing.lovable.app/api/public/:path*"
+    },
+    {
+      "source": "/tracker/v1.js",
+      "destination": "https://lead-testing.lovable.app/api/public/tracker/v1"
+    },
+    {
+      "source": "/tracker.v1.js",
+      "destination": "https://lead-testing.lovable.app/api/public/tracker/v1"
+    }
+  ]
+}
