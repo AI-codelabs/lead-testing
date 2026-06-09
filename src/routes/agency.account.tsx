@@ -83,6 +83,7 @@ function InvitesList() {
     onSuccess: () => {
       toast.success("Invite accepted — workspace linked.");
       qc.invalidateQueries({ queryKey: ["agency-received-invites"] });
+      qc.invalidateQueries({ queryKey: ["agency-clients"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not accept invite"),
   });
@@ -92,6 +93,7 @@ function InvitesList() {
     onSuccess: () => {
       toast.success("Invite declined.");
       qc.invalidateQueries({ queryKey: ["agency-received-invites"] });
+      qc.invalidateQueries({ queryKey: ["agency-clients"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not decline invite"),
   });
