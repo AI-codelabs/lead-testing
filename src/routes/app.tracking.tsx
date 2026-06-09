@@ -106,10 +106,13 @@ function TrackingPage() {
   const integrationId = ["gtm", "wordpress", "api", "zapier"].includes(search.integration) ? search.integration : "gtm";
   const integrationName = INTEGRATION_NAMES[integrationId] ?? "Google Tag Manager";
 
-  const [origin, setOrigin] = useState<string>("");
-  useEffect(() => { setOrigin(window.location.origin); }, []);
-  const defaultEndpoint = origin ? `${origin}/api/public/leads/collect` : "/api/public/leads/collect";
-  const trackerSrc = origin ? `${origin}/api/public/tracker/v1` : "/api/public/tracker/v1";
+  // Backend (ingest + tracker script) is always served from Lovable, even when
+  // the dashboard frontend is hosted elsewhere (e.g. Vercel on leadlogr.com).
+  const BACKEND_ORIGIN = "https://lead-testing.lovable.app";
+  const [origin, setOrigin] = useState<string>(BACKEND_ORIGIN);
+  useEffect(() => { setOrigin(BACKEND_ORIGIN); }, []);
+  const defaultEndpoint = `${BACKEND_ORIGIN}/api/public/leads/collect`;
+  const trackerSrc = `${BACKEND_ORIGIN}/api/public/tracker/v1`;
 
   const [endpoint, setEndpoint] = useState<string>("");
   const effectiveEndpoint = endpoint || defaultEndpoint;
