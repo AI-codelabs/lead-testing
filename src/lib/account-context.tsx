@@ -1,5 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { listAgencyClients } from "@/lib/agency-invites.functions";
 
 export type AccountType = "standard" | "agency";
 export type AccessLevel = "full" | "names_only" | "metrics_only";
@@ -139,6 +142,7 @@ function loadFromStorage(): Partial<AccountState> | null {
 }
 
 export function AccountProvider({ children }: { children: ReactNode }) {
+  const listClientsFn = useServerFn(listAgencyClients);
   const [accountType, _setAccountType] = useState<AccountType>("standard");
   const [ownWorkspace, setOwnWorkspace] = useState<OwnWorkspace>(DEFAULT_OWN_WORKSPACE);
   const [clientWorkspaces, setClientWorkspaces] = useState<ClientWorkspace[]>(DEFAULT_CLIENTS);
@@ -209,6 +213,18 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  const { data: agencyClientsData } = useQuery({
+    queryKey: ["agency-clients"],
+    queryFn: () => listClientsFn(),
+    enabled: authReady && isAuthenticated && accountType === "agency",
+  });
+
+  useEffect(() => {
+    if (accountType === "agency" && agencyClientsData?.clients) {
+      setClientWorkspaces(agencyClientsData.clients as ClientWorkspace[]);
+    }
+  }, [accountType, agencyClientsData]);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
