@@ -100,7 +100,6 @@ export const Route = createFileRoute("/api/public/leads/collect")({
             raw_payload: rawJson,
           };
 
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { data, error } = await supabaseAdmin
             .from("leads")
             .insert(row)
