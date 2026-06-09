@@ -2,6 +2,10 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AuthShell, Field } from "@/components/leadlogr/auth-shell";
 import { useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { acceptInvite } from "@/lib/agency-invites.functions";
+
+const PENDING_INVITE_KEY = "leadlogr.pending_invite_token";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -15,6 +19,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
+  const acceptFn = useServerFn(acceptInvite);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -30,10 +35,21 @@ function LoginPage() {
         password,
       });
       if (signInError) throw signInError;
-      // Account context will hydrate from the profiles table via onAuthStateChange.
-      // Decide destination after fetching the profile.
       const { data: userRes } = await supabase.auth.getUser();
       const accountType = (userRes.user?.user_metadata?.account_type as string) ?? "standard";
+
+      const pendingToken =
+        typeof window !== "undefined" ? window.localStorage.getItem(PENDING_INVITE_KEY) : null;
+      if (pendingToken && accountType === "agency") {
+        try {
+          await acceptFn({ data: { token: pendingToken } });
+        } catch (err) {
+          console.error("Failed to accept pending invite", err);
+        } finally {
+          window.localStorage.removeItem(PENDING_INVITE_KEY);
+        }
+      }
+
       navigate({ to: accountType === "agency" ? "/agency" : "/app/dashboard" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not sign in");

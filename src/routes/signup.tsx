@@ -1,10 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AuthShell, Field } from "@/components/leadlogr/auth-shell";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Briefcase, Building2, MailCheck } from "lucide-react";
 import { useAccount, type AccountType } from "@/lib/account-context";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useServerFn } from "@tanstack/react-start";
+import { acceptInvite } from "@/lib/agency-invites.functions";
+
+const PENDING_INVITE_KEY = "leadlogr.pending_invite_token";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -12,6 +16,9 @@ export const Route = createFileRoute("/signup")({
       { title: "Create your Leadlogr account" },
       { name: "description", content: "Spin up a Leadlogr workspace as a standard account or an agency." },
     ],
+  }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    invite: typeof s.invite === "string" ? s.invite : undefined,
   }),
   component: SignupPage,
 });
@@ -34,7 +41,10 @@ const TYPES: { value: AccountType; label: string; hint: string; icon: typeof Bui
 function SignupPage() {
   const navigate = useNavigate();
   const { createAccount } = useAccount();
-  const [type, setType] = useState<AccountType>("standard");
+  const search = Route.useSearch();
+  const inviteToken = search.invite;
+  const acceptFn = useServerFn(acceptInvite);
+  const [type, setType] = useState<AccountType>(inviteToken ? "agency" : "standard");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -43,6 +53,13 @@ function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Persist invite token so it survives email-confirm round trips.
+  useEffect(() => {
+    if (inviteToken && typeof window !== "undefined") {
+      window.localStorage.setItem(PENDING_INVITE_KEY, inviteToken);
+    }
+  }, [inviteToken]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -63,7 +80,6 @@ function SignupPage() {
         },
       });
       if (signUpError) throw signUpError;
-      // Optimistic local hydration so the UI reflects the new workspace immediately.
       createAccount({
         accountType: type,
         workspaceName,
@@ -71,9 +87,17 @@ function SignupPage() {
         ownerEmail: email,
       });
       if (data.session) {
+        // Auto-accept invite if present and account is agency.
+        if (inviteToken && type === "agency") {
+          try {
+            await acceptFn({ data: { token: inviteToken } });
+            window.localStorage.removeItem(PENDING_INVITE_KEY);
+          } catch (err) {
+            console.error("Failed to auto-accept invite", err);
+          }
+        }
         navigate({ to: type === "agency" ? "/agency" : "/app/dashboard" });
       } else {
-        // Email confirmation is enabled — show a friendly confirmation modal.
         setConfirmOpen(true);
       }
     } catch (err) {

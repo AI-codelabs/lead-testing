@@ -1,9 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mail, Monitor, Moon, Plus, Sun, Trash2, X } from "lucide-react";
+import { Check, Monitor, Moon, Sun, X } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useTheme, type Theme } from "@/components/theme-provider";
 import { useAccount } from "@/lib/account-context";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  listReceivedInvites,
+  acceptInvite,
+  declineInvite,
+} from "@/lib/agency-invites.functions";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/agency/account")({
   head: () => ({ meta: [{ title: "Account — Leadlogr Agency" }] }),
@@ -11,153 +20,148 @@ export const Route = createFileRoute("/agency/account")({
   component: AgencyAccountPage,
 });
 
-type TeamRole = "Owner" | "Admin" | "Member";
-type TeamMember = { id: string; name: string; email: string; role: Exclude<TeamRole, "Owner"> };
-type Invite = { id: string; email: string; role: TeamRole };
-
 function AgencyAccountPage() {
   const { ownWorkspace } = useAccount();
-  const [team, setTeam] = useState<TeamMember[]>([]);
-  const [invites, setInvites] = useState<Invite[]>([]);
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<TeamRole>("Member");
-
-  const invite = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setInvites((p) => [...p, { id: `inv_${Date.now()}`, email: email.trim(), role }]);
-    setEmail("");
-    setRole("Member");
-  };
-
-  const removeMember = (id: string) =>
-    setTeam((p) => p.filter((m) => m.id !== id));
-
-  const revokeInvite = (id: string) =>
-    setInvites((p) => p.filter((i) => i.id !== id));
 
   return (
     <>
       <PageHeader
         eyebrow="Agency settings"
         title="Account"
-        description="Manage your agency team and how Leadlogr looks for you."
+        description="Manage your agency, client invites, and appearance."
       />
 
-      <div className="space-y-4">
-        <SectionCard
-          title="Team"
-          description="Invite teammates to collaborate on client workspaces."
-        >
-          <form onSubmit={invite} className="flex flex-col sm:flex-row gap-2 mb-5">
-            <div className="relative flex-1">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <input
-                type="email"
-                required
-                placeholder="teammate@agency.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm rounded-md ring-1 ring-border bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20"
-              />
+      <Tabs defaultValue="invites" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="invites">Invites</TabsTrigger>
+          <TabsTrigger value="appearance">Appearance</TabsTrigger>
+          <TabsTrigger value="agency">Agency</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="invites" className="space-y-4">
+          <SectionCard
+            title="Client invitations"
+            description="Workspaces that invited your agency to collaborate. Accept to link them to your dashboard."
+          >
+            <InvitesList />
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="appearance">
+          <SectionCard title="Appearance" description="Choose how Leadlogr looks for your agency account.">
+            <ThemeSwitcher />
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="agency">
+          <SectionCard title="Agency" description="Public-facing details for your agency.">
+            <div className="grid md:grid-cols-2 gap-4">
+              <Row label="Agency name" value={ownWorkspace.name} />
+              <Row label="Primary contact" value={ownWorkspace.ownerEmail || "Not set"} />
+              <Row label="Plan" value="Agency · €199/mo" />
             </div>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as TeamRole)}
-              className="text-sm rounded-md ring-1 ring-border bg-background px-3 py-2"
-            >
-              <option value="Member">Member</option>
-              <option value="Admin">Admin</option>
-            </select>
-            <button
-              type="submit"
-              className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="size-4" />
-              Send invite
-            </button>
-          </form>
-
-          <div className="rounded-md ring-1 ring-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b border-border">
-                <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  <th className="px-4 py-2.5">Name</th>
-                  <th className="px-4 py-2.5">Email</th>
-                  <th className="px-4 py-2.5">Role</th>
-                  <th className="px-4 py-2.5" />
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-border last:border-0">
-                  <td className="px-4 py-2.5 font-medium">{ownWorkspace.ownerName}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{ownWorkspace.ownerEmail || "Not set"}</td>
-                  <td className="px-4 py-2.5">
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded ring-1 ring-border bg-muted/40">
-                      Owner
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5" />
-                </tr>
-                {team.map((m) => (
-                  <tr key={m.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-2.5 font-medium">{m.name}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{m.email}</td>
-                    <td className="px-4 py-2.5">
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded ring-1 ring-border bg-muted/40">
-                        {m.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <button
-                        onClick={() => removeMember(m.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                        aria-label="Remove"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {invites.map((i) => (
-                  <tr key={i.id} className="border-b border-border last:border-0 bg-muted/20">
-                    <td className="px-4 py-2.5 text-muted-foreground italic">Pending invite</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{i.email}</td>
-                    <td className="px-4 py-2.5">
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded ring-1 ring-border bg-muted/40">
-                        {i.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <button
-                        onClick={() => revokeInvite(i.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                        aria-label="Revoke invite"
-                      >
-                        <X className="size-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Appearance" description="Choose how Leadlogr looks for your agency account.">
-          <ThemeSwitcher />
-        </SectionCard>
-
-        <SectionCard title="Agency" description="Public-facing details for your agency.">
-          <div className="grid md:grid-cols-2 gap-4">
-            <Row label="Agency name" value={ownWorkspace.name} />
-            <Row label="Primary contact" value={ownWorkspace.ownerEmail || "Not set"} />
-            <Row label="Seats used" value={`${team.length + invites.length} of 10`} />
-            <Row label="Plan" value="Agency · €199/mo" />
-          </div>
-        </SectionCard>
-      </div>
+          </SectionCard>
+        </TabsContent>
+      </Tabs>
     </>
+  );
+}
+
+function InvitesList() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(listReceivedInvites);
+  const acceptFn = useServerFn(acceptInvite);
+  const declineFn = useServerFn(declineInvite);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["agency-received-invites"],
+    queryFn: () => listFn(),
+  });
+
+  const accept = useMutation({
+    mutationFn: (token: string) => acceptFn({ data: { token } }),
+    onSuccess: () => {
+      toast.success("Invite accepted — workspace linked.");
+      qc.invalidateQueries({ queryKey: ["agency-received-invites"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not accept invite"),
+  });
+
+  const decline = useMutation({
+    mutationFn: (id: string) => declineFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Invite declined.");
+      qc.invalidateQueries({ queryKey: ["agency-received-invites"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not decline invite"),
+  });
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading invites…</p>;
+  }
+  if (error) {
+    return <p className="text-sm text-destructive">Could not load invites.</p>;
+  }
+  const invites = data?.invites ?? [];
+  if (invites.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No invitations yet. When a client invites your agency, it will show up here.
+      </p>
+    );
+  }
+
+  return (
+    <div className="rounded-md ring-1 ring-border overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 border-b border-border">
+          <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <th className="px-4 py-2.5">From</th>
+            <th className="px-4 py-2.5">Access</th>
+            <th className="px-4 py-2.5">Status</th>
+            <th className="px-4 py-2.5" />
+          </tr>
+        </thead>
+        <tbody>
+          {invites.map((i: any) => (
+            <tr key={i.id} className="border-b border-border last:border-0">
+              <td className="px-4 py-2.5">
+                <div className="font-medium">{i.inviter_workspace_name}</div>
+                <div className="text-xs text-muted-foreground">{i.inviter_email}</div>
+              </td>
+              <td className="px-4 py-2.5 capitalize">{i.access_level.replace("_", " ")}</td>
+              <td className="px-4 py-2.5">
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded ring-1 ring-border bg-muted/40 capitalize">
+                  {i.status}
+                </span>
+              </td>
+              <td className="px-4 py-2.5 text-right">
+                {i.status === "pending" ? (
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => accept.mutate(i.token)}
+                      disabled={accept.isPending}
+                      className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      <Check className="size-3.5" />
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => decline.mutate(i.id)}
+                      disabled={decline.isPending}
+                      className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md ring-1 ring-border hover:bg-muted transition-colors disabled:opacity-50"
+                    >
+                      <X className="size-3.5" />
+                      Decline
+                    </button>
+                  </div>
+                ) : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
