@@ -228,6 +228,7 @@ window.Leadlogr.submitForm({
             </div>
           )}
 
+          <Tabs defaultValue="gtm">
             <TabsList>
               <TabsTrigger value="gtm">Google Tag Manager</TabsTrigger>
               <TabsTrigger value="html">Direct HTML</TabsTrigger>
