@@ -276,26 +276,41 @@ window.Leadlogr.submitForm({
                     </span>
                   )}
                   <button
+                    disabled={!workspaceReady}
                     onClick={async () => {
-                      await fetch(effectiveEndpoint, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          workspace_key: workspaceId,
-                          integration_id: integrationId,
-                          name: "Test Lead",
-                          email: "test@example.com",
-                          phone: "+1 555 0100",
-                          company: "Test Co.",
-                          message: "Sent from Leadlogr tracking page",
-                          source: "Direct",
-                          landing_page_url: window.location.href,
-                          page_path: "/app/tracking",
-                          consent: "Accepted",
-                        }),
-                      });
+                      try {
+                        const res = await fetch(effectiveEndpoint, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            workspace_key: workspaceId,
+                            integration_id: integrationId,
+                            name: "Test Lead",
+                            email: "test@example.com",
+                            phone: "+1 555 0100",
+                            company: "Test Co.",
+                            message: "Sent from Leadlogr tracking page",
+                            source: "Direct",
+                            landing_page_url: window.location.href,
+                            page_path: "/app/tracking",
+                            consent: "Accepted",
+                          }),
+                        });
+                        const body = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                          toast.error(
+                            body?.error === "unknown_workspace"
+                              ? `Unknown workspace key (${workspaceId}). Re-copy the snippet from this page.`
+                              : `Test event failed (${res.status})`,
+                          );
+                          return;
+                        }
+                        toast.success("Test event received. It will appear in your CRM in a few seconds.");
+                      } catch (err) {
+                        toast.error("Could not reach the ingest endpoint. Check the URL and try again.");
+                      }
                     }}
-                    className="text-xs font-medium px-2.5 py-1.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors"
+                    className="text-xs font-medium px-2.5 py-1.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Send test event
                   </button>
