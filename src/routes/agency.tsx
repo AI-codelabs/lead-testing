@@ -57,8 +57,19 @@ function AgencyLayout() {
             Account
           </Link>
         </nav>
-        <div className="p-3 border-t border-sidebar-border">
+        <div className="p-3 border-t border-sidebar-border space-y-2">
           <WorkspaceSwitcher />
+          <button
+            type="button"
+            onClick={async () => {
+              await signOut();
+              navigate({ to: "/login" });
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+          >
+            <LogOut className="size-4" />
+            Sign out
+          </button>
         </div>
       </aside>
       <main className="flex-1 min-w-0">
