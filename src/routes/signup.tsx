@@ -73,8 +73,8 @@ function SignupPage() {
       if (data.session) {
         navigate({ to: type === "agency" ? "/agency" : "/app/dashboard" });
       } else {
-        // Email confirmation is enabled — tell the user to verify.
-        setError("Account created. Check your inbox to confirm your email, then sign in.");
+        // Email confirmation is enabled — show a friendly confirmation modal.
+        setConfirmOpen(true);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create account");
