@@ -162,5 +162,27 @@ function SignupPage() {
         </p>
       </form>
     </AuthShell>
+    <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/20">
+            <MailCheck className="size-7 text-primary" />
+          </div>
+          <DialogTitle className="text-center text-xl">Check your inbox</DialogTitle>
+          <DialogDescription className="text-center">
+            We sent a confirmation link to <span className="font-medium text-foreground">{email}</span>. Click it to verify your email, then sign in to your new workspace.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="sm:justify-center">
+          <Link
+            to="/login"
+            className="w-full sm:w-auto inline-flex justify-center bg-primary text-primary-foreground text-sm font-medium px-5 py-2.5 rounded-md hover:opacity-90 transition-opacity"
+          >
+            Go to sign in
+          </Link>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
