@@ -16,8 +16,9 @@ function buildInviteEmailHtml(opts: {
   inviterEmail: string;
   acceptUrl: string;
   accessLabel: string;
+  existingAgency: boolean;
 }) {
-  const { inviterWorkspace, inviterEmail, acceptUrl, accessLabel } = opts;
+  const { inviterWorkspace, inviterEmail, acceptUrl, accessLabel, existingAgency } = opts;
   return `<!doctype html><html><body style="font-family:Arial,sans-serif;background:#ffffff;color:#0a0a0a;padding:24px;">
   <div style="max-width:520px;margin:0 auto;">
     <h1 style="font-size:22px;margin:0 0 16px;">You've been invited to Leadlogr</h1>
@@ -26,13 +27,48 @@ function buildInviteEmailHtml(opts: {
       with <strong>${accessLabel}</strong> access.
     </p>
     <p style="font-size:14px;line-height:1.5;color:#444;">
-      Click below to create your Leadlogr agency account and accept the invite:
+      ${existingAgency ? "The workspace has been linked to your agency account." : "Click below to create your Leadlogr agency account and accept the invite:"}
     </p>
     <p style="margin:24px 0;">
-      <a href="${acceptUrl}" style="background:#0a0a0a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-size:14px;display:inline-block;">Accept invitation</a>
+      <a href="${acceptUrl}" style="background:#0a0a0a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-size:14px;display:inline-block;">${existingAgency ? "Open agency dashboard" : "Accept invitation"}</a>
     </p>
     <p style="font-size:12px;color:#999;">If you weren't expecting this, you can ignore this email. The link expires in 14 days.</p>
   </div></body></html>`;
+}
+
+async function enqueueInviteEmail(opts: {
+  supabaseAdmin: any;
+  to: string;
+  inviterWorkspace: string;
+  inviterEmail: string;
+  acceptUrl: string;
+  accessLabel: string;
+  existingAgency: boolean;
+}) {
+  const messageId = crypto.randomUUID();
+  const html = buildInviteEmailHtml(opts);
+  await opts.supabaseAdmin.from("email_send_log").insert({
+    message_id: messageId,
+    template_name: "agency_invite",
+    recipient_email: opts.to,
+    status: "pending",
+  });
+  const { error } = await opts.supabaseAdmin.rpc("enqueue_email", {
+    queue_name: "transactional_emails",
+    payload: {
+      message_id: messageId,
+      to: opts.to,
+      from: `Leadlogr <noreply@notify.leadlogr.com>`,
+      sender_domain: "notify.leadlogr.com",
+      subject: `${opts.inviterWorkspace} invited you to Leadlogr`,
+      html,
+      text: `${opts.inviterWorkspace} invited your agency to Leadlogr. Open: ${opts.acceptUrl}`,
+      purpose: "transactional",
+      label: "agency_invite",
+      queued_at: new Date().toISOString(),
+    },
+  });
+  if (error) console.error("Failed to enqueue invite email", error);
 }
 
 const SendInviteInput = z.object({
@@ -60,21 +96,23 @@ export const sendAgencyInvite = createServerFn({ method: "POST" })
 
     const normalizedEmail = data.agencyEmail.trim().toLowerCase();
 
-    // Use admin client to look up existing agency profile by owner_email
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let matchedAgencyId: string | null = null;
-    const { data: agencyProfile } = await supabaseAdmin
+    const { data: existingProfile } = await supabaseAdmin
       .from("profiles")
       .select("id, account_type")
       .ilike("owner_email", normalizedEmail)
-      .eq("account_type", "agency")
       .maybeSingle();
-    if (agencyProfile?.id) {
-      matchedAgencyId = agencyProfile.id;
+    if (existingProfile?.id && existingProfile.account_type !== "agency") {
+      throw new Error("That email belongs to a standard workspace. Invite an agency account email instead.");
+    }
+    if (existingProfile?.id) {
+      matchedAgencyId = existingProfile.id;
     }
 
     const token = makeToken();
-    const { data: invite, error: insertErr } = await supabase
+    const acceptedAt = matchedAgencyId ? new Date().toISOString() : null;
+    const { data: invite, error: insertErr } = await supabaseAdmin
       .from("agency_invites")
       .insert({
         inviter_id: userId,
@@ -84,57 +122,37 @@ export const sendAgencyInvite = createServerFn({ method: "POST" })
         agency_id: matchedAgencyId,
         access_level: data.accessLevel,
         token,
+        status: matchedAgencyId ? "accepted" : "pending",
+        accepted_at: acceptedAt,
       })
       .select()
       .single();
     if (insertErr) throw insertErr;
 
-    // If agency does NOT exist yet, send signup email via queue
-    if (!matchedAgencyId) {
-      const siteUrl =
-        process.env.SITE_URL ||
-        process.env.VITE_SITE_URL ||
-        "https://lead-testing.lovable.app";
-      const acceptUrl = `${siteUrl}/signup?invite=${token}`;
-      const accessLabel =
-        data.accessLevel === "full"
-          ? "full"
-          : data.accessLevel === "names_only"
-            ? "limited (names only)"
-            : "metrics-only";
-      const html = buildInviteEmailHtml({
-        inviterWorkspace: inviterProfile.workspace_name,
-        inviterEmail,
-        acceptUrl,
-        accessLabel,
-      });
-
-      const messageId = crypto.randomUUID();
-      await supabaseAdmin.from("email_send_log").insert({
-        message_id: messageId,
-        template_name: "agency_invite",
-        recipient_email: normalizedEmail,
-        status: "pending",
-      });
-      const { error: enqueueErr } = await supabaseAdmin.rpc("enqueue_email", {
-        queue_name: "transactional_emails",
-        payload: {
-          message_id: messageId,
-          to: normalizedEmail,
-          from: `Leadlogr <noreply@notify.leadlogr.com>`,
-          sender_domain: "notify.leadlogr.com",
-          subject: `${inviterProfile.workspace_name} invited you to Leadlogr`,
-          html,
-          text: `${inviterProfile.workspace_name} invited your agency to Leadlogr. Accept: ${acceptUrl}`,
-          purpose: "transactional",
-          label: "agency_invite",
-          queued_at: new Date().toISOString(),
-        },
-      });
-      if (enqueueErr) {
-        console.error("Failed to enqueue invite email", enqueueErr);
-      }
+    if (matchedAgencyId) {
+      const { error: linkErr } = await supabaseAdmin
+        .from("profiles")
+        .update({ agency_id: matchedAgencyId, agency_access: data.accessLevel })
+        .eq("id", userId);
+      if (linkErr) throw linkErr;
     }
+
+    const siteUrl = process.env.SITE_URL || process.env.VITE_SITE_URL || "https://lead-testing.lovable.app";
+    const accessLabel =
+      data.accessLevel === "full"
+        ? "full"
+        : data.accessLevel === "names_only"
+          ? "limited (names only)"
+          : "metrics-only";
+    await enqueueInviteEmail({
+      supabaseAdmin,
+      to: normalizedEmail,
+      inviterWorkspace: inviterProfile.workspace_name,
+      inviterEmail,
+      acceptUrl: matchedAgencyId ? `${siteUrl}/agency/account` : `${siteUrl}/signup?invite=${token}`,
+      accessLabel,
+      existingAgency: Boolean(matchedAgencyId),
+    });
 
     return {
       invite,
@@ -169,17 +187,81 @@ export const listReceivedInvites = createServerFn({ method: "GET" })
     return { invites: data ?? [] };
   });
 
+export const listAgencyClients = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: clients, error } = await supabaseAdmin
+      .from("profiles")
+      .select("id, workspace_key, workspace_name, owner_name, owner_email, agency_access")
+      .eq("agency_id", userId)
+      .order("workspace_name", { ascending: true });
+    if (error) throw error;
+
+    const workspaceKeys = (clients ?? []).map((c: any) => c.workspace_key).filter(Boolean);
+    const leadCounts = new Map<string, { total: number; won: number }>();
+    if (workspaceKeys.length > 0) {
+      const { data: leads, error: leadsErr } = await supabaseAdmin
+        .from("leads")
+        .select("workspace_key, stage")
+        .in("workspace_key", workspaceKeys);
+      if (leadsErr) throw leadsErr;
+      for (const lead of leads ?? []) {
+        const current = leadCounts.get(lead.workspace_key) ?? { total: 0, won: 0 };
+        current.total += 1;
+        if ((lead.stage ?? "").toLowerCase() === "won") current.won += 1;
+        leadCounts.set(lead.workspace_key, current);
+      }
+    }
+
+    return {
+      clients: (clients ?? []).map((c: any) => {
+        const counts = leadCounts.get(c.workspace_key) ?? { total: 0, won: 0 };
+        return {
+          id: c.workspace_key,
+          name: c.workspace_name,
+          ownerName: c.owner_name || c.owner_email,
+          ownerEmail: c.owner_email,
+          monthlyReferralFee: 0,
+          currency: "EUR" as const,
+          leadsCount: counts.total,
+          conversionRate: counts.total > 0 ? counts.won / counts.total : 0,
+          agencyAccess: c.agency_access,
+        };
+      }),
+    };
+  });
+
 export const revokeInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { error } = await supabase
+    const { userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: invite, error: lookupErr } = await supabaseAdmin
+      .from("agency_invites")
+      .select("id, inviter_id, agency_id, status")
+      .eq("id", data.id)
+      .eq("inviter_id", userId)
+      .maybeSingle();
+    if (lookupErr) throw lookupErr;
+    if (!invite) throw new Error("Invite not found");
+
+    const { error } = await supabaseAdmin
       .from("agency_invites")
       .update({ status: "revoked" })
-      .eq("id", data.id)
-      .eq("inviter_id", userId);
+      .eq("id", data.id);
     if (error) throw error;
+
+    if (invite.agency_id) {
+      const { error: unlinkErr } = await supabaseAdmin
+        .from("profiles")
+        .update({ agency_id: null, agency_access: null })
+        .eq("id", userId)
+        .eq("agency_id", invite.agency_id);
+      if (unlinkErr) throw unlinkErr;
+    }
     return { ok: true };
   });
 
