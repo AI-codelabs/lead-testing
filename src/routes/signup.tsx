@@ -86,6 +86,7 @@ function SignupPage() {
   const isAgency = type === "agency";
 
   return (
+    <>
     <AuthShell
       title="Create your account"
       subtitle="Choose how you'll use Leadlogr — for your own workspace or to manage many."
