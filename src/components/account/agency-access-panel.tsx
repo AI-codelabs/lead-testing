@@ -1,21 +1,72 @@
 import { useState } from "react";
 import { Mail, Trash2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { ACCESS_LEVEL_META, useAccount, type AccessLevel } from "@/lib/account-context";
+import {
+  sendAgencyInvite,
+  listSentInvites,
+  revokeInvite,
+} from "@/lib/agency-invites.functions";
 
 const LEVELS: AccessLevel[] = ["full", "names_only", "metrics_only"];
 
 export function AgencyAccessPanel() {
   const { ownWorkspace, setInvitedAgencyEmail, setGrantedAccess } = useAccount();
   const [email, setEmail] = useState("");
+  const qc = useQueryClient();
+
+  const sendFn = useServerFn(sendAgencyInvite);
+  const listFn = useServerFn(listSentInvites);
+  const revokeFn = useServerFn(revokeInvite);
+
+  const { data: invitesData } = useQuery({
+    queryKey: ["sent-agency-invites"],
+    queryFn: () => listFn(),
+  });
+
+  const pendingInvite = invitesData?.invites?.find(
+    (i: any) => i.status === "pending" || i.status === "accepted",
+  );
+
+  const send = useMutation({
+    mutationFn: () =>
+      sendFn({
+        data: {
+          agencyEmail: email.trim(),
+          accessLevel: ownWorkspace.grantedAccess,
+        },
+      }),
+    onSuccess: (res) => {
+      setInvitedAgencyEmail(email.trim());
+      setEmail("");
+      toast.success(
+        res.matched
+          ? "Invite sent — agency account found, it'll appear in their dashboard."
+          : "Invite sent — we emailed them a signup link.",
+      );
+      qc.invalidateQueries({ queryKey: ["sent-agency-invites"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not send invite"),
+  });
+
+  const revoke = useMutation({
+    mutationFn: (id: string) => revokeFn({ data: { id } }),
+    onSuccess: () => {
+      setInvitedAgencyEmail(null);
+      toast.success("Invite revoked.");
+      qc.invalidateQueries({ queryKey: ["sent-agency-invites"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not revoke"),
+  });
 
   const handleInvite = () => {
-    const v = email.trim();
-    if (!v) return;
-    setInvitedAgencyEmail(v);
-    setEmail("");
+    if (!email.trim()) return;
+    send.mutate();
   };
 
-  const invited = ownWorkspace.invitedAgencyEmail;
+  const invited = pendingInvite?.agency_email ?? ownWorkspace.invitedAgencyEmail;
 
   return (
     <div className="space-y-4">
@@ -30,11 +81,16 @@ export function AgencyAccessPanel() {
             <span className="font-medium">{invited}</span>
             <span className="text-xs text-muted-foreground">
               · {ACCESS_LEVEL_META[ownWorkspace.grantedAccess].label}
+              {pendingInvite ? ` · ${pendingInvite.status}` : null}
             </span>
           </div>
           <button
-            onClick={() => setInvitedAgencyEmail(null)}
-            className="text-xs font-medium text-destructive hover:bg-destructive/10 rounded px-2 py-1 flex items-center gap-1"
+            onClick={() => {
+              if (pendingInvite) revoke.mutate(pendingInvite.id);
+              else setInvitedAgencyEmail(null);
+            }}
+            disabled={revoke.isPending}
+            className="text-xs font-medium text-destructive hover:bg-destructive/10 rounded px-2 py-1 flex items-center gap-1 disabled:opacity-50"
           >
             <Trash2 className="size-3" />
             Revoke
@@ -51,9 +107,10 @@ export function AgencyAccessPanel() {
           />
           <button
             onClick={handleInvite}
-            className="text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            disabled={send.isPending}
+            className="text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            Send invite
+            {send.isPending ? "Sending…" : "Send invite"}
           </button>
         </div>
       )}
