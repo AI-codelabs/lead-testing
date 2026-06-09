@@ -60,25 +60,17 @@ export const sendAgencyInvite = createServerFn({ method: "POST" })
 
     const normalizedEmail = data.agencyEmail.trim().toLowerCase();
 
-    // Use admin client to look up existing agency profile by email (auth.users lookup)
+    // Use admin client to look up existing agency profile by owner_email
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: existingUser } = await supabaseAdmin
-      .schema("auth")
-      .from("users")
-      .select("id, email")
-      .ilike("email", normalizedEmail)
-      .maybeSingle();
-
     let matchedAgencyId: string | null = null;
-    if (existingUser?.id) {
-      const { data: agencyProfile } = await supabaseAdmin
-        .from("profiles")
-        .select("id, account_type")
-        .eq("id", existingUser.id)
-        .maybeSingle();
-      if (agencyProfile?.account_type === "agency") {
-        matchedAgencyId = agencyProfile.id;
-      }
+    const { data: agencyProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, account_type")
+      .ilike("owner_email", normalizedEmail)
+      .eq("account_type", "agency")
+      .maybeSingle();
+    if (agencyProfile?.id) {
+      matchedAgencyId = agencyProfile.id;
     }
 
     const token = makeToken();
