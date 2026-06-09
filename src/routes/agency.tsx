@@ -1,5 +1,5 @@
-import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
-import { LayoutGrid, Plus, Settings } from "lucide-react";
+import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
+import { LayoutGrid, LogOut, Plus, Settings } from "lucide-react";
 import { Logo } from "@/components/leadlogr/logo";
 import { useAccount } from "@/lib/account-context";
 import { WorkspaceSwitcher } from "@/components/agency/workspace-switcher";
