@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      agency_invites: {
+        Row: {
+          accepted_at: string | null
+          access_level: string
+          agency_email: string
+          agency_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          inviter_email: string
+          inviter_id: string
+          inviter_workspace_name: string
+          status: Database["public"]["Enums"]["agency_invite_status"]
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          access_level?: string
+          agency_email: string
+          agency_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          inviter_email: string
+          inviter_id: string
+          inviter_workspace_name: string
+          status?: Database["public"]["Enums"]["agency_invite_status"]
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          access_level?: string
+          agency_email?: string
+          agency_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          inviter_email?: string
+          inviter_id?: string
+          inviter_workspace_name?: string
+          status?: Database["public"]["Enums"]["agency_invite_status"]
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_invites_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversion_uploads: {
         Row: {
           attempted_at: string
@@ -87,6 +143,93 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_send_log: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          message_id: string | null
+          metadata: Json | null
+          recipient_email: string
+          status: string
+          template_name: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          recipient_email: string
+          status: string
+          template_name: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          recipient_email?: string
+          status?: string
+          template_name?: string
+        }
+        Relationships: []
+      }
+      email_send_state: {
+        Row: {
+          auth_email_ttl_minutes: number
+          batch_size: number
+          id: number
+          retry_after_until: string | null
+          send_delay_ms: number
+          transactional_email_ttl_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          auth_email_ttl_minutes?: number
+          batch_size?: number
+          id?: number
+          retry_after_until?: string | null
+          send_delay_ms?: number
+          transactional_email_ttl_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          auth_email_ttl_minutes?: number
+          batch_size?: number
+          id?: number
+          retry_after_until?: string | null
+          send_delay_ms?: number
+          transactional_email_ttl_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_unsubscribe_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: []
       }
       google_ads_oauth_states: {
         Row: {
@@ -328,6 +471,8 @@ export type Database = {
       profiles: {
         Row: {
           account_type: string
+          agency_access: string | null
+          agency_id: string | null
           created_at: string
           id: string
           owner_email: string
@@ -338,6 +483,8 @@ export type Database = {
         }
         Insert: {
           account_type?: string
+          agency_access?: string | null
+          agency_id?: string | null
           created_at?: string
           id: string
           owner_email?: string
@@ -348,6 +495,8 @@ export type Database = {
         }
         Update: {
           account_type?: string
+          agency_access?: string | null
+          agency_id?: string | null
           created_at?: string
           id?: string
           owner_email?: string
@@ -356,6 +505,38 @@ export type Database = {
           workspace_key?: string
           workspace_name?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppressed_emails: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          metadata: Json | null
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          metadata?: Json | null
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          metadata?: Json | null
+          reason?: string
+        }
         Relationships: []
       }
     }
@@ -363,10 +544,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      delete_email: {
+        Args: { message_id: number; queue_name: string }
+        Returns: boolean
+      }
+      enqueue_email: {
+        Args: { payload: Json; queue_name: string }
+        Returns: number
+      }
+      move_to_dlq: {
+        Args: {
+          dlq_name: string
+          message_id: number
+          payload: Json
+          source_queue: string
+        }
+        Returns: number
+      }
+      read_email_batch: {
+        Args: { batch_size: number; queue_name: string; vt: number }
+        Returns: {
+          message: Json
+          msg_id: number
+          read_ct: number
+        }[]
+      }
     }
     Enums: {
-      [_ in never]: never
+      agency_invite_status: "pending" | "accepted" | "revoked" | "expired"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -493,6 +698,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      agency_invite_status: ["pending", "accepted", "revoked", "expired"],
+    },
   },
 } as const
