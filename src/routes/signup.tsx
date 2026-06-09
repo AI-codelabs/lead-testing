@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AuthShell, Field } from "@/components/leadlogr/auth-shell";
 import { useState, type FormEvent } from "react";
-import { Briefcase, Building2 } from "lucide-react";
+import { Briefcase, Building2, MailCheck } from "lucide-react";
 import { useAccount, type AccountType } from "@/lib/account-context";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -41,6 +42,7 @@ function SignupPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -71,8 +73,8 @@ function SignupPage() {
       if (data.session) {
         navigate({ to: type === "agency" ? "/agency" : "/app/dashboard" });
       } else {
-        // Email confirmation is enabled — tell the user to verify.
-        setError("Account created. Check your inbox to confirm your email, then sign in.");
+        // Email confirmation is enabled — show a friendly confirmation modal.
+        setConfirmOpen(true);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create account");
@@ -84,6 +86,7 @@ function SignupPage() {
   const isAgency = type === "agency";
 
   return (
+    <>
     <AuthShell
       title="Create your account"
       subtitle="Choose how you'll use Leadlogr — for your own workspace or to manage many."
@@ -159,5 +162,27 @@ function SignupPage() {
         </p>
       </form>
     </AuthShell>
+    <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/20">
+            <MailCheck className="size-7 text-primary" />
+          </div>
+          <DialogTitle className="text-center text-xl">Check your inbox</DialogTitle>
+          <DialogDescription className="text-center">
+            We sent a confirmation link to <span className="font-medium text-foreground">{email}</span>. Click it to verify your email, then sign in to your new workspace.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="sm:justify-center">
+          <Link
+            to="/login"
+            className="w-full sm:w-auto inline-flex justify-center bg-primary text-primary-foreground text-sm font-medium px-5 py-2.5 rounded-md hover:opacity-90 transition-opacity"
+          >
+            Go to sign in
+          </Link>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
