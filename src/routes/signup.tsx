@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AuthShell, Field } from "@/components/leadlogr/auth-shell";
 import { useState, type FormEvent } from "react";
-import { Briefcase, Building2 } from "lucide-react";
+import { Briefcase, Building2, MailCheck } from "lucide-react";
 import { useAccount, type AccountType } from "@/lib/account-context";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
