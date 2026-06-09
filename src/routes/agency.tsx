@@ -10,7 +10,8 @@ export const Route = createFileRoute("/agency")({
 });
 
 function AgencyLayout() {
-  const { accountType } = useAccount();
+  const { accountType, signOut } = useAccount();
+  const navigate = useNavigate();
 
   // Soft guard: if not an agency, send them back to the app.
   if (accountType !== "agency") {
