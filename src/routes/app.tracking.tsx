@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/leadlogr/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAccount } from "@/lib/account-context";
 import { useLiveLeads } from "@/hooks/use-live-leads";
-import { Check, Copy, ExternalLink, ShieldCheck, Sparkles, Zap, AlertCircle } from "lucide-react";
+import { Check, Copy, ExternalLink, ShieldCheck, Sparkles, Zap, AlertCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/tracking")({
   head: () => ({ meta: [{ title: "Tracking Setup — Leadlogr" }] }),
@@ -92,10 +93,16 @@ function FlagToggle({
   );
 }
 
+// Real workspace keys created by handle_new_user() follow ws_<slug>_<8hex>.
+// Anything that doesn't match (e.g. the placeholder "ws_acmemedia" used
+// before profile hydration) must NOT be shown in the install snippet.
+const WORKSPACE_KEY_RE = /^ws_[a-z0-9]+_[a-z0-9]{6,}$/;
+
 function TrackingPage() {
   const search = Route.useSearch();
-  const { activeWorkspace } = useAccount();
+  const { activeWorkspace, authReady, isAuthenticated } = useAccount();
   const workspaceId = activeWorkspace.key;
+  const workspaceReady = isAuthenticated && WORKSPACE_KEY_RE.test(workspaceId);
   const integrationId = ["gtm", "wordpress", "api", "zapier"].includes(search.integration) ? search.integration : "gtm";
   const integrationName = INTEGRATION_NAMES[integrationId] ?? "Google Tag Manager";
 
