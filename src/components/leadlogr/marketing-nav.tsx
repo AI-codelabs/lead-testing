@@ -25,7 +25,7 @@ export function MarketingNav() {
             Sign in
           </Link>
           <Link
-            to="/signup"
+            to="/signup" search={{}}
             className="bg-primary text-primary-foreground text-sm font-medium py-2 pl-2 pr-3 flex items-center gap-2 rounded-md ring-1 ring-primary shadow-sm hover:opacity-90 transition-opacity"
           >
             <span className="size-4 shrink-0 rounded-full bg-brand-accent/70" />

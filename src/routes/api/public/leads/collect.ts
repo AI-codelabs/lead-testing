@@ -44,6 +44,22 @@ export const Route = createFileRoute("/api/public/leads/collect")({
             });
           }
 
+          // Validate the workspace_key actually belongs to a real workspace.
+          // Prevents leads from being silently captured under a stale/placeholder
+          // key (e.g. when the tracker was copied before the UI hydrated).
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { data: ws } = await supabaseAdmin
+            .from("profiles")
+            .select("workspace_key")
+            .eq("workspace_key", workspace_key)
+            .maybeSingle();
+          if (!ws) {
+            return new Response(
+              JSON.stringify({ error: "unknown_workspace", workspace_key }),
+              { status: 404, headers: { "Content-Type": "application/json", ...CORS } },
+            );
+          }
+
           const custom: Record<string, unknown> = {};
           for (const [k, v] of Object.entries(body ?? {})) {
             if (!KNOWN_FIELDS.has(k)) custom[k] = v;
@@ -84,7 +100,6 @@ export const Route = createFileRoute("/api/public/leads/collect")({
             raw_payload: rawJson,
           };
 
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { data, error } = await supabaseAdmin
             .from("leads")
             .insert(row)

@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/leadlogr/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAccount } from "@/lib/account-context";
 import { useLiveLeads } from "@/hooks/use-live-leads";
-import { Check, Copy, ExternalLink, ShieldCheck, Sparkles, Zap, AlertCircle } from "lucide-react";
+import { Check, Copy, ExternalLink, ShieldCheck, Sparkles, Zap, AlertCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/tracking")({
   head: () => ({ meta: [{ title: "Tracking Setup — Leadlogr" }] }),
@@ -92,10 +93,16 @@ function FlagToggle({
   );
 }
 
+// Real workspace keys created by handle_new_user() follow ws_<slug>_<8hex>.
+// Anything that doesn't match (e.g. the placeholder "ws_acmemedia" used
+// before profile hydration) must NOT be shown in the install snippet.
+const WORKSPACE_KEY_RE = /^ws_[a-z0-9]+_[a-z0-9]{6,}$/;
+
 function TrackingPage() {
   const search = Route.useSearch();
-  const { activeWorkspace } = useAccount();
+  const { activeWorkspace, authReady, isAuthenticated } = useAccount();
   const workspaceId = activeWorkspace.key;
+  const workspaceReady = isAuthenticated && WORKSPACE_KEY_RE.test(workspaceId);
   const integrationId = ["gtm", "wordpress", "api", "zapier"].includes(search.integration) ? search.integration : "gtm";
   const integrationName = INTEGRATION_NAMES[integrationId] ?? "Google Tag Manager";
 
@@ -202,10 +209,24 @@ window.Leadlogr.submitForm({
         <div className="min-w-0">
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-lg font-semibold">Your install snippet</h2>
-            <span className="inline-flex items-center gap-1.5 text-xs text-stage-green-ink bg-stage-green-soft ring-1 ring-stage-green-line px-2 py-0.5 rounded-full">
-              <span className="size-1.5 rounded-full bg-stage-green-ink" /> Ready
-            </span>
+            {workspaceReady ? (
+              <span className="inline-flex items-center gap-1.5 text-xs text-stage-green-ink bg-stage-green-soft ring-1 ring-stage-green-line px-2 py-0.5 rounded-full">
+                <span className="size-1.5 rounded-full bg-stage-green-ink" /> Ready
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 ring-1 ring-border px-2 py-0.5 rounded-full">
+                <Loader2 className="size-3 animate-spin" /> {authReady && !isAuthenticated ? "Sign in to view" : "Loading workspace…"}
+              </span>
+            )}
           </div>
+
+          {!workspaceReady && (
+            <div className="mb-4 rounded-md ring-1 ring-amber-300/40 bg-amber-50/60 dark:bg-amber-950/20 p-3 text-xs text-amber-900 dark:text-amber-200">
+              {authReady && !isAuthenticated
+                ? "Sign in to your Leadlogr workspace to generate a tracking snippet. The snippet must include your real workspace key — placeholders are rejected by the ingest endpoint."
+                : "Your workspace is still loading. The snippet below will activate as soon as your workspace key is hydrated from the server."}
+            </div>
+          )}
 
           <Tabs defaultValue="gtm">
             <TabsList>
@@ -269,26 +290,41 @@ window.Leadlogr.submitForm({
                     </span>
                   )}
                   <button
+                    disabled={!workspaceReady}
                     onClick={async () => {
-                      await fetch(effectiveEndpoint, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          workspace_key: workspaceId,
-                          integration_id: integrationId,
-                          name: "Test Lead",
-                          email: "test@example.com",
-                          phone: "+1 555 0100",
-                          company: "Test Co.",
-                          message: "Sent from Leadlogr tracking page",
-                          source: "Direct",
-                          landing_page_url: window.location.href,
-                          page_path: "/app/tracking",
-                          consent: "Accepted",
-                        }),
-                      });
+                      try {
+                        const res = await fetch(effectiveEndpoint, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            workspace_key: workspaceId,
+                            integration_id: integrationId,
+                            name: "Test Lead",
+                            email: "test@example.com",
+                            phone: "+1 555 0100",
+                            company: "Test Co.",
+                            message: "Sent from Leadlogr tracking page",
+                            source: "Direct",
+                            landing_page_url: window.location.href,
+                            page_path: "/app/tracking",
+                            consent: "Accepted",
+                          }),
+                        });
+                        const body = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                          toast.error(
+                            body?.error === "unknown_workspace"
+                              ? `Unknown workspace key (${workspaceId}). Re-copy the snippet from this page.`
+                              : `Test event failed (${res.status})`,
+                          );
+                          return;
+                        }
+                        toast.success("Test event received. It will appear in your CRM in a few seconds.");
+                      } catch (err) {
+                        toast.error("Could not reach the ingest endpoint. Check the URL and try again.");
+                      }
                     }}
-                    className="text-xs font-medium px-2.5 py-1.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors"
+                    className="text-xs font-medium px-2.5 py-1.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Send test event
                   </button>
