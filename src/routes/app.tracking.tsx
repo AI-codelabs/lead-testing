@@ -209,12 +209,25 @@ window.Leadlogr.submitForm({
         <div className="min-w-0">
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-lg font-semibold">Your install snippet</h2>
-            <span className="inline-flex items-center gap-1.5 text-xs text-stage-green-ink bg-stage-green-soft ring-1 ring-stage-green-line px-2 py-0.5 rounded-full">
-              <span className="size-1.5 rounded-full bg-stage-green-ink" /> Ready
-            </span>
+            {workspaceReady ? (
+              <span className="inline-flex items-center gap-1.5 text-xs text-stage-green-ink bg-stage-green-soft ring-1 ring-stage-green-line px-2 py-0.5 rounded-full">
+                <span className="size-1.5 rounded-full bg-stage-green-ink" /> Ready
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 ring-1 ring-border px-2 py-0.5 rounded-full">
+                <Loader2 className="size-3 animate-spin" /> {authReady && !isAuthenticated ? "Sign in to view" : "Loading workspace…"}
+              </span>
+            )}
           </div>
 
-          <Tabs defaultValue="gtm">
+          {!workspaceReady && (
+            <div className="mb-4 rounded-md ring-1 ring-amber-300/40 bg-amber-50/60 dark:bg-amber-950/20 p-3 text-xs text-amber-900 dark:text-amber-200">
+              {authReady && !isAuthenticated
+                ? "Sign in to your Leadlogr workspace to generate a tracking snippet. The snippet must include your real workspace key — placeholders are rejected by the ingest endpoint."
+                : "Your workspace is still loading. The snippet below will activate as soon as your workspace key is hydrated from the server."}
+            </div>
+          )}
+
             <TabsList>
               <TabsTrigger value="gtm">Google Tag Manager</TabsTrigger>
               <TabsTrigger value="html">Direct HTML</TabsTrigger>
