@@ -1,10 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AuthShell, Field } from "@/components/leadlogr/auth-shell";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Briefcase, Building2, MailCheck } from "lucide-react";
 import { useAccount, type AccountType } from "@/lib/account-context";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useServerFn } from "@tanstack/react-start";
+import { acceptInvite } from "@/lib/agency-invites.functions";
+
+const PENDING_INVITE_KEY = "leadlogr.pending_invite_token";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -12,6 +16,9 @@ export const Route = createFileRoute("/signup")({
       { title: "Create your Leadlogr account" },
       { name: "description", content: "Spin up a Leadlogr workspace as a standard account or an agency." },
     ],
+  }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    invite: typeof s.invite === "string" ? s.invite : undefined,
   }),
   component: SignupPage,
 });
