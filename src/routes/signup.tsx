@@ -42,6 +42,7 @@ function SignupPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
