@@ -26,6 +26,7 @@ export type Database = {
           inviter_email: string
           inviter_id: string
           inviter_workspace_name: string
+          kind: string
           status: Database["public"]["Enums"]["agency_invite_status"]
           token: string
           updated_at: string
@@ -41,6 +42,7 @@ export type Database = {
           inviter_email: string
           inviter_id: string
           inviter_workspace_name: string
+          kind?: string
           status?: Database["public"]["Enums"]["agency_invite_status"]
           token: string
           updated_at?: string
@@ -56,6 +58,7 @@ export type Database = {
           inviter_email?: string
           inviter_id?: string
           inviter_workspace_name?: string
+          kind?: string
           status?: Database["public"]["Enums"]["agency_invite_status"]
           token?: string
           updated_at?: string

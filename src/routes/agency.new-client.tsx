@@ -1,7 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/leadlogr/page-header";
-import { ACCESS_LEVEL_META, useAccount, type AccessLevel } from "@/lib/account-context";
+import { ACCESS_LEVEL_META, type AccessLevel } from "@/lib/account-context";
+import { createClientWorkspaceInvite } from "@/lib/agency-invites.functions";
 
 export const Route = createFileRoute("/agency/new-client")({
   head: () => ({ meta: [{ title: "New client — Leadlogr Agency" }] }),
@@ -11,26 +15,37 @@ export const Route = createFileRoute("/agency/new-client")({
 const LEVELS: AccessLevel[] = ["full", "names_only", "metrics_only"];
 
 function NewClientPage() {
-  const { addClientWorkspace } = useAccount();
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const createFn = useServerFn(createClientWorkspaceInvite);
   const [name, setName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
-  const [fee, setFee] = useState("300");
   const [access, setAccess] = useState<AccessLevel>("full");
+
+  const create = useMutation({
+    mutationFn: () =>
+      createFn({
+        data: {
+          workspaceName: name.trim(),
+          ownerName: ownerName.trim() || undefined,
+          ownerEmail: ownerEmail.trim(),
+          accessLevel: access,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Invite sent — we emailed the client a signup link.");
+      qc.invalidateQueries({ queryKey: ["sent-agency-invites"] });
+      qc.invalidateQueries({ queryKey: ["agency-clients"] });
+      navigate({ to: "/agency" });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not send invite"),
+  });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !ownerEmail.trim()) return;
-    addClientWorkspace({
-      name: name.trim(),
-      ownerName: ownerName.trim() || ownerEmail.trim(),
-      ownerEmail: ownerEmail.trim(),
-      monthlyReferralFee: Number(fee) || 0,
-      currency: "EUR",
-      agencyAccess: access,
-    });
-    navigate({ to: "/agency" });
+    create.mutate();
   };
 
   return (
@@ -38,7 +53,7 @@ function NewClientPage() {
       <PageHeader
         eyebrow="Agency"
         title="Create a new client workspace"
-        description="Set up a workspace on behalf of a client. You can adjust their access level later."
+        description="We'll email the client a signup link. Once they create their account, the workspace appears under your clients."
       />
 
       <form onSubmit={submit} className="bg-card ring-1 ring-border rounded-lg p-6 space-y-5 max-w-2xl">
@@ -53,9 +68,6 @@ function NewClientPage() {
             <input type="email" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} required className="input" placeholder="jane@acme.com" />
           </Field>
         </div>
-        <Field label="Monthly referral fee (EUR)">
-          <input type="number" min={0} value={fee} onChange={(e) => setFee(e.target.value)} className="input" />
-        </Field>
 
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
@@ -92,9 +104,10 @@ function NewClientPage() {
           </button>
           <button
             type="submit"
-            className="text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            disabled={create.isPending}
+            className="text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            Create workspace
+            {create.isPending ? "Sending…" : "Send invite"}
           </button>
         </div>
 

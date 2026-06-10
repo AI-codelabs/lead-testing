@@ -9,6 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { acceptInvite } from "@/lib/agency-invites.functions";
 
 const PENDING_INVITE_KEY = "leadlogr.pending_invite_token";
+const PENDING_CLIENT_INVITE_KEY = "leadlogr.pending_client_invite_token";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/signup")({
   }),
   validateSearch: (s: Record<string, unknown>) => ({
     invite: typeof s.invite === "string" ? s.invite : undefined,
+    clientInvite: typeof s.clientInvite === "string" ? s.clientInvite : undefined,
   }),
   component: SignupPage,
 });
@@ -43,8 +45,14 @@ function SignupPage() {
   const { createAccount } = useAccount();
   const search = Route.useSearch();
   const inviteToken = search.invite;
+  const clientInviteToken = search.clientInvite;
   const acceptFn = useServerFn(acceptInvite);
-  const [type, setType] = useState<AccountType>(inviteToken ? "agency" : "standard");
+  const forcedType: AccountType | null = clientInviteToken
+    ? "standard"
+    : inviteToken
+      ? "agency"
+      : null;
+  const [type, setType] = useState<AccountType>(forcedType ?? "standard");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -54,12 +62,12 @@ function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // Persist invite token so it survives email-confirm round trips.
+  // Persist invite tokens so they survive email-confirm round trips.
   useEffect(() => {
-    if (inviteToken && typeof window !== "undefined") {
-      window.localStorage.setItem(PENDING_INVITE_KEY, inviteToken);
-    }
-  }, [inviteToken]);
+    if (typeof window === "undefined") return;
+    if (inviteToken) window.localStorage.setItem(PENDING_INVITE_KEY, inviteToken);
+    if (clientInviteToken) window.localStorage.setItem(PENDING_CLIENT_INVITE_KEY, clientInviteToken);
+  }, [inviteToken, clientInviteToken]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -87,11 +95,15 @@ function SignupPage() {
         ownerEmail: email,
       });
       if (data.session) {
-        // Auto-accept invite if present and account is agency.
-        if (inviteToken && type === "agency") {
+        const tokenToAccept =
+          (type === "agency" && inviteToken) ||
+          (type === "standard" && clientInviteToken) ||
+          null;
+        if (tokenToAccept) {
           try {
-            await acceptFn({ data: { token: inviteToken } });
+            await acceptFn({ data: { token: tokenToAccept } });
             window.localStorage.removeItem(PENDING_INVITE_KEY);
+            window.localStorage.removeItem(PENDING_CLIENT_INVITE_KEY);
           } catch (err) {
             console.error("Failed to auto-accept invite", err);
           }
