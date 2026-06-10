@@ -5,51 +5,41 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const accessLevels = ["full", "names_only", "metrics_only"] as const;
 
 function makeToken(): string {
-  // 32-char URL-safe token
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function buildInviteEmailHtml(opts: {
-  inviterWorkspace: string;
-  inviterEmail: string;
+  heading: string;
+  bodyHtml: string;
+  ctaLabel: string;
   acceptUrl: string;
-  accessLabel: string;
-  existingAgency: boolean;
 }) {
-  const { inviterWorkspace, inviterEmail, acceptUrl, accessLabel, existingAgency } = opts;
+  const { heading, bodyHtml, ctaLabel, acceptUrl } = opts;
   return `<!doctype html><html><body style="font-family:Arial,sans-serif;background:#ffffff;color:#0a0a0a;padding:24px;">
   <div style="max-width:520px;margin:0 auto;">
-    <h1 style="font-size:22px;margin:0 0 16px;">You've been invited to Leadlogr</h1>
-    <p style="font-size:14px;line-height:1.5;color:#444;">
-      <strong>${inviterWorkspace}</strong> (${inviterEmail}) invited your agency to manage their Leadlogr workspace
-      with <strong>${accessLabel}</strong> access.
-    </p>
-    <p style="font-size:14px;line-height:1.5;color:#444;">
-      ${existingAgency ? "The workspace has been linked to your agency account." : "Click below to create your Leadlogr agency account and accept the invite:"}
-    </p>
+    <h1 style="font-size:22px;margin:0 0 16px;">${heading}</h1>
+    <div style="font-size:14px;line-height:1.5;color:#444;">${bodyHtml}</div>
     <p style="margin:24px 0;">
-      <a href="${acceptUrl}" style="background:#0a0a0a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-size:14px;display:inline-block;">${existingAgency ? "Open agency dashboard" : "Accept invitation"}</a>
+      <a href="${acceptUrl}" style="background:#0a0a0a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-size:14px;display:inline-block;">${ctaLabel}</a>
     </p>
     <p style="font-size:12px;color:#999;">If you weren't expecting this, you can ignore this email. The link expires in 14 days.</p>
   </div></body></html>`;
 }
 
-async function enqueueInviteEmail(opts: {
+async function enqueueEmail(opts: {
   supabaseAdmin: any;
   to: string;
-  inviterWorkspace: string;
-  inviterEmail: string;
-  acceptUrl: string;
-  accessLabel: string;
-  existingAgency: boolean;
+  subject: string;
+  html: string;
+  text: string;
+  label: string;
 }) {
   const messageId = crypto.randomUUID();
-  const html = buildInviteEmailHtml(opts);
   await opts.supabaseAdmin.from("email_send_log").insert({
     message_id: messageId,
-    template_name: "agency_invite",
+    template_name: opts.label,
     recipient_email: opts.to,
     status: "pending",
   });
@@ -60,15 +50,15 @@ async function enqueueInviteEmail(opts: {
       to: opts.to,
       from: `Leadlogr <noreply@notify.leadlogr.com>`,
       sender_domain: "notify.leadlogr.com",
-      subject: `${opts.inviterWorkspace} invited you to Leadlogr`,
-      html,
-      text: `${opts.inviterWorkspace} invited your agency to Leadlogr. Open: ${opts.acceptUrl}`,
+      subject: opts.subject,
+      html: opts.html,
+      text: opts.text,
       purpose: "transactional",
-      label: "agency_invite",
+      label: opts.label,
       queued_at: new Date().toISOString(),
     },
   });
-  if (error) console.error("Failed to enqueue invite email", error);
+  if (error) console.error("Failed to enqueue email", error);
 }
 
 const SendInviteInput = z.object({
@@ -76,6 +66,10 @@ const SendInviteInput = z.object({
   accessLevel: z.enum(accessLevels).default("full"),
 });
 
+/**
+ * Standard workspace invites an agency. The agency MUST already have an
+ * agency account on Leadlogr — we don't create accounts on their behalf.
+ */
 export const sendAgencyInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => SendInviteInput.parse(input))
@@ -83,7 +77,6 @@ export const sendAgencyInvite = createServerFn({ method: "POST" })
     const { supabase, userId, claims } = context;
     const inviterEmail = (claims.email as string) ?? "";
 
-    // Look up inviter profile for workspace name
     const { data: inviterProfile } = await supabase
       .from("profiles")
       .select("workspace_name, account_type")
@@ -97,24 +90,27 @@ export const sendAgencyInvite = createServerFn({ method: "POST" })
     const normalizedEmail = data.agencyEmail.trim().toLowerCase();
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    let matchedAgencyId: string | null = null;
     const { data: existingProfile } = await supabaseAdmin
       .from("profiles")
-      .select("id, account_type")
+      .select("id, account_type, workspace_name")
       .ilike("owner_email", normalizedEmail)
       .maybeSingle();
-    if (existingProfile?.id && existingProfile.account_type !== "agency") {
-      throw new Error("That email belongs to a standard workspace. Invite an agency account email instead.");
+
+    if (!existingProfile) {
+      throw new Error(
+        "No Leadlogr agency account found for that email. Ask the agency to sign up first, then invite them.",
+      );
     }
-    if (existingProfile?.id) {
-      matchedAgencyId = existingProfile.id;
+    if (existingProfile.account_type !== "agency") {
+      throw new Error("That email is registered as a standard workspace, not an agency.");
     }
 
+    const matchedAgencyId = existingProfile.id;
     const token = makeToken();
-    const acceptedAt = matchedAgencyId ? new Date().toISOString() : null;
     const { data: invite, error: insertErr } = await supabaseAdmin
       .from("agency_invites")
       .insert({
+        kind: "agency_invite",
         inviter_id: userId,
         inviter_workspace_name: inviterProfile.workspace_name,
         inviter_email: inviterEmail,
@@ -122,20 +118,19 @@ export const sendAgencyInvite = createServerFn({ method: "POST" })
         agency_id: matchedAgencyId,
         access_level: data.accessLevel,
         token,
-        status: matchedAgencyId ? "accepted" : "pending",
-        accepted_at: acceptedAt,
+        status: "accepted",
+        accepted_at: new Date().toISOString(),
       })
       .select()
       .single();
     if (insertErr) throw insertErr;
 
-    if (matchedAgencyId) {
-      const { error: linkErr } = await supabaseAdmin
-        .from("profiles")
-        .update({ agency_id: matchedAgencyId, agency_access: data.accessLevel })
-        .eq("id", userId);
-      if (linkErr) throw linkErr;
-    }
+    // Immediately link inviter's workspace to that agency.
+    const { error: linkErr } = await supabaseAdmin
+      .from("profiles")
+      .update({ agency_id: matchedAgencyId, agency_access: data.accessLevel })
+      .eq("id", userId);
+    if (linkErr) throw linkErr;
 
     const siteUrl = process.env.SITE_URL || process.env.VITE_SITE_URL || "https://lead-testing.lovable.app";
     const accessLabel =
@@ -144,20 +139,115 @@ export const sendAgencyInvite = createServerFn({ method: "POST" })
         : data.accessLevel === "names_only"
           ? "limited (names only)"
           : "metrics-only";
-    await enqueueInviteEmail({
+    const heading = `You've been added as an agency on Leadlogr`;
+    const bodyHtml = `
+      <p><strong>${inviterProfile.workspace_name}</strong> (${inviterEmail}) gave your agency
+      <strong>${accessLabel}</strong> access to their Leadlogr workspace.</p>
+      <p>The workspace already appears in your agency dashboard — sign in to start working with it.</p>
+    `;
+    await enqueueEmail({
       supabaseAdmin,
       to: normalizedEmail,
-      inviterWorkspace: inviterProfile.workspace_name,
-      inviterEmail,
-      acceptUrl: matchedAgencyId ? `${siteUrl}/agency/account` : `${siteUrl}/signup?invite=${token}`,
-      accessLabel,
-      existingAgency: Boolean(matchedAgencyId),
+      subject: `${inviterProfile.workspace_name} added you as their agency on Leadlogr`,
+      html: buildInviteEmailHtml({
+        heading,
+        bodyHtml,
+        ctaLabel: "Open agency dashboard",
+        acceptUrl: `${siteUrl}/agency`,
+      }),
+      text: `${inviterProfile.workspace_name} added you as their agency. Open: ${siteUrl}/agency`,
+      label: "agency_invite",
     });
 
-    return {
-      invite,
-      matched: Boolean(matchedAgencyId),
-    };
+    return { invite, matched: true };
+  });
+
+const CreateClientInput = z.object({
+  workspaceName: z.string().min(1).max(120),
+  ownerName: z.string().max(120).optional(),
+  ownerEmail: z.string().email().max(255),
+  accessLevel: z.enum(accessLevels).default("full"),
+});
+
+/**
+ * Agency creates a client workspace setup invite. The client receives an
+ * email with a signup link. On signup we auto-create their standard
+ * workspace and link this agency to it with the requested access level.
+ */
+export const createClientWorkspaceInvite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => CreateClientInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId, claims } = context;
+    const inviterEmail = (claims.email as string) ?? "";
+
+    const { data: inviterProfile } = await supabase
+      .from("profiles")
+      .select("workspace_name, account_type")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!inviterProfile) throw new Error("Profile not found");
+    if (inviterProfile.account_type !== "agency") {
+      throw new Error("Only agency accounts can create client workspaces");
+    }
+
+    const normalizedEmail = data.ownerEmail.trim().toLowerCase();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: existing } = await supabaseAdmin
+      .from("profiles")
+      .select("id, account_type")
+      .ilike("owner_email", normalizedEmail)
+      .maybeSingle();
+    if (existing) {
+      throw new Error("Someone with that email already has a Leadlogr account.");
+    }
+
+    const token = makeToken();
+    const { data: invite, error: insertErr } = await supabaseAdmin
+      .from("agency_invites")
+      .insert({
+        kind: "client_invite",
+        inviter_id: userId,
+        inviter_workspace_name: data.workspaceName.trim(),
+        inviter_email: inviterEmail,
+        agency_email: normalizedEmail,
+        agency_id: null,
+        access_level: data.accessLevel,
+        token,
+        status: "pending",
+      })
+      .select()
+      .single();
+    if (insertErr) throw insertErr;
+
+    const siteUrl = process.env.SITE_URL || process.env.VITE_SITE_URL || "https://lead-testing.lovable.app";
+    const acceptUrl = `${siteUrl}/signup?clientInvite=${token}`;
+    const heading = `${inviterProfile.workspace_name} set up a Leadlogr workspace for you`;
+    const ownerLine = data.ownerName ? `Hi ${data.ownerName},` : `Hi,`;
+    const bodyHtml = `
+      <p>${ownerLine}</p>
+      <p><strong>${inviterProfile.workspace_name}</strong> (${inviterEmail}) created a
+      Leadlogr workspace called <strong>${data.workspaceName.trim()}</strong> for you and would like
+      to manage it on your behalf.</p>
+      <p>Click below to finish setting up your account — you'll be the owner of the workspace, and
+      ${inviterProfile.workspace_name} will have access too.</p>
+    `;
+    await enqueueEmail({
+      supabaseAdmin,
+      to: normalizedEmail,
+      subject: `${inviterProfile.workspace_name} created your Leadlogr workspace`,
+      html: buildInviteEmailHtml({
+        heading,
+        bodyHtml,
+        ctaLabel: "Create my account",
+        acceptUrl,
+      }),
+      text: `${inviterProfile.workspace_name} created a Leadlogr workspace for you. Finish signup: ${acceptUrl}`,
+      label: "client_invite",
+    });
+
+    return { invite };
   });
 
 export const listSentInvites = createServerFn({ method: "GET" })
@@ -241,7 +331,7 @@ export const revokeInvite = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: invite, error: lookupErr } = await supabaseAdmin
       .from("agency_invites")
-      .select("id, inviter_id, agency_id, status")
+      .select("id, inviter_id, agency_id, status, kind")
       .eq("id", data.id)
       .eq("inviter_id", userId)
       .maybeSingle();
@@ -254,7 +344,7 @@ export const revokeInvite = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (error) throw error;
 
-    if (invite.agency_id) {
+    if (invite.kind === "agency_invite" && invite.agency_id) {
       const { error: unlinkErr } = await supabaseAdmin
         .from("profiles")
         .update({ agency_id: null, agency_access: null })
@@ -265,6 +355,10 @@ export const revokeInvite = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Accept any invite (agency_invite or client_invite) by token.
+ * Called automatically from /signup right after the new user signs in.
+ */
 export const acceptInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -290,42 +384,55 @@ export const acceptInvite = createServerFn({ method: "POST" })
         .eq("id", invite.id);
       throw new Error("Invite has expired");
     }
-    if (
-      invite.agency_id &&
-      invite.agency_id !== userId &&
-      invite.agency_email.toLowerCase() !== email
-    ) {
-      throw new Error("This invite is for a different account");
+    if (invite.agency_email.toLowerCase() !== email) {
+      throw new Error("This invite is for a different email address");
     }
 
-    // Current user must be an agency account
     const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("account_type")
+      .select("account_type, id")
       .eq("id", userId)
       .maybeSingle();
-    if (profile?.account_type !== "agency") {
-      throw new Error("Only agency accounts can accept invites");
-    }
+    if (!profile) throw new Error("Profile not found");
 
-    // Link the inviter's standard workspace to this agency
-    const { error: linkErr } = await supabaseAdmin
-      .from("profiles")
-      .update({ agency_id: userId, agency_access: invite.access_level })
-      .eq("id", invite.inviter_id);
-    if (linkErr) throw linkErr;
+    if (invite.kind === "agency_invite") {
+      if (profile.account_type !== "agency") {
+        throw new Error("Only agency accounts can accept this invite");
+      }
+      const { error: linkErr } = await supabaseAdmin
+        .from("profiles")
+        .update({ agency_id: userId, agency_access: invite.access_level })
+        .eq("id", invite.inviter_id);
+      if (linkErr) throw linkErr;
+    } else if (invite.kind === "client_invite") {
+      if (profile.account_type !== "standard") {
+        throw new Error("This invite must be accepted by a standard workspace account");
+      }
+      // The new client becomes a standard owner whose workspace is managed
+      // by the inviting agency.
+      const { error: linkErr } = await supabaseAdmin
+        .from("profiles")
+        .update({
+          agency_id: invite.inviter_id,
+          agency_access: invite.access_level,
+          // Use the workspace name the agency set up for them.
+          workspace_name: invite.inviter_workspace_name,
+        })
+        .eq("id", userId);
+      if (linkErr) throw linkErr;
+    }
 
     const { error: updErr } = await supabaseAdmin
       .from("agency_invites")
       .update({
         status: "accepted",
         accepted_at: new Date().toISOString(),
-        agency_id: userId,
+        agency_id: invite.kind === "agency_invite" ? userId : invite.inviter_id,
       })
       .eq("id", invite.id);
     if (updErr) throw updErr;
 
-    return { ok: true };
+    return { ok: true, kind: invite.kind as "agency_invite" | "client_invite" };
   });
 
 export const declineInvite = createServerFn({ method: "POST" })
