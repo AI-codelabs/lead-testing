@@ -73,7 +73,10 @@ type AccountState = {
   isAuthenticated: boolean;
 };
 
-const STORAGE_KEY = "leadlogr.account.v2";
+// We only persist the lightweight "which client am I viewing?" UX state.
+// Workspace identity and the client list always come from the database so
+// nothing is hardcoded and switching workspaces never leaks stale data.
+const STORAGE_KEY = "leadlogr.account.view.v1";
 
 function generateWorkspaceKey(name: string): string {
   const slug = (name || "workspace").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 24) || "workspace";
@@ -84,54 +87,22 @@ function generateWorkspaceKey(name: string): string {
   return `ws_${slug}_${random}`;
 }
 
-const DEFAULT_OWN_WORKSPACE: OwnWorkspace = {
-  key: "ws_acmemedia",
-  name: "Acme Media",
-  ownerName: "Jane Doe",
-  ownerEmail: "jane@acmemedia.com",
+// Empty placeholder used before the authenticated profile has loaded.
+// Pages that render workspace-bound data check `authReady && isAuthenticated`
+// AND validate the workspace key shape (see app.tracking.tsx) so this empty
+// shell is never shown to a real user.
+const EMPTY_OWN_WORKSPACE: OwnWorkspace = {
+  key: "",
+  name: "",
+  ownerName: "",
+  ownerEmail: "",
   invitedAgencyEmail: null,
   grantedAccess: "full",
 };
 
-const DEFAULT_CLIENTS: ClientWorkspace[] = [
-  {
-    id: "ws_acme",
-    name: "Acme Media",
-    ownerName: "Jane Doe",
-    ownerEmail: "jane@acmemedia.com",
-    monthlyReferralFee: 480,
-    currency: "EUR",
-    leadsCount: 428,
-    conversionRate: 0.38,
-    agencyAccess: "full",
-  },
-  {
-    id: "ws_northwind",
-    name: "Northwind Group",
-    ownerName: "Mark Lin",
-    ownerEmail: "mark@northwind.io",
-    monthlyReferralFee: 320,
-    currency: "EUR",
-    leadsCount: 214,
-    conversionRate: 0.29,
-    agencyAccess: "names_only",
-  },
-  {
-    id: "ws_bluefin",
-    name: "Bluefin Studio",
-    ownerName: "Sara Park",
-    ownerEmail: "sara@bluefin.studio",
-    monthlyReferralFee: 250,
-    currency: "EUR",
-    leadsCount: 96,
-    conversionRate: 0.41,
-    agencyAccess: "metrics_only",
-  },
-];
-
 const AccountContext = createContext<AccountState | null>(null);
 
-function loadFromStorage(): Partial<AccountState> | null {
+function loadViewState(): { accountType?: AccountType; viewingClientId?: string | null } | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -144,36 +115,24 @@ function loadFromStorage(): Partial<AccountState> | null {
 export function AccountProvider({ children }: { children: ReactNode }) {
   const listClientsFn = useServerFn(listAgencyClients);
   const [accountType, _setAccountType] = useState<AccountType>("standard");
-  const [ownWorkspace, setOwnWorkspace] = useState<OwnWorkspace>(DEFAULT_OWN_WORKSPACE);
-  const [clientWorkspaces, setClientWorkspaces] = useState<ClientWorkspace[]>(DEFAULT_CLIENTS);
+  const [ownWorkspace, setOwnWorkspace] = useState<OwnWorkspace>(EMPTY_OWN_WORKSPACE);
+  const [clientWorkspaces, setClientWorkspaces] = useState<ClientWorkspace[]>([]);
   const [viewingClientId, setViewingClientId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const saved = loadFromStorage();
+    const saved = loadViewState();
     if (saved) {
-      if (saved.accountType) _setAccountType(saved.accountType as AccountType);
-      const own = (saved as any).ownWorkspace;
-      if (own) {
-        const name = typeof own.name === "string" && own.name.trim() ? own.name : DEFAULT_OWN_WORKSPACE.name;
-        setOwnWorkspace({
-          key: typeof own.key === "string" && own.key ? own.key : generateWorkspaceKey(name),
-          name,
-          ownerName: typeof own.ownerName === "string" && own.ownerName.trim() ? own.ownerName : DEFAULT_OWN_WORKSPACE.ownerName,
-          ownerEmail: typeof own.ownerEmail === "string" && own.ownerEmail.trim() ? own.ownerEmail : DEFAULT_OWN_WORKSPACE.ownerEmail,
-          invitedAgencyEmail: own.invitedAgencyEmail ?? null,
-          grantedAccess: own.grantedAccess ?? "full",
-        });
+      if (saved.accountType === "agency" || saved.accountType === "standard") {
+        _setAccountType(saved.accountType);
       }
-      if (Array.isArray((saved as any).clientWorkspaces)) {
-        setClientWorkspaces((saved as any).clientWorkspaces);
-      }
-      if ((saved as any).viewingClientId) setViewingClientId((saved as any).viewingClientId);
+      if (saved.viewingClientId) setViewingClientId(saved.viewingClientId);
     }
     setHydrated(true);
   }, []);
+
 
   // Hydrate workspace state from the authenticated user's profile row.
   useEffect(() => {
@@ -256,8 +215,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    setOwnWorkspace(DEFAULT_OWN_WORKSPACE);
-    setClientWorkspaces(DEFAULT_CLIENTS);
+    setOwnWorkspace(EMPTY_OWN_WORKSPACE);
+    setClientWorkspaces([]);
     _setAccountType("standard");
     setViewingClientId(null);
     if (typeof window !== "undefined") window.localStorage.removeItem(STORAGE_KEY);
@@ -266,16 +225,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated || typeof window === "undefined") return;
+    // Only persist lightweight UX state — never workspace data itself.
     window.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({
-        accountType,
-        ownWorkspace,
-        clientWorkspaces,
-        viewingClientId,
-      }),
+      JSON.stringify({ accountType, viewingClientId }),
     );
-  }, [hydrated, accountType, ownWorkspace, clientWorkspaces, viewingClientId]);
+  }, [hydrated, accountType, viewingClientId]);
+
 
   const setAccountType = useCallback((t: AccountType) => {
     _setAccountType(t);
