@@ -197,16 +197,44 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       });
       if (data.account_type === "agency") setClientWorkspaces([]);
     }
+    async function consumePendingInvite() {
+      if (typeof window === "undefined") return;
+      const agencyToken = window.localStorage.getItem("leadlogr.pending_invite_token");
+      const clientToken = window.localStorage.getItem("leadlogr.pending_client_invite_token");
+      const token = agencyToken || clientToken;
+      if (!token) return;
+      try {
+        const { acceptInvite } = await import("@/lib/agency-invites.functions");
+        await acceptInvite({ data: { token } });
+      } catch (err) {
+        console.error("Failed to auto-accept pending invite", err);
+      } finally {
+        window.localStorage.removeItem("leadlogr.pending_invite_token");
+        window.localStorage.removeItem("leadlogr.pending_client_invite_token");
+      }
+    }
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;
       setIsAuthenticated(!!data.session);
       setAuthReady(true);
-      if (data.session?.user) hydrateFromProfile(data.session.user.id, data.session.user.email ?? null);
+      if (data.session?.user) {
+        hydrateFromProfile(data.session.user.id, data.session.user.email ?? null);
+        consumePendingInvite().then(() =>
+          hydrateFromProfile(data.session!.user.id, data.session!.user.email ?? null),
+        );
+      }
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       setIsAuthenticated(!!session);
-      if (session?.user) hydrateFromProfile(session.user.id, session.user.email ?? null);
+      if (session?.user) {
+        hydrateFromProfile(session.user.id, session.user.email ?? null);
+        if (event === "SIGNED_IN") {
+          consumePendingInvite().then(() =>
+            hydrateFromProfile(session.user.id, session.user.email ?? null),
+          );
+        }
+      }
     });
     return () => {
       cancelled = true;
