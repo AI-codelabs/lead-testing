@@ -95,11 +95,15 @@ function SignupPage() {
         ownerEmail: email,
       });
       if (data.session) {
-        // Auto-accept invite if present and account is agency.
-        if (inviteToken && type === "agency") {
+        const tokenToAccept =
+          (type === "agency" && inviteToken) ||
+          (type === "standard" && clientInviteToken) ||
+          null;
+        if (tokenToAccept) {
           try {
-            await acceptFn({ data: { token: inviteToken } });
+            await acceptFn({ data: { token: tokenToAccept } });
             window.localStorage.removeItem(PENDING_INVITE_KEY);
+            window.localStorage.removeItem(PENDING_CLIENT_INVITE_KEY);
           } catch (err) {
             console.error("Failed to auto-accept invite", err);
           }
