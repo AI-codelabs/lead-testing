@@ -215,8 +215,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    setOwnWorkspace(DEFAULT_OWN_WORKSPACE);
-    setClientWorkspaces(DEFAULT_CLIENTS);
+    setOwnWorkspace(EMPTY_OWN_WORKSPACE);
+    setClientWorkspaces([]);
     _setAccountType("standard");
     setViewingClientId(null);
     if (typeof window !== "undefined") window.localStorage.removeItem(STORAGE_KEY);
@@ -225,16 +225,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated || typeof window === "undefined") return;
+    // Only persist lightweight UX state — never workspace data itself.
     window.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({
-        accountType,
-        ownWorkspace,
-        clientWorkspaces,
-        viewingClientId,
-      }),
+      JSON.stringify({ accountType, viewingClientId }),
     );
-  }, [hydrated, accountType, ownWorkspace, clientWorkspaces, viewingClientId]);
+  }, [hydrated, accountType, viewingClientId]);
+
 
   const setAccountType = useCallback((t: AccountType) => {
     _setAccountType(t);
