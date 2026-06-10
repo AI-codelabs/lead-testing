@@ -52,6 +52,7 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
   if (FLAGS.strictNoCmp === undefined) FLAGS.strictNoCmp = true;
 
   var lastSubmittedForm = null;
+  var lastFormInteractionAt = 0;
   var recentSends = [];
   var pendingSends = []; // queued until consent is decided
   var log = function () {
@@ -429,14 +430,38 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
   function handleSubmit(ev) {
     var form = findForm(ev.target); if (!form) return;
     lastSubmittedForm = form;
+    lastFormInteractionAt = Date.now();
+    log('native submit captured', { form_id: form.id || '', form_action: form.action || '' });
     try { send(fromForm(form)); } catch (e) { log('form parse error', e); }
+  }
+
+  function rememberForm(form) {
+    if (!form) return;
+    lastSubmittedForm = form;
+    lastFormInteractionAt = Date.now();
+  }
+
+  function flushLastFormOnUnload(reason) {
+    if (!lastSubmittedForm || !lastFormInteractionAt) return;
+    if (Date.now() - lastFormInteractionAt > 15000) return;
+    try {
+      log('page leaving after form interaction — flushing', { reason: reason, form_id: lastSubmittedForm.id || '', form_action: lastSubmittedForm.action || '' });
+      send(fromForm(lastSubmittedForm));
+    } catch (e) { log('form unload flush failed', e); }
   }
 
   document.addEventListener('submit', handleSubmit, true);
   document.addEventListener('click', function (ev) {
     var target = ev.target && ev.target.closest ? ev.target.closest('button,input[type="submit"],[type="button"]') : null;
     var form = target && findForm(target);
-    if (form) lastSubmittedForm = form;
+    if (form) rememberForm(form);
+  }, true);
+  document.addEventListener('input', function (ev) { rememberForm(findForm(ev.target)); }, true);
+  document.addEventListener('change', function (ev) { rememberForm(findForm(ev.target)); }, true);
+  window.addEventListener('pagehide', function () { flushLastFormOnUnload('pagehide'); }, true);
+  window.addEventListener('beforeunload', function () { flushLastFormOnUnload('beforeunload'); }, true);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') flushLastFormOnUnload('visibilitychange');
   }, true);
 
   function installElementorHook() {
@@ -459,7 +484,7 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
     getConsent: detectConsent,
     flushPending: flushPending,
     config: CFG,
-    version: '1.1.0',
+    version: '1.1.1',
   };
 
   log('ready', { workspaceId: CFG.workspaceId, endpoint: CFG.endpoint, consent: detectConsent() });
