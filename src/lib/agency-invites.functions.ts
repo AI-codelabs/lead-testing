@@ -35,8 +35,10 @@ async function enqueueEmail(opts: {
   html: string;
   text: string;
   label: string;
+  idempotencyKey?: string;
 }) {
   const messageId = crypto.randomUUID();
+  const idempotencyKey = opts.idempotencyKey ?? `${opts.label}-${messageId}`;
   await opts.supabaseAdmin.from("email_send_log").insert({
     message_id: messageId,
     template_name: opts.label,
@@ -55,6 +57,7 @@ async function enqueueEmail(opts: {
       text: opts.text,
       purpose: "transactional",
       label: opts.label,
+      idempotency_key: idempotencyKey,
       queued_at: new Date().toISOString(),
     },
   });
@@ -157,6 +160,7 @@ export const sendAgencyInvite = createServerFn({ method: "POST" })
       }),
       text: `${inviterProfile.workspace_name} added you as their agency. Open: ${siteUrl}/agency`,
       label: "agency_invite",
+      idempotencyKey: `agency-invite-${invite.id}`,
     });
 
     return { invite, matched: true };
@@ -245,6 +249,7 @@ export const createClientWorkspaceInvite = createServerFn({ method: "POST" })
       }),
       text: `${inviterProfile.workspace_name} created a Leadlogr workspace for you. Finish signup: ${acceptUrl}`,
       label: "client_invite",
+      idempotencyKey: `client-invite-${invite.id}`,
     });
 
     return { invite };
