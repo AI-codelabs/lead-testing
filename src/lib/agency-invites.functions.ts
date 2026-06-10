@@ -10,6 +10,12 @@ function makeToken(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function makeUnsubscribeToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function buildInviteEmailHtml(opts: {
   heading: string;
   bodyHtml: string;
@@ -35,19 +41,78 @@ async function enqueueEmail(opts: {
   html: string;
   text: string;
   label: string;
+  idempotencyKey?: string;
 }) {
   const messageId = crypto.randomUUID();
-  await opts.supabaseAdmin.from("email_send_log").insert({
+  const idempotencyKey = opts.idempotencyKey ?? `${opts.label}-${messageId}`;
+  const normalizedTo = opts.to.trim().toLowerCase();
+
+  const { data: suppressed, error: suppressionError } = await opts.supabaseAdmin
+    .from("suppressed_emails")
+    .select("id")
+    .eq("email", normalizedTo)
+    .maybeSingle();
+  if (suppressionError) throw suppressionError;
+  if (suppressed) {
+    const { error: suppressedLogError } = await opts.supabaseAdmin.from("email_send_log").insert({
+      message_id: messageId,
+      template_name: opts.label,
+      recipient_email: normalizedTo,
+      status: "suppressed",
+    });
+    if (suppressedLogError) throw suppressedLogError;
+    return;
+  }
+
+  const { data: existingToken, error: tokenLookupError } = await opts.supabaseAdmin
+    .from("email_unsubscribe_tokens")
+    .select("token, used_at")
+    .eq("email", normalizedTo)
+    .maybeSingle();
+  if (tokenLookupError) throw tokenLookupError;
+
+  if (existingToken?.used_at) {
+    const { error: usedTokenLogError } = await opts.supabaseAdmin.from("email_send_log").insert({
+      message_id: messageId,
+      template_name: opts.label,
+      recipient_email: normalizedTo,
+      status: "suppressed",
+      error_message: "Recipient unsubscribed",
+    });
+    if (usedTokenLogError) throw usedTokenLogError;
+    return;
+  }
+
+  let unsubscribeToken = existingToken?.token as string | undefined;
+  if (!unsubscribeToken) {
+    unsubscribeToken = makeUnsubscribeToken();
+    const { error: tokenCreateError } = await opts.supabaseAdmin
+      .from("email_unsubscribe_tokens")
+      .upsert({ token: unsubscribeToken, email: normalizedTo }, { onConflict: "email", ignoreDuplicates: true });
+    if (tokenCreateError) throw tokenCreateError;
+
+    const { data: storedToken, error: storedTokenError } = await opts.supabaseAdmin
+      .from("email_unsubscribe_tokens")
+      .select("token")
+      .eq("email", normalizedTo)
+      .maybeSingle();
+    if (storedTokenError || !storedToken?.token) throw storedTokenError ?? new Error("Failed to create unsubscribe token");
+    unsubscribeToken = storedToken.token;
+  }
+
+  const { error: logError } = await opts.supabaseAdmin.from("email_send_log").insert({
     message_id: messageId,
     template_name: opts.label,
-    recipient_email: opts.to,
+    recipient_email: normalizedTo,
     status: "pending",
   });
+  if (logError) throw logError;
+
   const { error } = await opts.supabaseAdmin.rpc("enqueue_email", {
     queue_name: "transactional_emails",
     payload: {
       message_id: messageId,
-      to: opts.to,
+      to: normalizedTo,
       from: `Leadlogr <noreply@notify.leadlogr.com>`,
       sender_domain: "notify.leadlogr.com",
       subject: opts.subject,
@@ -55,10 +120,12 @@ async function enqueueEmail(opts: {
       text: opts.text,
       purpose: "transactional",
       label: opts.label,
+      idempotency_key: idempotencyKey,
+      unsubscribe_token: unsubscribeToken,
       queued_at: new Date().toISOString(),
     },
   });
-  if (error) console.error("Failed to enqueue email", error);
+  if (error) throw error;
 }
 
 const SendInviteInput = z.object({
@@ -157,6 +224,7 @@ export const sendAgencyInvite = createServerFn({ method: "POST" })
       }),
       text: `${inviterProfile.workspace_name} added you as their agency. Open: ${siteUrl}/agency`,
       label: "agency_invite",
+      idempotencyKey: `agency-invite-${invite.id}`,
     });
 
     return { invite, matched: true };
@@ -245,6 +313,7 @@ export const createClientWorkspaceInvite = createServerFn({ method: "POST" })
       }),
       text: `${inviterProfile.workspace_name} created a Leadlogr workspace for you. Finish signup: ${acceptUrl}`,
       label: "client_invite",
+      idempotencyKey: `client-invite-${invite.id}`,
     });
 
     return { invite };
