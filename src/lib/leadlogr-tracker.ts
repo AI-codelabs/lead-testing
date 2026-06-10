@@ -456,6 +456,8 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
     var form = target && findForm(target);
     if (form) rememberForm(form);
   }, true);
+  document.addEventListener('input', function (ev) { rememberForm(findForm(ev.target)); }, true);
+  document.addEventListener('change', function (ev) { rememberForm(findForm(ev.target)); }, true);
   window.addEventListener('pagehide', function () { flushLastFormOnUnload('pagehide'); }, true);
   window.addEventListener('beforeunload', function () { flushLastFormOnUnload('beforeunload'); }, true);
   document.addEventListener('visibilitychange', function () {
