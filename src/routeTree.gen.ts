@@ -18,6 +18,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AgencyIndexRouteImport } from './routes/agency.index'
 import { Route as TrackerV1DotjsRouteImport } from './routes/tracker.v1[.]js'
+import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as AppTrackingRouteImport } from './routes/app.tracking'
 import { Route as AppPipelineRouteImport } from './routes/app.pipeline'
 import { Route as AppIntegrationsRouteImport } from './routes/app.integrations'
@@ -27,8 +28,11 @@ import { Route as AppAccountRouteImport } from './routes/app.account'
 import { Route as AgencyNewClientRouteImport } from './routes/agency.new-client'
 import { Route as AgencyInvitesRouteImport } from './routes/agency.invites'
 import { Route as AgencyAccountRouteImport } from './routes/agency.account'
+import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as AppIntegrationsMetaAdsRouteImport } from './routes/app.integrations.meta-ads'
 import { Route as AppIntegrationsGoogleAdsRouteImport } from './routes/app.integrations.google-ads'
+import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
+import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
@@ -82,6 +86,11 @@ const TrackerV1DotjsRoute = TrackerV1DotjsRouteImport.update({
   path: '/tracker/v1.js',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
+  id: '/email/unsubscribe',
+  path: '/email/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppTrackingRoute = AppTrackingRouteImport.update({
   id: '/tracking',
   path: '/tracking',
@@ -127,6 +136,11 @@ const AgencyAccountRoute = AgencyAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AgencyRoute,
 } as any)
+const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
+  id: '/lovable/email/suppression',
+  path: '/lovable/email/suppression',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppIntegrationsMetaAdsRoute = AppIntegrationsMetaAdsRouteImport.update({
   id: '/meta-ads',
   path: '/meta-ads',
@@ -137,6 +151,18 @@ const AppIntegrationsGoogleAdsRoute =
     id: '/google-ads',
     path: '/google-ads',
     getParentRoute: () => AppIntegrationsRoute,
+  } as any)
+const LovableEmailTransactionalSendRoute =
+  LovableEmailTransactionalSendRouteImport.update({
+    id: '/lovable/email/transactional/send',
+    path: '/lovable/email/transactional/send',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LovableEmailTransactionalPreviewRoute =
+  LovableEmailTransactionalPreviewRouteImport.update({
+    id: '/lovable/email/transactional/preview',
+    path: '/lovable/email/transactional/preview',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
@@ -193,16 +219,20 @@ export interface FileRoutesByFullPath {
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
+  '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/app/integrations/meta-ads': typeof AppIntegrationsMetaAdsRoute
+  '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
+  '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
   '/api/public/oauth/google-ads/start': typeof ApiPublicOauthGoogleAdsStartRoute
 }
@@ -220,16 +250,20 @@ export interface FileRoutesByTo {
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
+  '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency': typeof AgencyIndexRoute
   '/app': typeof AppIndexRoute
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/app/integrations/meta-ads': typeof AppIntegrationsMetaAdsRoute
+  '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
+  '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
   '/api/public/oauth/google-ads/start': typeof ApiPublicOauthGoogleAdsStartRoute
 }
@@ -250,16 +284,20 @@ export interface FileRoutesById {
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
+  '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/app/integrations/meta-ads': typeof AppIntegrationsMetaAdsRoute
+  '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
+  '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
   '/api/public/oauth/google-ads/start': typeof ApiPublicOauthGoogleAdsStartRoute
 }
@@ -281,16 +319,20 @@ export interface FileRouteTypes {
     | '/app/integrations'
     | '/app/pipeline'
     | '/app/tracking'
+    | '/email/unsubscribe'
     | '/tracker/v1.js'
     | '/agency/'
     | '/app/'
     | '/app/integrations/google-ads'
     | '/app/integrations/meta-ads'
+    | '/lovable/email/suppression'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
+    | '/lovable/email/transactional/preview'
+    | '/lovable/email/transactional/send'
     | '/api/public/oauth/google-ads/callback'
     | '/api/public/oauth/google-ads/start'
   fileRoutesByTo: FileRoutesByTo
@@ -308,16 +350,20 @@ export interface FileRouteTypes {
     | '/app/integrations'
     | '/app/pipeline'
     | '/app/tracking'
+    | '/email/unsubscribe'
     | '/tracker/v1.js'
     | '/agency'
     | '/app'
     | '/app/integrations/google-ads'
     | '/app/integrations/meta-ads'
+    | '/lovable/email/suppression'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
+    | '/lovable/email/transactional/preview'
+    | '/lovable/email/transactional/send'
     | '/api/public/oauth/google-ads/callback'
     | '/api/public/oauth/google-ads/start'
   id:
@@ -337,16 +383,20 @@ export interface FileRouteTypes {
     | '/app/integrations'
     | '/app/pipeline'
     | '/app/tracking'
+    | '/email/unsubscribe'
     | '/tracker/v1.js'
     | '/agency/'
     | '/app/'
     | '/app/integrations/google-ads'
     | '/app/integrations/meta-ads'
+    | '/lovable/email/suppression'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
+    | '/lovable/email/transactional/preview'
+    | '/lovable/email/transactional/send'
     | '/api/public/oauth/google-ads/callback'
     | '/api/public/oauth/google-ads/start'
   fileRoutesById: FileRoutesById
@@ -358,12 +408,16 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   TrackerDotv1DotjsRoute: typeof TrackerDotv1DotjsRoute
+  EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   TrackerV1DotjsRoute: typeof TrackerV1DotjsRoute
+  LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicLeadsCollectRoute: typeof ApiPublicLeadsCollectRoute
   ApiPublicTrackerV1Route: typeof ApiPublicTrackerV1Route
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
+  LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
+  LovableEmailTransactionalSendRoute: typeof LovableEmailTransactionalSendRoute
   ApiPublicOauthGoogleAdsCallbackRoute: typeof ApiPublicOauthGoogleAdsCallbackRoute
   ApiPublicOauthGoogleAdsStartRoute: typeof ApiPublicOauthGoogleAdsStartRoute
 }
@@ -433,6 +487,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrackerV1DotjsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/email/unsubscribe': {
+      id: '/email/unsubscribe'
+      path: '/email/unsubscribe'
+      fullPath: '/email/unsubscribe'
+      preLoaderRoute: typeof EmailUnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/tracking': {
       id: '/app/tracking'
       path: '/tracking'
@@ -496,6 +557,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgencyAccountRouteImport
       parentRoute: typeof AgencyRoute
     }
+    '/lovable/email/suppression': {
+      id: '/lovable/email/suppression'
+      path: '/lovable/email/suppression'
+      fullPath: '/lovable/email/suppression'
+      preLoaderRoute: typeof LovableEmailSuppressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/integrations/meta-ads': {
       id: '/app/integrations/meta-ads'
       path: '/meta-ads'
@@ -509,6 +577,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/integrations/google-ads'
       preLoaderRoute: typeof AppIntegrationsGoogleAdsRouteImport
       parentRoute: typeof AppIntegrationsRoute
+    }
+    '/lovable/email/transactional/send': {
+      id: '/lovable/email/transactional/send'
+      path: '/lovable/email/transactional/send'
+      fullPath: '/lovable/email/transactional/send'
+      preLoaderRoute: typeof LovableEmailTransactionalSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/transactional/preview': {
+      id: '/lovable/email/transactional/preview'
+      path: '/lovable/email/transactional/preview'
+      fullPath: '/lovable/email/transactional/preview'
+      preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
@@ -622,12 +704,16 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   TrackerDotv1DotjsRoute: TrackerDotv1DotjsRoute,
+  EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   TrackerV1DotjsRoute: TrackerV1DotjsRoute,
+  LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicLeadsCollectRoute: ApiPublicLeadsCollectRoute,
   ApiPublicTrackerV1Route: ApiPublicTrackerV1Route,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
+  LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
+  LovableEmailTransactionalSendRoute: LovableEmailTransactionalSendRoute,
   ApiPublicOauthGoogleAdsCallbackRoute: ApiPublicOauthGoogleAdsCallbackRoute,
   ApiPublicOauthGoogleAdsStartRoute: ApiPublicOauthGoogleAdsStartRoute,
 }
