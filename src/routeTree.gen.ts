@@ -25,6 +25,7 @@ import { Route as AppDashboardRouteImport } from './routes/app.dashboard'
 import { Route as AppCrmRouteImport } from './routes/app.crm'
 import { Route as AppAccountRouteImport } from './routes/app.account'
 import { Route as AgencyNewClientRouteImport } from './routes/agency.new-client'
+import { Route as AgencyInvitesRouteImport } from './routes/agency.invites'
 import { Route as AgencyAccountRouteImport } from './routes/agency.account'
 import { Route as AppIntegrationsMetaAdsRouteImport } from './routes/app.integrations.meta-ads'
 import { Route as AppIntegrationsGoogleAdsRouteImport } from './routes/app.integrations.google-ads'
@@ -116,6 +117,11 @@ const AgencyNewClientRoute = AgencyNewClientRouteImport.update({
   path: '/new-client',
   getParentRoute: () => AgencyRoute,
 } as any)
+const AgencyInvitesRoute = AgencyInvitesRouteImport.update({
+  id: '/invites',
+  path: '/invites',
+  getParentRoute: () => AgencyRoute,
+} as any)
 const AgencyAccountRoute = AgencyAccountRouteImport.update({
   id: '/account',
   path: '/account',
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
+  '/agency/invites': typeof AgencyInvitesRoute
   '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
@@ -205,6 +212,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
+  '/agency/invites': typeof AgencyInvitesRoute
   '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
@@ -234,6 +242,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
+  '/agency/invites': typeof AgencyInvitesRoute
   '/agency/new-client': typeof AgencyNewClientRoute
   '/app/account': typeof AppAccountRoute
   '/app/crm': typeof AppCrmRoute
@@ -264,6 +273,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tracker.v1.js'
     | '/agency/account'
+    | '/agency/invites'
     | '/agency/new-client'
     | '/app/account'
     | '/app/crm'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tracker.v1.js'
     | '/agency/account'
+    | '/agency/invites'
     | '/agency/new-client'
     | '/app/account'
     | '/app/crm'
@@ -318,6 +329,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/tracker.v1.js'
     | '/agency/account'
+    | '/agency/invites'
     | '/agency/new-client'
     | '/app/account'
     | '/app/crm'
@@ -470,6 +482,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgencyNewClientRouteImport
       parentRoute: typeof AgencyRoute
     }
+    '/agency/invites': {
+      id: '/agency/invites'
+      path: '/invites'
+      fullPath: '/agency/invites'
+      preLoaderRoute: typeof AgencyInvitesRouteImport
+      parentRoute: typeof AgencyRoute
+    }
     '/agency/account': {
       id: '/agency/account'
       path: '/account'
@@ -545,12 +564,14 @@ declare module '@tanstack/react-router' {
 
 interface AgencyRouteChildren {
   AgencyAccountRoute: typeof AgencyAccountRoute
+  AgencyInvitesRoute: typeof AgencyInvitesRoute
   AgencyNewClientRoute: typeof AgencyNewClientRoute
   AgencyIndexRoute: typeof AgencyIndexRoute
 }
 
 const AgencyRouteChildren: AgencyRouteChildren = {
   AgencyAccountRoute: AgencyAccountRoute,
+  AgencyInvitesRoute: AgencyInvitesRoute,
   AgencyNewClientRoute: AgencyNewClientRoute,
   AgencyIndexRoute: AgencyIndexRoute,
 }
