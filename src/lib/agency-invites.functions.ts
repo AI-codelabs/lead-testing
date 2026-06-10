@@ -39,12 +39,14 @@ async function enqueueEmail(opts: {
 }) {
   const messageId = crypto.randomUUID();
   const idempotencyKey = opts.idempotencyKey ?? `${opts.label}-${messageId}`;
-  await opts.supabaseAdmin.from("email_send_log").insert({
+  const { error: logError } = await opts.supabaseAdmin.from("email_send_log").insert({
     message_id: messageId,
     template_name: opts.label,
     recipient_email: opts.to,
     status: "pending",
   });
+  if (logError) throw logError;
+
   const { error } = await opts.supabaseAdmin.rpc("enqueue_email", {
     queue_name: "transactional_emails",
     payload: {
@@ -61,7 +63,7 @@ async function enqueueEmail(opts: {
       queued_at: new Date().toISOString(),
     },
   });
-  if (error) console.error("Failed to enqueue email", error);
+  if (error) throw error;
 }
 
 const SendInviteInput = z.object({
