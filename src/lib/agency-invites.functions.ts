@@ -4,6 +4,12 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const accessLevels = ["full", "names_only", "metrics_only"] as const;
 
+async function getEffectiveAgencyId(supabaseAdmin: any, userId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin.rpc("effective_agency_id", { _user_id: userId });
+  if (error) throw error;
+  return (data as string) ?? null;
+}
+
 function makeToken(): string {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -246,21 +252,21 @@ export const createClientWorkspaceInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => CreateClientInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId, claims } = context;
+    const { userId, claims } = context;
     const inviterEmail = (claims.email as string) ?? "";
-
-    const { data: inviterProfile } = await supabase
-      .from("profiles")
-      .select("workspace_name, account_type")
-      .eq("id", userId)
-      .maybeSingle();
-    if (!inviterProfile) throw new Error("Profile not found");
-    if (inviterProfile.account_type !== "agency") {
-      throw new Error("Only agency accounts can create client workspaces");
-    }
 
     const normalizedEmail = data.ownerEmail.trim().toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const agencyId = await getEffectiveAgencyId(supabaseAdmin, userId);
+    if (!agencyId) throw new Error("Only agency accounts (or their teammates) can create client workspaces");
+
+    const { data: agencyProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("workspace_name")
+      .eq("id", agencyId)
+      .maybeSingle();
+    const agencyName = agencyProfile?.workspace_name ?? "your agency";
 
     const { data: existing } = await supabaseAdmin
       .from("profiles")
@@ -280,7 +286,7 @@ export const createClientWorkspaceInvite = createServerFn({ method: "POST" })
         inviter_workspace_name: data.workspaceName.trim(),
         inviter_email: inviterEmail,
         agency_email: normalizedEmail,
-        agency_id: null,
+        agency_id: agencyId,
         access_level: data.accessLevel,
         token,
         status: "pending",
@@ -291,27 +297,27 @@ export const createClientWorkspaceInvite = createServerFn({ method: "POST" })
 
     const siteUrl = process.env.SITE_URL || process.env.VITE_SITE_URL || "https://lead-testing.lovable.app";
     const acceptUrl = `${siteUrl}/signup?clientInvite=${token}`;
-    const heading = `${inviterProfile.workspace_name} set up a Leadlogr workspace for you`;
+    const heading = `${agencyName} set up a Leadlogr workspace for you`;
     const ownerLine = data.ownerName ? `Hi ${data.ownerName},` : `Hi,`;
     const bodyHtml = `
       <p>${ownerLine}</p>
-      <p><strong>${inviterProfile.workspace_name}</strong> (${inviterEmail}) created a
+      <p><strong>${agencyName}</strong> (${inviterEmail}) created a
       Leadlogr workspace called <strong>${data.workspaceName.trim()}</strong> for you and would like
       to manage it on your behalf.</p>
       <p>Click below to finish setting up your account — you'll be the owner of the workspace, and
-      ${inviterProfile.workspace_name} will have access too.</p>
+      ${agencyName} will have access too.</p>
     `;
     await enqueueEmail({
       supabaseAdmin,
       to: normalizedEmail,
-      subject: `${inviterProfile.workspace_name} created your Leadlogr workspace`,
+      subject: `${agencyName} created your Leadlogr workspace`,
       html: buildInviteEmailHtml({
         heading,
         bodyHtml,
         ctaLabel: "Create my account",
         acceptUrl,
       }),
-      text: `${inviterProfile.workspace_name} created a Leadlogr workspace for you. Finish signup: ${acceptUrl}`,
+      text: `${agencyName} created a Leadlogr workspace for you. Finish signup: ${acceptUrl}`,
       label: "client_invite",
       idempotencyKey: `client-invite-${invite.id}`,
     });
@@ -351,10 +357,13 @@ export const listAgencyClients = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const agencyId = await getEffectiveAgencyId(supabaseAdmin, userId);
+    if (!agencyId) return { clients: [] };
+
     const { data: clients, error } = await supabaseAdmin
       .from("profiles")
       .select("id, workspace_key, workspace_name, owner_name, owner_email, agency_access")
-      .eq("agency_id", userId)
+      .eq("agency_id", agencyId)
       .order("workspace_name", { ascending: true });
     if (error) throw error;
 
@@ -477,18 +486,34 @@ export const acceptInvite = createServerFn({ method: "POST" })
       if (profile.account_type !== "standard") {
         throw new Error("This invite must be accepted by a standard workspace account");
       }
-      // The new client becomes a standard owner whose workspace is managed
-      // by the inviting agency.
+      const targetAgency = invite.agency_id
+        ?? (await getEffectiveAgencyId(supabaseAdmin, invite.inviter_id));
+      if (!targetAgency) throw new Error("Inviting agency no longer exists");
       const { error: linkErr } = await supabaseAdmin
         .from("profiles")
         .update({
-          agency_id: invite.inviter_id,
+          agency_id: targetAgency,
           agency_access: invite.access_level,
-          // Use the workspace name the agency set up for them.
           workspace_name: invite.inviter_workspace_name,
         })
         .eq("id", userId);
       if (linkErr) throw linkErr;
+    } else if (invite.kind === "agency_member") {
+      const targetAgency = invite.agency_id
+        ?? (await getEffectiveAgencyId(supabaseAdmin, invite.inviter_id));
+      if (!targetAgency) throw new Error("Inviting agency no longer exists");
+      // Ensure user's profile is agency-typed so the agency UI loads.
+      await supabaseAdmin
+        .from("profiles")
+        .update({ account_type: "agency" })
+        .eq("id", userId);
+      const { error: memberErr } = await supabaseAdmin
+        .from("agency_members")
+        .upsert(
+          { agency_id: targetAgency, user_id: userId, role: "member", invited_email: email },
+          { onConflict: "user_id" },
+        );
+      if (memberErr) throw memberErr;
     }
 
     const { error: updErr } = await supabaseAdmin
@@ -496,12 +521,168 @@ export const acceptInvite = createServerFn({ method: "POST" })
       .update({
         status: "accepted",
         accepted_at: new Date().toISOString(),
-        agency_id: invite.kind === "agency_invite" ? userId : invite.inviter_id,
+        agency_id:
+          invite.kind === "agency_invite"
+            ? userId
+            : invite.agency_id ?? (await getEffectiveAgencyId(supabaseAdmin, invite.inviter_id)),
       })
       .eq("id", invite.id);
     if (updErr) throw updErr;
 
-    return { ok: true, kind: invite.kind as "agency_invite" | "client_invite" };
+    return { ok: true, kind: invite.kind as "agency_invite" | "client_invite" | "agency_member" };
+  });
+
+// ---------------- Agency teammates ----------------
+
+const SendMemberInviteInput = z.object({
+  email: z.string().email().max(255),
+});
+
+export const sendAgencyMemberInvite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => SendMemberInviteInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { userId, claims } = context;
+    const inviterEmail = (claims.email as string) ?? "";
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const agencyId = await getEffectiveAgencyId(supabaseAdmin, userId);
+    if (!agencyId) throw new Error("Only agency accounts can invite teammates");
+
+    // Must be owner to invite teammates.
+    const { data: me } = await supabaseAdmin
+      .from("agency_members")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (me?.role !== "owner") throw new Error("Only the agency owner can invite teammates");
+
+    const { data: agencyProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("workspace_name")
+      .eq("id", agencyId)
+      .maybeSingle();
+    const agencyName = agencyProfile?.workspace_name ?? "your agency";
+
+    const normalizedEmail = data.email.trim().toLowerCase();
+    if (normalizedEmail === inviterEmail.toLowerCase()) {
+      throw new Error("You're already on this agency.");
+    }
+
+    const token = makeToken();
+    const { data: invite, error: insertErr } = await supabaseAdmin
+      .from("agency_invites")
+      .insert({
+        kind: "agency_member",
+        inviter_id: userId,
+        inviter_workspace_name: agencyName,
+        inviter_email: inviterEmail,
+        agency_email: normalizedEmail,
+        agency_id: agencyId,
+        access_level: "full",
+        token,
+        status: "pending",
+      })
+      .select()
+      .single();
+    if (insertErr) throw insertErr;
+
+    const siteUrl = process.env.SITE_URL || process.env.VITE_SITE_URL || "https://lead-testing.lovable.app";
+    const acceptUrl = `${siteUrl}/signup?agencyMember=${token}`;
+    await enqueueEmail({
+      supabaseAdmin,
+      to: normalizedEmail,
+      subject: `${agencyName} invited you to join their Leadlogr agency`,
+      html: buildInviteEmailHtml({
+        heading: `Join ${agencyName} on Leadlogr`,
+        bodyHtml: `<p><strong>${inviterEmail}</strong> invited you to join <strong>${agencyName}</strong> on Leadlogr. You'll be able to manage all of the agency's clients alongside the rest of the team.</p>`,
+        ctaLabel: "Accept invitation",
+        acceptUrl,
+      }),
+      text: `${agencyName} invited you to join their Leadlogr agency: ${acceptUrl}`,
+      label: "agency_invite",
+      idempotencyKey: `agency-member-${invite.id}`,
+    });
+
+    return { invite, acceptUrl };
+  });
+
+export const listAgencyMembers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const agencyId = await getEffectiveAgencyId(supabaseAdmin, userId);
+    if (!agencyId) return { members: [], pendingInvites: [] };
+
+    const { data: members, error: memErr } = await supabaseAdmin
+      .from("agency_members")
+      .select("id, user_id, role, invited_email, created_at")
+      .eq("agency_id", agencyId)
+      .order("role", { ascending: true });
+    if (memErr) throw memErr;
+
+    const userIds = (members ?? []).map((m: any) => m.user_id);
+    let profiles: any[] = [];
+    if (userIds.length > 0) {
+      const { data: p } = await supabaseAdmin
+        .from("profiles")
+        .select("id, owner_name, owner_email")
+        .in("id", userIds);
+      profiles = p ?? [];
+    }
+    const profileMap = new Map(profiles.map((p) => [p.id, p]));
+
+    const { data: pending } = await supabaseAdmin
+      .from("agency_invites")
+      .select("id, agency_email, status, created_at, token")
+      .eq("agency_id", agencyId)
+      .eq("kind", "agency_member")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    return {
+      members: (members ?? []).map((m: any) => {
+        const p = profileMap.get(m.user_id);
+        return {
+          id: m.id,
+          userId: m.user_id,
+          role: m.role,
+          email: p?.owner_email ?? m.invited_email ?? "",
+          name: p?.owner_name ?? "",
+          joinedAt: m.created_at,
+        };
+      }),
+      pendingInvites: pending ?? [],
+    };
+  });
+
+export const removeAgencyMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const agencyId = await getEffectiveAgencyId(supabaseAdmin, userId);
+    if (!agencyId) throw new Error("Not in an agency");
+    const { data: me } = await supabaseAdmin
+      .from("agency_members")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (me?.role !== "owner") throw new Error("Only the owner can remove teammates");
+
+    const { data: target } = await supabaseAdmin
+      .from("agency_members")
+      .select("id, role, agency_id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!target || target.agency_id !== agencyId) throw new Error("Member not found");
+    if (target.role === "owner") throw new Error("Cannot remove the owner");
+
+    const { error } = await supabaseAdmin.from("agency_members").delete().eq("id", data.id);
+    if (error) throw error;
+    return { ok: true };
   });
 
 export const declineInvite = createServerFn({ method: "POST" })

@@ -160,7 +160,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       if (typeof window === "undefined") return;
       const agencyToken = window.localStorage.getItem("leadlogr.pending_invite_token");
       const clientToken = window.localStorage.getItem("leadlogr.pending_client_invite_token");
-      const token = agencyToken || clientToken;
+      const memberToken = window.localStorage.getItem("leadlogr.pending_member_invite_token");
+      const token = agencyToken || clientToken || memberToken;
       if (!token) return;
       try {
         const { acceptInvite } = await import("@/lib/agency-invites.functions");
@@ -170,6 +171,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       } finally {
         window.localStorage.removeItem("leadlogr.pending_invite_token");
         window.localStorage.removeItem("leadlogr.pending_client_invite_token");
+        window.localStorage.removeItem("leadlogr.pending_member_invite_token");
       }
     }
     supabase.auth.getSession().then(({ data }) => {

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Check, Monitor, Moon, Sun, X } from "lucide-react";
+import { Check, Copy, Monitor, Moon, Sun, Trash2, UserPlus, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/leadlogr/page-header";
@@ -11,6 +11,9 @@ import {
   listReceivedInvites,
   acceptInvite,
   declineInvite,
+  listAgencyMembers,
+  sendAgencyMemberInvite,
+  removeAgencyMember,
 } from "@/lib/agency-invites.functions";
 import { toast } from "sonner";
 
@@ -31,12 +34,22 @@ function AgencyAccountPage() {
         description="Manage your agency, client invites, and appearance."
       />
 
-      <Tabs defaultValue="invites" className="space-y-4">
+      <Tabs defaultValue="team" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="invites">Invites</TabsTrigger>
+          <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="invites">Client invitations</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="agency">Agency</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="team" className="space-y-4">
+          <SectionCard
+            title="Teammates"
+            description="Invite colleagues to your agency. Anyone you invite can manage all of your agency's clients."
+          >
+            <TeamPanel />
+          </SectionCard>
+        </TabsContent>
 
         <TabsContent value="invites" className="space-y-4">
           <SectionCard
@@ -232,6 +245,137 @@ function ThemeSwitcher() {
       <p className="text-[11px] text-muted-foreground">
         Currently using <span className="font-medium text-foreground">{resolved}</span> theme.
       </p>
+    </div>
+  );
+}
+
+function TeamPanel() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(listAgencyMembers);
+  const inviteFn = useServerFn(sendAgencyMemberInvite);
+  const removeFn = useServerFn(removeAgencyMember);
+  const [email, setEmail] = useState("");
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["agency-members"],
+    queryFn: () => listFn(),
+  });
+
+  const invite = useMutation({
+    mutationFn: () => inviteFn({ data: { email: email.trim() } }),
+    onSuccess: (res: any) => {
+      setEmail("");
+      toast.success("Invitation sent. Link copied to clipboard.");
+      if (res?.acceptUrl && typeof navigator !== "undefined") {
+        navigator.clipboard?.writeText(res.acceptUrl).catch(() => {});
+      }
+      qc.invalidateQueries({ queryKey: ["agency-members"] });
+      qc.invalidateQueries({ queryKey: ["sent-agency-invites"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not send invite"),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => removeFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Teammate removed.");
+      qc.invalidateQueries({ queryKey: ["agency-members"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not remove teammate"),
+  });
+
+  const copyLink = (token: string) => {
+    const url = `${window.location.origin}/signup?agencyMember=${token}`;
+    navigator.clipboard.writeText(url).then(
+      () => toast.success("Invite link copied"),
+      () => toast.error("Could not copy link"),
+    );
+  };
+
+  const members = data?.members ?? [];
+  const pending = data?.pendingInvites ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-2">
+        <input
+          type="email"
+          value={email}
+          placeholder="teammate@youragency.com"
+          onChange={(e) => setEmail(e.target.value)}
+          className="flex-1 bg-card ring-1 ring-border rounded-md text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <button
+          onClick={() => email.trim() && invite.mutate()}
+          disabled={invite.isPending || !email.trim()}
+          className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          <UserPlus className="size-4" />
+          {invite.isPending ? "Sending…" : "Invite teammate"}
+        </button>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading team…</p>
+      ) : (
+        <div className="rounded-md ring-1 ring-border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 border-b border-border">
+              <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <th className="px-4 py-2.5">Member</th>
+                <th className="px-4 py-2.5">Role</th>
+                <th className="px-4 py-2.5" />
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((m: any) => (
+                <tr key={m.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-2.5">
+                    <div className="font-medium">{m.name || m.email}</div>
+                    <div className="text-xs text-muted-foreground">{m.email}</div>
+                  </td>
+                  <td className="px-4 py-2.5 capitalize">{m.role}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    {m.role !== "owner" && (
+                      <button
+                        onClick={() => remove.mutate(m.id)}
+                        disabled={remove.isPending}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-destructive hover:bg-destructive/10 rounded px-2 py-1"
+                      >
+                        <Trash2 className="size-3" /> Remove
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {pending.map((p: any) => (
+                <tr key={p.id} className="border-b border-border last:border-0 bg-muted/20">
+                  <td className="px-4 py-2.5">
+                    <div className="font-medium">{p.agency_email}</div>
+                    <div className="text-xs text-muted-foreground">Invitation pending</div>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">Invited</td>
+                  <td className="px-4 py-2.5 text-right">
+                    <button
+                      onClick={() => copyLink(p.token)}
+                      className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded ring-1 ring-border hover:bg-muted"
+                    >
+                      <Copy className="size-3" /> Copy link
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {members.length === 0 && pending.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-6 text-center text-sm text-muted-foreground">
+                    No teammates yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

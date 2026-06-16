@@ -10,6 +10,7 @@ import { acceptInvite } from "@/lib/agency-invites.functions";
 
 const PENDING_INVITE_KEY = "leadlogr.pending_invite_token";
 const PENDING_CLIENT_INVITE_KEY = "leadlogr.pending_client_invite_token";
+const PENDING_MEMBER_INVITE_KEY = "leadlogr.pending_member_invite_token";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/signup")({
   validateSearch: (s: Record<string, unknown>) => ({
     invite: typeof s.invite === "string" ? s.invite : undefined,
     clientInvite: typeof s.clientInvite === "string" ? s.clientInvite : undefined,
+    agencyMember: typeof s.agencyMember === "string" ? s.agencyMember : undefined,
   }),
   component: SignupPage,
 });
@@ -46,10 +48,11 @@ function SignupPage() {
   const search = Route.useSearch();
   const inviteToken = search.invite;
   const clientInviteToken = search.clientInvite;
+  const memberInviteToken = search.agencyMember;
   const acceptFn = useServerFn(acceptInvite);
   const forcedType: AccountType | null = clientInviteToken
     ? "standard"
-    : inviteToken
+    : inviteToken || memberInviteToken
       ? "agency"
       : null;
   const [type, setType] = useState<AccountType>(forcedType ?? "standard");
@@ -67,7 +70,8 @@ function SignupPage() {
     if (typeof window === "undefined") return;
     if (inviteToken) window.localStorage.setItem(PENDING_INVITE_KEY, inviteToken);
     if (clientInviteToken) window.localStorage.setItem(PENDING_CLIENT_INVITE_KEY, clientInviteToken);
-  }, [inviteToken, clientInviteToken]);
+    if (memberInviteToken) window.localStorage.setItem(PENDING_MEMBER_INVITE_KEY, memberInviteToken);
+  }, [inviteToken, clientInviteToken, memberInviteToken]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -75,6 +79,9 @@ function SignupPage() {
     setSubmitting(true);
     const ownerName = [firstName, lastName].filter(Boolean).join(" ");
     try {
+      const effectiveWorkspaceName = memberInviteToken
+        ? `${ownerName || email.split("@")[0] || "Teammate"}'s space`
+        : workspaceName.trim();
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -82,7 +89,7 @@ function SignupPage() {
           emailRedirectTo: `${window.location.origin}/app/dashboard`,
           data: {
             account_type: type,
-            workspace_name: workspaceName.trim(),
+            workspace_name: effectiveWorkspaceName,
             owner_name: ownerName,
           },
         },
@@ -90,12 +97,13 @@ function SignupPage() {
       if (signUpError) throw signUpError;
       createAccount({
         accountType: type,
-        workspaceName,
+        workspaceName: effectiveWorkspaceName,
         ownerName,
         ownerEmail: email,
       });
       if (data.session) {
         const tokenToAccept =
+          (type === "agency" && memberInviteToken) ||
           (type === "agency" && inviteToken) ||
           (type === "standard" && clientInviteToken) ||
           null;
@@ -104,6 +112,7 @@ function SignupPage() {
             await acceptFn({ data: { token: tokenToAccept } });
             window.localStorage.removeItem(PENDING_INVITE_KEY);
             window.localStorage.removeItem(PENDING_CLIENT_INVITE_KEY);
+            window.localStorage.removeItem(PENDING_MEMBER_INVITE_KEY);
           } catch (err) {
             console.error("Failed to auto-accept invite", err);
           }
@@ -169,13 +178,15 @@ function SignupPage() {
           <Field label="Last name" placeholder="Doe" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
         </div>
         <Field label="Work email" type="email" placeholder="you@company.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <Field
-          label={isAgency ? "Agency name" : "Workspace name"}
-          placeholder={isAgency ? "Hive Hive" : "My business"}
-          value={workspaceName}
-          onChange={(e) => setWorkspaceName(e.target.value)}
-          required
-        />
+        {!memberInviteToken && (
+          <Field
+            label={isAgency ? "Agency name" : "Workspace name"}
+            placeholder={isAgency ? "Hive Hive" : "My business"}
+            value={workspaceName}
+            onChange={(e) => setWorkspaceName(e.target.value)}
+            required
+          />
+        )}
         <Field
           label="Password"
           type="password"
