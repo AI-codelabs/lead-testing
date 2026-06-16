@@ -4,6 +4,12 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const accessLevels = ["full", "names_only", "metrics_only"] as const;
 
+async function getEffectiveAgencyId(supabaseAdmin: any, userId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin.rpc("effective_agency_id", { _user_id: userId });
+  if (error) throw error;
+  return (data as string) ?? null;
+}
+
 function makeToken(): string {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -351,10 +357,13 @@ export const listAgencyClients = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { userId } = context;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const agencyId = await getEffectiveAgencyId(supabaseAdmin, userId);
+    if (!agencyId) return { clients: [] };
+
     const { data: clients, error } = await supabaseAdmin
       .from("profiles")
       .select("id, workspace_key, workspace_name, owner_name, owner_email, agency_access")
-      .eq("agency_id", userId)
+      .eq("agency_id", agencyId)
       .order("workspace_name", { ascending: true });
     if (error) throw error;
 
