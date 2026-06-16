@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Check, Copy, Monitor, Moon, Sun, Trash2, UserPlus, X } from "lucide-react";
+import { Check, Monitor, Moon, Sun, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/leadlogr/page-header";
@@ -11,9 +10,6 @@ import {
   listReceivedInvites,
   acceptInvite,
   declineInvite,
-  listAgencyMembers,
-  sendAgencyMemberInvite,
-  removeAgencyMember,
 } from "@/lib/agency-invites.functions";
 import { toast } from "sonner";
 
@@ -34,22 +30,12 @@ function AgencyAccountPage() {
         description="Manage your agency, client invites, and appearance."
       />
 
-      <Tabs defaultValue="team" className="space-y-4">
+      <Tabs defaultValue="invites" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="invites">Client invitations</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="agency">Agency</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="team" className="space-y-4">
-          <SectionCard
-            title="Teammates"
-            description="Invite colleagues to your agency. Anyone you invite can manage all of your agency's clients."
-          >
-            <TeamPanel />
-          </SectionCard>
-        </TabsContent>
 
         <TabsContent value="invites" className="space-y-4">
           <SectionCard
