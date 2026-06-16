@@ -252,21 +252,21 @@ export const createClientWorkspaceInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => CreateClientInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId, claims } = context;
+    const { userId, claims } = context;
     const inviterEmail = (claims.email as string) ?? "";
-
-    const { data: inviterProfile } = await supabase
-      .from("profiles")
-      .select("workspace_name, account_type")
-      .eq("id", userId)
-      .maybeSingle();
-    if (!inviterProfile) throw new Error("Profile not found");
-    if (inviterProfile.account_type !== "agency") {
-      throw new Error("Only agency accounts can create client workspaces");
-    }
 
     const normalizedEmail = data.ownerEmail.trim().toLowerCase();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const agencyId = await getEffectiveAgencyId(supabaseAdmin, userId);
+    if (!agencyId) throw new Error("Only agency accounts (or their teammates) can create client workspaces");
+
+    const { data: agencyProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("workspace_name")
+      .eq("id", agencyId)
+      .maybeSingle();
+    const agencyName = agencyProfile?.workspace_name ?? "your agency";
 
     const { data: existing } = await supabaseAdmin
       .from("profiles")
@@ -286,7 +286,7 @@ export const createClientWorkspaceInvite = createServerFn({ method: "POST" })
         inviter_workspace_name: data.workspaceName.trim(),
         inviter_email: inviterEmail,
         agency_email: normalizedEmail,
-        agency_id: null,
+        agency_id: agencyId,
         access_level: data.accessLevel,
         token,
         status: "pending",
