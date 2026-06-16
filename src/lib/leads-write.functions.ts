@@ -15,9 +15,16 @@ export const updateLeadStage = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const patch: Record<string, unknown> = { stage: data.stage, updated_at: new Date().toISOString() };
-    if (typeof data.value === "number") patch.lead_value = data.value;
-    if (data.lossReason) patch.loss_reason = data.lossReason;
+    const now = new Date().toISOString();
+    const patch: {
+      stage: string;
+      updated_at: string;
+      stage_changed_at: string;
+      won_value?: number;
+      lost_reason?: string;
+    } = { stage: data.stage, updated_at: now, stage_changed_at: now };
+    if (typeof data.value === "number") patch.won_value = data.value;
+    if (data.lossReason) patch.lost_reason = data.lossReason;
     const { error } = await supabaseAdmin
       .from("leads")
       .update(patch)
