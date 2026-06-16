@@ -33,6 +33,8 @@ import {
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { useAccess, useAccount } from "@/lib/account-context";
 import { useLiveLeads } from "@/hooks/use-live-leads";
+import { updateLeadStage } from "@/lib/leads-write.functions";
+import { toast } from "sonner";
 
 
 export const Route = createFileRoute("/app/pipeline")({
@@ -61,11 +63,17 @@ function PipelinePage() {
   const workspaceKey = activeWorkspace.key;
   const liveLeads = useLiveLeads(workspaceKey);
   const [seedLeads, setLeads] = useState<Lead[]>([]);
+  // Optimistic stage overrides for live (DB-backed) leads so UI updates
+  // immediately on drop while the server write + next poll catch up.
+  const [liveStageOverride, setLiveStageOverride] = useState<Record<string, string>>({});
   // Merge locally-created leads with tracker-captured leads for this workspace only.
   const leads = useMemo(() => {
     const liveIds = new Set(liveLeads.map((l) => l.id));
-    return [...liveLeads, ...seedLeads.filter((l) => !liveIds.has(l.id))];
-  }, [liveLeads, seedLeads]);
+    return [
+      ...liveLeads.map((l) => (liveStageOverride[l.id] ? { ...l, stage: liveStageOverride[l.id] } : l)),
+      ...seedLeads.filter((l) => !liveIds.has(l.id)),
+    ];
+  }, [liveLeads, seedLeads, liveStageOverride]);
   const [stages, setStages] = useState<StageDef[]>(DEFAULT_STAGES);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -96,6 +104,33 @@ function PipelinePage() {
   const activeLead = activeId ? leads.find((l) => l.id === activeId) ?? null : null;
 
   const applyStageChange = (leadId: string, targetStage: string, extra?: Partial<Lead>) => {
+    const isLive = liveLeads.some((l) => l.id === leadId);
+    if (isLive) {
+      // Optimistic UI
+      setLiveStageOverride((prev) => ({ ...prev, [leadId]: targetStage }));
+      updateLeadStage({
+        data: {
+          leadId,
+          workspaceKey,
+          stage: targetStage,
+          value: typeof extra?.value === "number" ? extra.value : undefined,
+          lossReason: typeof extra?.lossReason === "string" ? extra.lossReason : undefined,
+        },
+      })
+        .then(() => {
+          toast.success(`Moved to ${targetStage}`);
+        })
+        .catch((err) => {
+          console.error("[pipeline] updateLeadStage failed", err);
+          setLiveStageOverride((prev) => {
+            const next = { ...prev };
+            delete next[leadId];
+            return next;
+          });
+          toast.error("Couldn't update stage. Please try again.");
+        });
+      return;
+    }
     setLeads((prev) =>
       prev.map((l) => {
         if (l.id !== leadId) return l;
@@ -131,6 +166,7 @@ function PipelinePage() {
         return next;
       }),
     );
+    toast.success(`Moved to ${targetStage}`);
   };
 
   const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
