@@ -178,7 +178,7 @@ function SignupPage() {
           <Field label="Last name" placeholder="Doe" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
         </div>
         <Field label="Work email" type="email" placeholder="you@company.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        {!memberInviteToken && (
+        {!memberInviteToken && !clientInviteToken && (
           <Field
             label={isAgency ? "Agency name" : "Workspace name"}
             placeholder={isAgency ? "Hive Hive" : "My business"}
