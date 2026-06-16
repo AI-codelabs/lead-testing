@@ -109,6 +109,39 @@ function PipelinePage() {
         if (l.id !== leadId) return l;
         const fromStage = l.stage;
         const now = new Date().toISOString();
+  const applyStageChange = (leadId: string, targetStage: string, extra?: Partial<Lead>) => {
+    const isLive = liveLeads.some((l) => l.id === leadId);
+    if (isLive) {
+      // Optimistic UI
+      setLiveStageOverride((prev) => ({ ...prev, [leadId]: targetStage }));
+      updateLeadStage({
+        data: {
+          leadId,
+          workspaceKey,
+          stage: targetStage,
+          value: typeof extra?.value === "number" ? extra.value : undefined,
+          lossReason: typeof extra?.lossReason === "string" ? extra.lossReason : undefined,
+        },
+      })
+        .then(() => {
+          toast.success(`Moved to ${targetStage}`);
+        })
+        .catch((err) => {
+          console.error("[pipeline] updateLeadStage failed", err);
+          setLiveStageOverride((prev) => {
+            const next = { ...prev };
+            delete next[leadId];
+            return next;
+          });
+          toast.error("Couldn't update stage. Please try again.");
+        });
+      return;
+    }
+    setLeads((prev) =>
+      prev.map((l) => {
+        if (l.id !== leadId) return l;
+        const fromStage = l.stage;
+        const now = new Date().toISOString();
         let next: Lead = { ...l, ...extra, stage: targetStage, updatedAt: now };
         next = addHistory(next, {
           kind:
@@ -139,6 +172,7 @@ function PipelinePage() {
         return next;
       }),
     );
+    toast.success(`Moved to ${targetStage}`);
   };
 
   const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
