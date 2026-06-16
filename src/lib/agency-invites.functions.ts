@@ -214,21 +214,21 @@ export const sendAgencyInvite = createServerFn({ method: "POST" })
           : "metrics-only";
     const heading = `You've been added as an agency on Leadlogr`;
     const bodyHtml = `
-      <p><strong>${inviterProfile.workspace_name}</strong> (${inviterEmail}) gave your agency
+      <p><strong>${agencyName}</strong> (${inviterEmail}) gave your agency
       <strong>${accessLabel}</strong> access to their Leadlogr workspace.</p>
       <p>The workspace already appears in your agency dashboard — sign in to start working with it.</p>
     `;
     await enqueueEmail({
       supabaseAdmin,
       to: normalizedEmail,
-      subject: `${inviterProfile.workspace_name} added you as their agency on Leadlogr`,
+      subject: `${agencyName} added you as their agency on Leadlogr`,
       html: buildInviteEmailHtml({
         heading,
         bodyHtml,
         ctaLabel: "Open agency dashboard",
         acceptUrl: `${siteUrl}/agency`,
       }),
-      text: `${inviterProfile.workspace_name} added you as their agency. Open: ${siteUrl}/agency`,
+      text: `${agencyName} added you as their agency. Open: ${siteUrl}/agency`,
       label: "agency_invite",
       idempotencyKey: `agency-invite-${invite.id}`,
     });
@@ -297,27 +297,27 @@ export const createClientWorkspaceInvite = createServerFn({ method: "POST" })
 
     const siteUrl = process.env.SITE_URL || process.env.VITE_SITE_URL || "https://lead-testing.lovable.app";
     const acceptUrl = `${siteUrl}/signup?clientInvite=${token}`;
-    const heading = `${inviterProfile.workspace_name} set up a Leadlogr workspace for you`;
+    const heading = `${agencyName} set up a Leadlogr workspace for you`;
     const ownerLine = data.ownerName ? `Hi ${data.ownerName},` : `Hi,`;
     const bodyHtml = `
       <p>${ownerLine}</p>
-      <p><strong>${inviterProfile.workspace_name}</strong> (${inviterEmail}) created a
+      <p><strong>${agencyName}</strong> (${inviterEmail}) created a
       Leadlogr workspace called <strong>${data.workspaceName.trim()}</strong> for you and would like
       to manage it on your behalf.</p>
       <p>Click below to finish setting up your account — you'll be the owner of the workspace, and
-      ${inviterProfile.workspace_name} will have access too.</p>
+      ${agencyName} will have access too.</p>
     `;
     await enqueueEmail({
       supabaseAdmin,
       to: normalizedEmail,
-      subject: `${inviterProfile.workspace_name} created your Leadlogr workspace`,
+      subject: `${agencyName} created your Leadlogr workspace`,
       html: buildInviteEmailHtml({
         heading,
         bodyHtml,
         ctaLabel: "Create my account",
         acceptUrl,
       }),
-      text: `${inviterProfile.workspace_name} created a Leadlogr workspace for you. Finish signup: ${acceptUrl}`,
+      text: `${agencyName} created a Leadlogr workspace for you. Finish signup: ${acceptUrl}`,
       label: "client_invite",
       idempotencyKey: `client-invite-${invite.id}`,
     });
