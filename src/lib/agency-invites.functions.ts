@@ -214,21 +214,21 @@ export const sendAgencyInvite = createServerFn({ method: "POST" })
           : "metrics-only";
     const heading = `You've been added as an agency on Leadlogr`;
     const bodyHtml = `
-      <p><strong>${agencyName}</strong> (${inviterEmail}) gave your agency
+      <p><strong>${inviterProfile.workspace_name}</strong> (${inviterEmail}) gave your agency
       <strong>${accessLabel}</strong> access to their Leadlogr workspace.</p>
       <p>The workspace already appears in your agency dashboard — sign in to start working with it.</p>
     `;
     await enqueueEmail({
       supabaseAdmin,
       to: normalizedEmail,
-      subject: `${agencyName} added you as their agency on Leadlogr`,
+      subject: `${inviterProfile.workspace_name} added you as their agency on Leadlogr`,
       html: buildInviteEmailHtml({
         heading,
         bodyHtml,
         ctaLabel: "Open agency dashboard",
         acceptUrl: `${siteUrl}/agency`,
       }),
-      text: `${agencyName} added you as their agency. Open: ${siteUrl}/agency`,
+      text: `${inviterProfile.workspace_name} added you as their agency. Open: ${siteUrl}/agency`,
       label: "agency_invite",
       idempotencyKey: `agency-invite-${invite.id}`,
     });
