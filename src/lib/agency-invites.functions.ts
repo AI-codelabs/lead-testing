@@ -549,13 +549,15 @@ export const sendAgencyMemberInvite = createServerFn({ method: "POST" })
     const agencyId = await getEffectiveAgencyId(supabaseAdmin, userId);
     if (!agencyId) throw new Error("Only agency accounts can invite teammates");
 
-    // Must be owner to invite teammates.
+    // Must be owner (membership row) OR be the agency profile itself.
     const { data: me } = await supabaseAdmin
       .from("agency_members")
       .select("role")
       .eq("user_id", userId)
       .maybeSingle();
-    if (me?.role !== "owner") throw new Error("Only the agency owner can invite teammates");
+    if (me?.role !== "owner" && agencyId !== userId) {
+      throw new Error("Only the agency owner can invite teammates");
+    }
 
     const { data: agencyProfile } = await supabaseAdmin
       .from("profiles")
