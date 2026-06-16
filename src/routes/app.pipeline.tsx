@@ -104,12 +104,6 @@ function PipelinePage() {
   const activeLead = activeId ? leads.find((l) => l.id === activeId) ?? null : null;
 
   const applyStageChange = (leadId: string, targetStage: string, extra?: Partial<Lead>) => {
-    setLeads((prev) =>
-      prev.map((l) => {
-        if (l.id !== leadId) return l;
-        const fromStage = l.stage;
-        const now = new Date().toISOString();
-  const applyStageChange = (leadId: string, targetStage: string, extra?: Partial<Lead>) => {
     const isLive = liveLeads.some((l) => l.id === leadId);
     if (isLive) {
       // Optimistic UI
