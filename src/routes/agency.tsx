@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
-import { LayoutGrid, LogOut, Mail, Plus, Settings } from "lucide-react";
+import { LayoutGrid, LogOut, Mail, Settings } from "lucide-react";
 import { Logo } from "@/components/leadlogr/logo";
 import { useAccount } from "@/lib/account-context";
 import { WorkspaceSwitcher } from "@/components/agency/workspace-switcher";
@@ -39,22 +39,13 @@ function AgencyLayout() {
             Clients overview
           </Link>
           <Link
-            to="/agency/new-client"
-            activeProps={{ className: "bg-muted text-foreground ring-1 ring-border" }}
-            inactiveProps={{ className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground" }}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-          >
-            <Plus className="size-4" />
-            New client
-          </Link>
-          <Link
             to="/agency/invites"
             activeProps={{ className: "bg-muted text-foreground ring-1 ring-border" }}
             inactiveProps={{ className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground" }}
             className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors"
           >
             <Mail className="size-4" />
-            Invite status
+            Invites
           </Link>
           <Link
             to="/agency/account"
