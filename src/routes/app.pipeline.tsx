@@ -63,11 +63,17 @@ function PipelinePage() {
   const workspaceKey = activeWorkspace.key;
   const liveLeads = useLiveLeads(workspaceKey);
   const [seedLeads, setLeads] = useState<Lead[]>([]);
+  // Optimistic stage overrides for live (DB-backed) leads so UI updates
+  // immediately on drop while the server write + next poll catch up.
+  const [liveStageOverride, setLiveStageOverride] = useState<Record<string, string>>({});
   // Merge locally-created leads with tracker-captured leads for this workspace only.
   const leads = useMemo(() => {
     const liveIds = new Set(liveLeads.map((l) => l.id));
-    return [...liveLeads, ...seedLeads.filter((l) => !liveIds.has(l.id))];
-  }, [liveLeads, seedLeads]);
+    return [
+      ...liveLeads.map((l) => (liveStageOverride[l.id] ? { ...l, stage: liveStageOverride[l.id] } : l)),
+      ...seedLeads.filter((l) => !liveIds.has(l.id)),
+    ];
+  }, [liveLeads, seedLeads, liveStageOverride]);
   const [stages, setStages] = useState<StageDef[]>(DEFAULT_STAGES);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
