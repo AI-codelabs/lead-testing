@@ -57,7 +57,7 @@ function LandingPage() {
               Bridge the gap between advertising spend and closed revenue. Leadlogr captures every lead, tracks every status change, and feeds conversion data back to ad platforms automatically.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 mb-16">
-              <Link to="/signup" search={{}} className="bg-primary text-primary-foreground text-sm font-medium px-5 py-2.5 rounded-md ring-1 ring-primary shadow-sm hover:opacity-90 transition-opacity">
+              <Link to="/signup" className="bg-primary text-primary-foreground text-sm font-medium px-5 py-2.5 rounded-md ring-1 ring-primary shadow-sm hover:opacity-90 transition-opacity">
                 Start free
               </Link>
               <a href="#loop" className="text-sm font-medium px-5 py-2.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors">
@@ -150,7 +150,7 @@ function LandingPage() {
             <h2 className="text-3xl md:text-5xl font-medium tracking-tight leading-tight mb-8 text-balance max-w-[20ch] mx-auto">
               Start tracking high-intent conversions today
             </h2>
-            <Link to="/signup" search={{}} className="inline-block bg-background text-foreground text-sm font-medium px-8 py-3 rounded-md ring-1 ring-background hover:opacity-90 transition-all active:scale-95">
+            <Link to="/signup" className="inline-block bg-background text-foreground text-sm font-medium px-8 py-3 rounded-md ring-1 ring-background hover:opacity-90 transition-all active:scale-95">
               Scale your agency
             </Link>
           </div>
