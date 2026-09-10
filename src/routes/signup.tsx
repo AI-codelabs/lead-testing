@@ -19,11 +19,13 @@ export const Route = createFileRoute("/signup")({
       { name: "description", content: "Spin up a Leadlogr workspace as a standard account or an agency." },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>) => ({
-    invite: typeof s.invite === "string" ? s.invite : undefined,
-    clientInvite: typeof s.clientInvite === "string" ? s.clientInvite : undefined,
-    agencyMember: typeof s.agencyMember === "string" ? s.agencyMember : undefined,
-  }),
+  validateSearch: (s: Record<string, unknown>) => {
+    const out: Partial<{ invite: string; clientInvite: string; agencyMember: string }> = {};
+    if (typeof s.invite === "string") out.invite = s.invite;
+    if (typeof s.clientInvite === "string") out.clientInvite = s.clientInvite;
+    if (typeof s.agencyMember === "string") out.agencyMember = s.agencyMember;
+    return out;
+  },
   component: SignupPage,
 });
 
