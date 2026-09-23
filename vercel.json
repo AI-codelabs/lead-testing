@@ -2,7 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "comment": "Serve Better Auth from this domain so its session cookie is first-party. Neon sets it SameSite=None with no Domain attribute, so proxied through here the browser scopes it to leadlogr.com. Called directly it is a third-party cookie, which Safari blocks outright and Chrome blocks in Incognito and progressively elsewhere — sign-in succeeds but no session survives the redirect.",
       "source": "/auth/:path*",
       "destination": "https://ep-shiny-night-b1o7436l.neonauth.c-5.eu-central-1.aws.neon.tech/neondb/auth/:path*"
     }
