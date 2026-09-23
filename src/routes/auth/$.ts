@@ -40,6 +40,15 @@ const HOP_BY_HOP = new Set([
   "content-length", "accept-encoding",
 ]);
 
+/**
+ * Neon checks the forwarded host as strictly as it checks Host, so passing
+ * these on reproduces the rewrite's INVALID_HOSTNAME exactly — and only in
+ * production, since nothing sets them locally. The x-vercel-* headers describe
+ * this deployment and mean nothing upstream.
+ */
+const isForwardingHeader = (name: string) =>
+  name.startsWith("x-forwarded-") || name.startsWith("x-vercel-") || name === "forwarded";
+
 /** Set by the platform on the way out; re-sending ours corrupts the body. */
 const STRIP_FROM_RESPONSE = new Set([
   "content-encoding", "content-length", "transfer-encoding", "connection",
@@ -51,7 +60,8 @@ async function proxy(request: Request, splat: string): Promise<Response> {
 
   const headers = new Headers();
   for (const [k, v] of request.headers) {
-    if (!HOP_BY_HOP.has(k.toLowerCase())) headers.set(k, v);
+    const name = k.toLowerCase();
+    if (!HOP_BY_HOP.has(name) && !isForwardingHeader(name)) headers.set(k, v);
   }
 
   const method = request.method;
