@@ -54,7 +54,7 @@ function AccountPage() {
 
         <SectionCard
           title="Team"
-          description="People who can access this workspace. Owners and admins can invite."
+          description="People and agencies that can access this workspace. Owners and admins can invite."
         >
           <TeamMembersPanel />
         </SectionCard>

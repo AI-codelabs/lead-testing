@@ -44,6 +44,48 @@ export const inviteClientWorkspace = createServerFn({ method: "POST" })
 
 
 
+/**
+ * The agencies managing this workspace — the relationship read from the
+ * client's side rather than the agency's.
+ *
+ * Only pending invitations were ever surfaced, so once a client accepted, the
+ * agency holding access to their leads disappeared from the account page
+ * entirely. The RLS policy on agency_clients already allows either side to
+ * read the link, so this needs no new privileges.
+ *
+ * The agency's owner is deliberately not returned. app.org_owner resolves only
+ * for an organization the caller belongs to or manages, and widening it so a
+ * client could read a person at the agency is a privacy decision, not a
+ * display one.
+ */
+export const listManagingAgencies = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data: { organizationId: string }) => {
+    if (!data?.organizationId) throw new Error("organizationId is required");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    const orgId = await requireOrganization(context.db, data.organizationId);
+
+    const agencies = await context.db.sql<{
+      id: string;
+      name: string;
+      accessLevel: AccessLevel;
+      linkedAt: string;
+    }>(
+      `SELECT ac.agency_org_id                        AS "id",
+              app.organization_name(ac.agency_org_id) AS "name",
+              ac.access_level                         AS "accessLevel",
+              ac.created_at                           AS "linkedAt"
+         FROM public.agency_clients ac
+        WHERE ac.client_org_id = $1
+     ORDER BY 2`,
+      [orgId],
+    );
+
+    return { agencies };
+  });
+
 export const listAgencyClients = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((data: { organizationId: string }) => {
