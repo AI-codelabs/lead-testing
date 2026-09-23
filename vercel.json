@@ -1,9 +1,3 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [
-    {
-      "source": "/auth/:path*",
-      "destination": "https://ep-shiny-night-b1o7436l.neonauth.c-5.eu-central-1.aws.neon.tech/neondb/auth/:path*"
-    }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }

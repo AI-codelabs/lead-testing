@@ -18,6 +18,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AgencyIndexRouteImport } from './routes/agency.index'
 import { Route as TrackerV1DotjsRouteImport } from './routes/tracker.v1[.]js'
+import { Route as AuthSplatRouteImport } from './routes/auth/$'
 import { Route as AppTrackingRouteImport } from './routes/app.tracking'
 import { Route as AppPipelineRouteImport } from './routes/app.pipeline'
 import { Route as AppIntegrationsRouteImport } from './routes/app.integrations'
@@ -75,6 +76,11 @@ const AgencyIndexRoute = AgencyIndexRouteImport.update({
 const TrackerV1DotjsRoute = TrackerV1DotjsRouteImport.update({
   id: '/tracker/v1.js',
   path: '/tracker/v1.js',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSplatRoute = AuthSplatRouteImport.update({
+  id: '/auth/$',
+  path: '/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppTrackingRoute = AppTrackingRouteImport.update({
@@ -160,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
+  '/auth/$': typeof AuthSplatRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
@@ -182,6 +189,7 @@ export interface FileRoutesByTo {
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
+  '/auth/$': typeof AuthSplatRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency': typeof AgencyIndexRoute
   '/app': typeof AppIndexRoute
@@ -207,6 +215,7 @@ export interface FileRoutesById {
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
   '/app/tracking': typeof AppTrackingRoute
+  '/auth/$': typeof AuthSplatRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
   '/agency/': typeof AgencyIndexRoute
   '/app/': typeof AppIndexRoute
@@ -233,6 +242,7 @@ export interface FileRouteTypes {
     | '/app/integrations'
     | '/app/pipeline'
     | '/app/tracking'
+    | '/auth/$'
     | '/tracker/v1.js'
     | '/agency/'
     | '/app/'
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/app/integrations'
     | '/app/pipeline'
     | '/app/tracking'
+    | '/auth/$'
     | '/tracker/v1.js'
     | '/agency'
     | '/app'
@@ -279,6 +290,7 @@ export interface FileRouteTypes {
     | '/app/integrations'
     | '/app/pipeline'
     | '/app/tracking'
+    | '/auth/$'
     | '/tracker/v1.js'
     | '/agency/'
     | '/app/'
@@ -296,6 +308,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   TrackerDotv1DotjsRoute: typeof TrackerDotv1DotjsRoute
+  AuthSplatRoute: typeof AuthSplatRoute
   TrackerV1DotjsRoute: typeof TrackerV1DotjsRoute
   ApiPublicLeadsCollectRoute: typeof ApiPublicLeadsCollectRoute
   ApiPublicTrackerV1Route: typeof ApiPublicTrackerV1Route
@@ -365,6 +378,13 @@ declare module '@tanstack/react-router' {
       path: '/tracker/v1.js'
       fullPath: '/tracker/v1.js'
       preLoaderRoute: typeof TrackerV1DotjsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/$': {
+      id: '/auth/$'
+      path: '/auth/$'
+      fullPath: '/auth/$'
+      preLoaderRoute: typeof AuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/tracking': {
@@ -519,6 +539,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   TrackerDotv1DotjsRoute: TrackerDotv1DotjsRoute,
+  AuthSplatRoute: AuthSplatRoute,
   TrackerV1DotjsRoute: TrackerV1DotjsRoute,
   ApiPublicLeadsCollectRoute: ApiPublicLeadsCollectRoute,
   ApiPublicTrackerV1Route: ApiPublicTrackerV1Route,
