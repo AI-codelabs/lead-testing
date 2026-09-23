@@ -21,9 +21,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
-import type { Lead } from "./lead-types";
-import { emptyLead } from "./lead-types";
+import { Clock, X } from "lucide-react";
+import type { Lead, Urgency } from "./lead-types";
+import { daysUntilExpiry, emptyLead, expiryUrgency } from "./lead-types";
 
 interface Props {
   open: boolean;
@@ -94,6 +94,7 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
               <DialogDescription className="text-xs">
                 {draft.company || draft.email || "Complete the fields below to capture this lead."}
               </DialogDescription>
+              {mode === "edit" && <LeadDates lead={draft} />}
             </div>
             <div className="w-44 shrink-0">
               <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Stage</Label>
@@ -275,6 +276,83 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * When the lead arrived, and when its 90-day conversion window closes.
+ *
+ * The window is the reason the exact date matters: past it the ad platforms
+ * will no longer accept the conversion, so "12d left" is only actionable next
+ * to the date it counts down to.
+ */
+function LeadDates({ lead }: { lead: Lead }) {
+  // Won/Lost/Disqualified leads have finished their lifecycle, so a countdown
+  // on them is noise — same rule the pipeline cards use.
+  const settled =
+    lead.stage === "Won" || lead.stage === "Lost" || lead.stage === "Disqualified";
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+      <span>
+        Received{" "}
+        <time dateTime={lead.createdAt} className="text-foreground/70" title={exactDate(lead.createdAt)}>
+          {formatDate(lead.createdAt)}
+        </time>
+      </span>
+      {lead.expiresAt && (
+        <>
+          <span aria-hidden className="text-border">·</span>
+          <span className="inline-flex items-center gap-1.5">
+            Expires{" "}
+            <time dateTime={lead.expiresAt} className="text-foreground/70" title={exactDate(lead.expiresAt)}>
+              {formatDate(lead.expiresAt)}
+            </time>
+            {!settled && <ExpiryCountdown expiresAt={lead.expiresAt} />}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+const COUNTDOWN_STYLES: Record<Urgency, string> = {
+  expired: "ring-destructive/40 bg-destructive/10 text-destructive",
+  critical: "ring-destructive/40 bg-destructive/10 text-destructive",
+  warn: "ring-stage-amber-line bg-stage-amber-soft text-stage-amber-ink",
+  ok: "ring-border text-muted-foreground",
+};
+
+function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
+  const urgency = expiryUrgency(expiresAt);
+  const days = daysUntilExpiry(expiresAt);
+  const expired = urgency === "expired";
+
+  return (
+    <span
+      title={
+        expired
+          ? "Outside the 90-day conversion window — ad platforms will no longer accept this conversion"
+          : `${days} day${days === 1 ? "" : "s"} left in the 90-day conversion window`
+      }
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal ring-1 ${COUNTDOWN_STYLES[urgency]}`}
+    >
+      <Clock className="size-3" />
+      {expired ? `Expired ${Math.abs(days)}d ago` : `${days}d left`}
+    </span>
+  );
+}
+
+/** Day-level, which is the granularity the 90-day window is counted in. */
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
+/** Full timestamp, kept in the tooltip rather than the strip. */
+function exactDate(iso: string): string | undefined {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? undefined : d.toLocaleString();
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
