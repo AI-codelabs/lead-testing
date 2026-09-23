@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { inviteOrganizationMember, listOrganizationMembers, removeOrganizationMember } from "@/lib/organization-members.functions";
 import { listManagingAgencies, type AccessLevel } from "@/lib/agency-clients.functions";
+import { inviteSignupUrl } from "@/lib/invite-links";
 import { useAccount } from "@/lib/account-context";
 import { EmptyState } from "@/components/leadlogr/empty-state";
 
@@ -47,8 +48,7 @@ export function TeamMembersPanel() {
   };
 
   const copyLink = (token: string) => {
-    const url = `${window.location.origin}/signup?memberInvite=${token}`;
-    navigator.clipboard.writeText(url).then(
+    navigator.clipboard.writeText(inviteSignupUrl(token, "member")).then(
       () => toast.success("Invite link copied"),
       () => toast.error("Could not copy link"),
     );

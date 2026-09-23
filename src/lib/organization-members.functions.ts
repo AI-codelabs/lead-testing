@@ -98,7 +98,7 @@ export const inviteOrganizationMember = createServerFn({ method: "POST" })
     // No email is sent yet: the queue this used to go through was Supabase
     // infrastructure and has not been replaced. The link is returned so the
     // inviter can pass it on, and logged for local development.
-    const link = `${process.env.SITE_URL ?? ""}/signup?invite=${invite!.id}`;
+    const link = `${process.env.SITE_URL ?? ""}/signup?memberInvite=${invite!.id}`;
     console.info(`[invite] ${data.email} -> ${link}`);
 
     return { ok: true, inviteId: invite!.id, link, emailSent: false };

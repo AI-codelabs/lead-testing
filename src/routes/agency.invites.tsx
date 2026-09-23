@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAccount } from "@/lib/account-context";
 import { TeamMembersPanel } from "@/components/account/team-members-panel";
@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/leadlogr/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ACCESS_LEVEL_META, type AccessLevel } from "@/lib/account-context";
 import { listSentInvites } from "@/lib/invitations.functions";
+import { inviteSignupUrl, type InviteKind } from "@/lib/invite-links";
 import { inviteClientWorkspace } from "@/lib/agency-clients.functions";
 import { acceptInvite, declineInvite, listReceivedInvites, revokeInvite } from "@/lib/invitations.functions";
 
@@ -31,6 +32,11 @@ function statusBadge(status: string) {
   };
   return map[status] ?? "bg-muted text-muted-foreground ring-border";
 }
+
+/** Email delivery is not wired up yet, so "not_sent" is the normal state. */
+const EMAIL_STATUS_LABELS: Record<string, string> = {
+  not_sent: "Not sent — share the link",
+};
 
 function emailBadge(status: string | null) {
   if (!status) return "bg-muted text-muted-foreground ring-border";
@@ -362,9 +368,7 @@ function HistoryPanel() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to revoke"),
   });
 
-  const copyLink = (token: string, kind: string) => {
-    const param = kind === "member" ? "memberInvite" : "clientInvite";
-    const url = `${window.location.origin}/signup?${param}=${token}`;
+  const copyLink = (url: string) => {
     navigator.clipboard.writeText(url).then(
       () => toast.success("Signup link copied"),
       () => toast.error("Could not copy link"),
@@ -404,7 +408,15 @@ function HistoryPanel() {
                 {error instanceof Error ? error.message : "Failed to load"}
               </td></tr>
             )}
-            {!isLoading && invites.length === 0 && (
+            {/* A failed load used to render as "no invites", which is how a
+                crash in listSentInvites stayed hidden: the table looked empty
+                rather than broken. An absent payload is not an empty one. */}
+            {!isLoading && !error && !data && (
+              <tr><td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
+                Could not load your invites. Try Refresh.
+              </td></tr>
+            )}
+            {!isLoading && !error && data && invites.length === 0 && (
               <tr><td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
                 You haven't sent any invites yet.
               </td></tr>
@@ -416,13 +428,14 @@ function HistoryPanel() {
                   {i.organization_name && (
                     <div className="text-xs text-muted-foreground">{i.organization_name}</div>
                   )}
+                  {/* Nothing emails the invite yet, so the link has to be
+                      readable here — it is the only way the recipient gets it. */}
+                  {i.status === "pending" && (
+                    <InviteLink token={i.token} kind={i.kind === "member" ? "member" : "client"} />
+                  )}
                 </td>
                 <td className="px-5 py-3.5 text-xs text-muted-foreground">
-                  {i.kind === "client_invite"
-                    ? "Client signup"
-                    : i.kind === "member"
-                      ? "Teammate"
-                      : "Agency link"}
+                  {i.kind === "member" ? "Teammate" : "Client signup"}
                 </td>
                 <td className="px-5 py-3.5">
                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded ring-1 ${statusBadge(i.status)}`}>
@@ -431,7 +444,7 @@ function HistoryPanel() {
                 </td>
                 <td className="px-5 py-3.5">
                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded ring-1 ${emailBadge(i.email_status)}`}>
-                    {i.email_status ?? "no log"}
+                    {EMAIL_STATUS_LABELS[i.email_status] ?? i.email_status ?? "no log"}
                   </span>
                   {i.email_error && (
                     <div className="text-[11px] text-red-600 mt-1 max-w-xs break-words">{i.email_error}</div>
@@ -441,9 +454,11 @@ function HistoryPanel() {
                   {new Date(i.created_at).toLocaleString()}
                 </td>
                 <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                  {(i.kind === "client_invite" || i.kind === "member") && i.status === "pending" && (
+                  {i.status === "pending" && (
                     <button
-                      onClick={() => copyLink(i.token, i.kind)}
+                      onClick={() =>
+                        copyLink(inviteSignupUrl(i.token, i.kind === "member" ? "member" : "client"))
+                      }
                       className="text-xs font-medium px-2.5 py-1.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors mr-2"
                     >
                       Copy link
@@ -464,6 +479,33 @@ function HistoryPanel() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The signup link, shown in full rather than hidden behind a copy button.
+ *
+ * With no delivery pipeline, an agency has to pass this to the client by hand
+ * — over WhatsApp, usually — so it needs to be readable and selectable, not
+ * just copyable.
+ */
+function InviteLink({ token, kind }: { token: string; kind: InviteKind }) {
+  // Built in an effect: the URL depends on window.location, and reading it
+  // during render would differ between the server and the client.
+  const [url, setUrl] = useState("");
+  useEffect(() => setUrl(inviteSignupUrl(token, kind)), [token, kind]);
+  if (!url) return null;
+
+  return (
+    <div className="mt-1.5 flex items-center gap-1.5">
+      <input
+        readOnly
+        value={url}
+        onFocus={(e) => e.currentTarget.select()}
+        aria-label="Signup link"
+        className="w-full max-w-[22rem] min-w-0 rounded bg-muted/50 px-2 py-1 font-mono text-[11px] text-muted-foreground ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-ring"
+      />
     </div>
   );
 }

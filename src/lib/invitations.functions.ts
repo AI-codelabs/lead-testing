@@ -18,8 +18,13 @@ export type InviteRow = {
   email: string;
   role: string;
   status: string;
-  expires_at: string;
-  created_at: string;
+  /**
+   * node-postgres maps timestamptz to a Date, not a string — the previous
+   * `string` here was a lie the compiler had no way to catch, and calling
+   * localeCompare on it threw at runtime.
+   */
+  expires_at: string | Date;
+  created_at: string | Date;
   /** The organization that sent the invitation. */
   organization_name: string | null;
   kind: string;
@@ -42,6 +47,12 @@ async function activeOrg(
   organizationId: string,
 ): Promise<string> {
   return requireOrganization(db, organizationId);
+}
+
+/** Tolerates either shape, so a driver or serializer change cannot break sorting. */
+function millis(value: string | Date): number {
+  const t = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isNaN(t) ? 0 : t;
 }
 
 export const listSentInvites = createServerFn({ method: "POST" })
@@ -73,8 +84,8 @@ export const listSentInvites = createServerFn({ method: "POST" })
       ),
     ]);
 
-    const invites = [...memberInvites, ...clientInvites].sort((a, b) =>
-      b.created_at.localeCompare(a.created_at),
+    const invites = [...memberInvites, ...clientInvites].sort(
+      (a, b) => millis(b.created_at) - millis(a.created_at),
     );
     return { invites };
   });

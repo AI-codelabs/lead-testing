@@ -36,7 +36,10 @@ export const inviteClientWorkspace = createServerFn({ method: "POST" })
     );
     if (rows.length === 0) throw new Error("Only owners and admins can invite clients");
 
-    const link = `${process.env.SITE_URL ?? ""}/signup?invite=${rows[0].id}`;
+    // clientInvite, not the generic invite: /signup reads this parameter to
+    // decide the account type, and `invite` forces an agency account — which
+    // signs the invited company up as an agency.
+    const link = `${process.env.SITE_URL ?? ""}/signup?clientInvite=${rows[0].id}`;
     console.info(`[client-invite] ${data.email} -> ${link}`);
 
     return { ok: true, inviteId: rows[0].id, link, emailSent: false };
