@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { useAccount } from "@/lib/account-context";
-import { getIntegrationStatuses } from "@/lib/integration-status.functions";
+import { getIntegrationStatuses } from "@/lib/integrations.functions";
 import {
   getDashboardMetrics,
   type DashboardMetrics,
@@ -30,6 +30,7 @@ type Stage = {
 };
 
 export const Route = createFileRoute("/app/dashboard")({
+  staticData: { width: "wide" },
   head: () => ({ meta: [{ title: "Dashboard — Leadlogr" }] }),
   component: DashboardPage,
 });
@@ -64,20 +65,20 @@ function buildStages(m: DashboardMetrics): Stage[] {
 function DashboardPage() {
   const [range, setRange] = useState<DashboardRange>(30);
   const { activeWorkspace } = useAccount();
-  const workspaceKey = activeWorkspace.key;
+  const organizationId = activeWorkspace.key;
 
   const fetchStatuses = useServerFn(getIntegrationStatuses);
   const fetchMetrics = useServerFn(getDashboardMetrics);
 
   const { data: statuses } = useQuery({
-    queryKey: ["integration-statuses", workspaceKey],
-    queryFn: () => fetchStatuses({ data: { workspaceKey } }),
+    queryKey: ["integration-statuses", organizationId],
+    queryFn: () => fetchStatuses({ data: { organizationId } }),
     staleTime: 30_000,
   });
 
   const { data: metrics } = useQuery({
-    queryKey: ["dashboard-metrics", workspaceKey, range],
-    queryFn: () => fetchMetrics({ data: { workspaceKey, range } }),
+    queryKey: ["dashboard-metrics", organizationId, range],
+    queryFn: () => fetchMetrics({ data: { organizationId, range } }),
     staleTime: 15_000,
   });
 
@@ -133,7 +134,7 @@ function DashboardPage() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-card ring-1 ring-border rounded-lg p-6">
+        <div className="lg:col-span-2 rounded-xl bg-card shadow-xs ring-1 ring-border p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="font-semibold">Conversion volume</h3>
@@ -160,7 +161,7 @@ function DashboardPage() {
           )}
         </div>
 
-        <div className="bg-card ring-1 ring-border rounded-lg p-6">
+        <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-6">
           <h3 className="font-semibold mb-1">Top sources</h3>
           <p className="text-xs text-muted-foreground mb-4">By leads received.</p>
           {metrics && metrics.sources.length > 0 ? (
@@ -227,7 +228,7 @@ function FunnelCard({ stages, hasData }: { stages: Stage[]; hasData: boolean }) 
   const dash = "—";
 
   return (
-    <section className="lg:col-span-3 bg-card ring-1 ring-border rounded-lg p-5 flex flex-col gap-5">
+    <section className="lg:col-span-3 rounded-xl bg-card shadow-xs ring-1 ring-border p-5 flex flex-col gap-5">
       <header className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -327,7 +328,7 @@ function PerformanceCard({
       : "Spend data will appear once your campaigns run";
 
   return (
-    <section className="lg:col-span-2 bg-card ring-1 ring-border rounded-lg p-5 flex flex-col gap-5">
+    <section className="lg:col-span-2 rounded-xl bg-card shadow-xs ring-1 ring-border p-5 flex flex-col gap-5">
       <header className="flex items-start justify-between gap-2">
         <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Performance

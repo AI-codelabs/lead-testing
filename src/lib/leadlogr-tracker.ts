@@ -23,7 +23,8 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
     var cfg = window.LEADLOGR_CONFIG || {};
     var tag = document.getElementById('leadlogr-tracker') || document.currentScript;
     if (tag && tag.dataset) {
-      if (!cfg.workspaceId && tag.dataset.workspaceId) cfg.workspaceId = tag.dataset.workspaceId;
+      if (!cfg.ingestKey && tag.dataset.ingestKey) cfg.ingestKey = tag.dataset.ingestKey;
+      if (!cfg.ingestKey && tag.dataset.workspaceId) cfg.ingestKey = tag.dataset.workspaceId;
       if (!cfg.endpoint && tag.dataset.endpoint) cfg.endpoint = tag.dataset.endpoint;
       if (!cfg.integrationId && tag.dataset.integrationId) cfg.integrationId = tag.dataset.integrationId;
       if (cfg.debug === undefined && tag.dataset.debug) cfg.debug = tag.dataset.debug === 'true';
@@ -36,8 +37,10 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
 
   var CFG = readConfig();
   CFG.endpoint = normalizeEndpoint(CFG.endpoint);
-  if (!CFG.workspaceId || !CFG.endpoint) {
-    console.warn('[leadlogr] missing workspaceId or endpoint');
+  // Older snippets set workspaceId; the credential is now a rotatable ingest key.
+  if (!CFG.ingestKey && CFG.workspaceId) CFG.ingestKey = CFG.workspaceId;
+  if (!CFG.ingestKey || !CFG.endpoint) {
+    console.warn('[leadlogr] missing ingestKey or endpoint');
     return;
   }
   var FLAGS = CFG.featureFlags || {};
@@ -250,7 +253,7 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
   function basePayload() {
     var detected = detectConsent();
     return {
-      workspace_key: CFG.workspaceId,
+      ingest_key: CFG.ingestKey,
       integration_id: CFG.integrationId || 'gtm',
       utm_source: attribution.utm_source || '',
       utm_medium: attribution.utm_medium || '',
@@ -399,9 +402,25 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
   function readableName(el) {
     return (el.name || el.id || el.getAttribute('aria-label') || el.getAttribute('placeholder') || '').toLowerCase();
   }
+  /* Collects fields from a root AND from any shadow roots inside it.
+     form.querySelectorAll() stops at a shadow boundary, so web-component form
+     builders (HubSpot embeds, many design systems) would otherwise record the
+     submit with zero field values. */
+  function deepFields(root, out, depth) {
+    out = out || []; depth = depth || 0;
+    if (!root || depth > 10) return out;           // guard against cycles
+    var direct = root.querySelectorAll ? root.querySelectorAll('input, textarea, select') : [];
+    for (var i = 0; i < direct.length; i++) out.push(direct[i]);
+    var all = root.querySelectorAll ? root.querySelectorAll('*') : [];
+    for (var j = 0; j < all.length; j++) {
+      if (all[j].shadowRoot) deepFields(all[j].shadowRoot, out, depth + 1);
+    }
+    return out;
+  }
+
   function fromForm(form) {
     var extra = { custom_fields: {} };
-    var els = form.querySelectorAll('input, textarea, select');
+    var els = deepFields(form);
     for (var i = 0; i < els.length; i++) {
       var el = els[i];
       var type = (el.type || '').toLowerCase();
@@ -421,6 +440,27 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
     extra.form_action = form.action || '';
     return extra;
   }
+  /* Events from inside a shadow root are retargeted to the host, so ev.target
+     is the component rather than the field. composedPath() still contains the
+     real ancestry, so check it before falling back to closest(). */
+  function findFormFromEvent(ev) {
+    try {
+      if (ev && typeof ev.composedPath === 'function') {
+        var path = ev.composedPath();
+        for (var i = 0; i < path.length; i++) {
+          var node = path[i];
+          if (node && node.tagName === 'FORM') return node;
+        }
+        // No <form> at all: a shadow component may submit without one. Use the
+        // shadow host so its fields are still reachable via deepFields().
+        for (var k = 0; k < path.length; k++) {
+          if (path[k] && path[k].shadowRoot) return path[k];
+        }
+      }
+    } catch (e) {}
+    return findForm(ev && ev.target);
+  }
+
   function findForm(target) {
     if (!target) return null;
     if (target.tagName === 'FORM') return target;
@@ -428,7 +468,7 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
     return null;
   }
   function handleSubmit(ev) {
-    var form = findForm(ev.target); if (!form) return;
+    var form = findFormFromEvent(ev); if (!form) return;
     lastSubmittedForm = form;
     lastFormInteractionAt = Date.now();
     log('native submit captured', { form_id: form.id || '', form_action: form.action || '' });
@@ -453,16 +493,101 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
   document.addEventListener('submit', handleSubmit, true);
   document.addEventListener('click', function (ev) {
     var target = ev.target && ev.target.closest ? ev.target.closest('button,input[type="submit"],[type="button"]') : null;
-    var form = target && findForm(target);
+    var form = (target && findForm(target)) || findFormFromEvent(ev);
     if (form) rememberForm(form);
   }, true);
-  document.addEventListener('input', function (ev) { rememberForm(findForm(ev.target)); }, true);
-  document.addEventListener('change', function (ev) { rememberForm(findForm(ev.target)); }, true);
+  document.addEventListener('input', function (ev) { rememberForm(findFormFromEvent(ev)); }, true);
+  document.addEventListener('change', function (ev) { rememberForm(findFormFromEvent(ev)); }, true);
   window.addEventListener('pagehide', function () { flushLastFormOnUnload('pagehide'); }, true);
   window.addEventListener('beforeunload', function () { flushLastFormOnUnload('beforeunload'); }, true);
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') flushLastFormOnUnload('visibilitychange');
   }, true);
+
+  /* ---------------- fetch / XHR interception ----------------
+     The biggest gap in submit detection: a form that calls preventDefault()
+     and POSTs via fetch fires no submit event, no click on a <button>, and no
+     unload — so none of the listeners above ever run.
+
+     Rather than parse arbitrary request bodies (fragile, and they may contain
+     anything), this watches for an outbound POST shortly after the visitor
+     touched a form, and flushes that form. The field extraction stays the one
+     we already trust, and the existing 8s dedupe means a form that ALSO fires
+     a native submit is still only reported once. */
+
+  var FORM_POST_WINDOW_MS = 15000;
+
+  function looksLikeFormPost(method, url) {
+    if (String(method || 'GET').toUpperCase() !== 'POST') return false;
+    // Never react to our own ingest call, or we would loop.
+    try {
+      if (url && String(url).indexOf(CFG.endpoint) !== -1) return false;
+    } catch (e) {}
+    return true;
+  }
+
+  function onInterceptedPost(source, url) {
+    if (!lastSubmittedForm || !lastFormInteractionAt) return;
+    if (Date.now() - lastFormInteractionAt > FORM_POST_WINDOW_MS) return;
+    try {
+      log('form-shaped POST intercepted', { via: source, url: String(url || '').slice(0, 200) });
+      send(fromForm(lastSubmittedForm));
+    } catch (e) { log('intercept flush failed', e); }
+  }
+
+  function installRequestHooks() {
+    if (window.__LEADLOGR_REQUEST_HOOKS__) return;
+    window.__LEADLOGR_REQUEST_HOOKS__ = true;
+
+    // fetch
+    try {
+      if (typeof window.fetch === 'function') {
+        var nativeFetch = window.fetch;
+        window.fetch = function (input, init) {
+          try {
+            var url = typeof input === 'string' ? input : (input && input.url) || '';
+            var method = (init && init.method) || (input && input.method) || 'GET';
+            if (looksLikeFormPost(method, url)) onInterceptedPost('fetch', url);
+          } catch (e) {}
+          return nativeFetch.apply(this, arguments);
+        };
+      }
+    } catch (e) { log('fetch hook failed', e); }
+
+    // XMLHttpRequest
+    try {
+      var XHR = window.XMLHttpRequest;
+      if (XHR && XHR.prototype) {
+        var nativeOpen = XHR.prototype.open;
+        var nativeSend = XHR.prototype.send;
+        XHR.prototype.open = function (method, url) {
+          try { this.__leadlogrMethod = method; this.__leadlogrUrl = url; } catch (e) {}
+          return nativeOpen.apply(this, arguments);
+        };
+        XHR.prototype.send = function () {
+          try {
+            if (looksLikeFormPost(this.__leadlogrMethod, this.__leadlogrUrl)) {
+              onInterceptedPost('xhr', this.__leadlogrUrl);
+            }
+          } catch (e) {}
+          return nativeSend.apply(this, arguments);
+        };
+      }
+    } catch (e) { log('xhr hook failed', e); }
+
+    /* SPA route changes do not fire pagehide, so a multi-step form that
+       advances the route would lose the step just completed. */
+    try {
+      var nativePush = history.pushState;
+      if (typeof nativePush === 'function') {
+        history.pushState = function () {
+          try { flushLastFormOnUnload('pushState'); } catch (e) {}
+          return nativePush.apply(this, arguments);
+        };
+      }
+    } catch (e) { log('pushState hook failed', e); }
+  }
+  installRequestHooks();
 
   function installElementorHook() {
     try {
@@ -487,6 +612,6 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
     version: '1.1.1',
   };
 
-  log('ready', { workspaceId: CFG.workspaceId, endpoint: CFG.endpoint, consent: detectConsent() });
+  log('ready', { endpoint: CFG.endpoint, consent: detectConsent() });
 })();
 `;

@@ -33,11 +33,12 @@ import {
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { useAccess, useAccount } from "@/lib/account-context";
 import { useLiveLeads } from "@/hooks/use-live-leads";
-import { updateLeadStage } from "@/lib/leads-write.functions";
+import { setLeadStage } from "@/lib/leads.functions";
 import { toast } from "sonner";
 
 
 export const Route = createFileRoute("/app/pipeline")({
+  staticData: { width: "full" },
   head: () => ({ meta: [{ title: "Lead Pipeline — Leadlogr" }] }),
   ssr: false,
   component: PipelinePage,
@@ -49,7 +50,7 @@ function PipelinePage() {
     return (
       <>
         <PageHeader eyebrow="Sales" title="Lead Pipeline" description="Pipeline details are hidden by the client." />
-        <div className="bg-card ring-1 ring-border rounded-lg p-10 text-center">
+        <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-10 text-center">
           <Lock className="size-6 text-muted-foreground mx-auto mb-3" />
           <h3 className="font-semibold">Restricted by client</h3>
           <p className="text-sm text-muted-foreground mt-1.5 max-w-md mx-auto">
@@ -60,8 +61,8 @@ function PipelinePage() {
     );
   }
   const { activeWorkspace } = useAccount();
-  const workspaceKey = activeWorkspace.key;
-  const liveLeads = useLiveLeads(workspaceKey);
+  const organizationId = activeWorkspace.key;
+  const liveLeads = useLiveLeads(organizationId);
   const [seedLeads, setLeads] = useState<Lead[]>([]);
   // Optimistic stage overrides for live (DB-backed) leads so UI updates
   // immediately on drop while the server write + next poll catch up.
@@ -108,20 +109,19 @@ function PipelinePage() {
     if (isLive) {
       // Optimistic UI
       setLiveStageOverride((prev) => ({ ...prev, [leadId]: targetStage }));
-      updateLeadStage({
+      setLeadStage({
         data: {
           leadId,
-          workspaceKey,
           stage: targetStage,
-          value: typeof extra?.value === "number" ? extra.value : undefined,
-          lossReason: typeof extra?.lossReason === "string" ? extra.lossReason : undefined,
+          wonValue: typeof extra?.value === "number" ? extra.value : undefined,
+          lostReason: typeof extra?.lossReason === "string" ? extra.lossReason : undefined,
         },
       })
         .then(() => {
           toast.success(`Moved to ${targetStage}`);
         })
         .catch((err) => {
-          console.error("[pipeline] updateLeadStage failed", err);
+          console.error("[pipeline] setLeadStage failed", err);
           setLiveStageOverride((prev) => {
             const next = { ...prev };
             delete next[leadId];

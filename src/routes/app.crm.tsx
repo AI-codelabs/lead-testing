@@ -17,9 +17,11 @@ import {
   Star,
   Trash2,
   X,
+  SearchX,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { deleteLead } from "@/lib/leads.functions";
+import { TableEmptyState } from "@/components/leadlogr/empty-state";
 
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
@@ -34,6 +36,7 @@ import { useAccess, useAccount } from "@/lib/account-context";
 import { useLiveLeads } from "@/hooks/use-live-leads";
 
 export const Route = createFileRoute("/app/crm")({
+  staticData: { width: "full" },
   head: () => ({ meta: [{ title: "CRM — Leadlogr" }] }),
   ssr: false,
   component: CrmPage,
@@ -122,8 +125,8 @@ type Column = (typeof ALL_COLUMNS)[number];
 function CrmPage() {
   const access = useAccess();
   const { activeWorkspace } = useAccount();
-  const workspaceKey = activeWorkspace.key;
-  const liveLeads = useLiveLeads(workspaceKey);
+  const organizationId = activeWorkspace.key;
+  const liveLeads = useLiveLeads(organizationId);
   const [seedLeads, setLeads] = useState<Lead[]>([]);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const deleteLeadFn = useServerFn(deleteLead);
@@ -288,7 +291,7 @@ function CrmPage() {
     const liveIdSet = new Set(liveLeads.map((l) => l.id));
     const liveTargets = ids.filter((id) => liveIdSet.has(id));
     const results = await Promise.allSettled(
-      liveTargets.map((id) => deleteLeadFn({ data: { id, workspaceKey } })),
+      liveTargets.map((id) => deleteLeadFn({ data: { leadId: id } })),
     );
     const failed = results
       .map((r, i) => (r.status === "rejected" ? liveTargets[i] : null))
@@ -413,7 +416,7 @@ function CrmPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-card ring-1 ring-border rounded-lg overflow-hidden">
+      <div className="rounded-xl bg-card shadow-xs ring-1 ring-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b border-border">
@@ -565,11 +568,12 @@ function CrmPage() {
                 );
               })}
               {pageRows.length === 0 && (
-                <tr>
-                  <td colSpan={10} className="px-5 py-10 text-center text-muted-foreground text-sm">
-                    No leads match your filters.
-                  </td>
-                </tr>
+                <TableEmptyState
+                  colSpan={10}
+                  icon={SearchX}
+                  title="No leads match your filters"
+                  description="Try a broader stage or source, or clear the search to see every lead in this workspace."
+                />
               )}
             </tbody>
           </table>
@@ -658,7 +662,7 @@ function PagerBtn({ children, disabled, onClick }: { children: React.ReactNode; 
 
 function RestrictedNotice({ leadsCount }: { leadsCount: number }) {
   return (
-    <div className="bg-card ring-1 ring-border rounded-lg p-10 text-center">
+    <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-10 text-center">
       <Lock className="size-6 text-muted-foreground mx-auto mb-3" />
       <h3 className="font-semibold">Restricted by client</h3>
       <p className="text-sm text-muted-foreground mt-1.5 max-w-md mx-auto">

@@ -4,26 +4,23 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ACCESS_LEVEL_META, useAccount, type AccessLevel } from "@/lib/account-context";
-import {
-  sendAgencyInvite,
-  listSentInvites,
-  revokeInvite,
-} from "@/lib/agency-invites.functions";
+import { inviteClientWorkspace } from "@/lib/agency-clients.functions";
+import { listSentInvites, revokeInvite } from "@/lib/invitations.functions";
 
 const LEVELS: AccessLevel[] = ["full", "names_only", "metrics_only"];
 
 export function AgencyAccessPanel() {
-  const { ownWorkspace, setInvitedAgencyEmail, setGrantedAccess } = useAccount();
+  const { ownWorkspace, activeOrganizationId, setInvitedAgencyEmail, setGrantedAccess } = useAccount();
   const [email, setEmail] = useState("");
   const qc = useQueryClient();
 
-  const sendFn = useServerFn(sendAgencyInvite);
+  const sendFn = useServerFn(inviteClientWorkspace);
   const listFn = useServerFn(listSentInvites);
   const revokeFn = useServerFn(revokeInvite);
 
   const { data: invitesData } = useQuery({
     queryKey: ["sent-agency-invites"],
-    queryFn: () => listFn(),
+    queryFn: () => listFn({ data: { organizationId: activeOrganizationId } }),
   });
 
   const pendingInvite = invitesData?.invites?.find(
@@ -34,17 +31,18 @@ export function AgencyAccessPanel() {
     mutationFn: () =>
       sendFn({
         data: {
-          agencyEmail: email.trim(),
-          accessLevel: ownWorkspace.grantedAccess,
+          organizationId: activeOrganizationId,
+          email: email.trim(),
+          accessLevel: ownWorkspace.grantedAccess as "full" | "read_only",
         },
       }),
     onSuccess: (res) => {
       setInvitedAgencyEmail(email.trim());
       setEmail("");
       toast.success(
-        res.matched
-          ? "Invite sent — agency account found, it'll appear in their dashboard."
-          : "Invite sent — we emailed them a signup link.",
+        res.emailSent
+          ? "Invite sent — we emailed them a signup link."
+          : "Invite created — send them the signup link to finish.",
       );
       qc.invalidateQueries({ queryKey: ["sent-agency-invites"] });
     },
@@ -66,7 +64,7 @@ export function AgencyAccessPanel() {
     send.mutate();
   };
 
-  const invited = pendingInvite?.agency_email ?? ownWorkspace.invitedAgencyEmail;
+  const invited = pendingInvite?.email ?? ownWorkspace.invitedAgencyEmail;
 
   return (
     <div className="space-y-4">

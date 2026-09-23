@@ -8,11 +8,12 @@ import {
   saveMetaAdsSettings,
   disconnectMetaAds,
   testMetaAdsConnection,
-} from "@/lib/meta-ads-settings.functions";
-import { listConversionUploads } from "@/lib/google-ads-settings.functions";
+} from "@/lib/integrations.functions";
+import { listConversionUploads } from "@/lib/integrations.functions";
 import { AlertCircle, Check, ExternalLink, Loader2, Plug, Unplug, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/app/integrations/meta-ads")({
+  staticData: { width: "narrow" },
   head: () => ({ meta: [{ title: "Meta Ads — Leadlogr" }] }),
   ssr: false,
   component: MetaAdsPage,
@@ -39,7 +40,7 @@ const STAGES: Array<{ key: keyof FormState; label: string; hint: string; placeho
 
 function MetaAdsPage() {
   const { activeWorkspace } = useAccount();
-  const workspaceKey = activeWorkspace.key;
+  const organizationId = activeWorkspace.key;
   const load = useServerFn(getMetaAdsSettings);
   const save = useServerFn(saveMetaAdsSettings);
   const disconnect = useServerFn(disconnectMetaAds);
@@ -68,8 +69,8 @@ function MetaAdsPage() {
 
   const refresh = useCallback(async () => {
     const [s, u] = await Promise.all([
-      load({ data: { workspaceKey } }),
-      listUploads({ data: { workspaceKey, limit: 25 } }),
+      load({ data: { organizationId } }),
+      listUploads({ data: { organizationId, limit: 25 } }),
     ]);
     if (s.settings) {
       setForm((f) => ({
@@ -89,7 +90,7 @@ function MetaAdsPage() {
       setConnection({ connected: false, connectedAt: null });
     }
     setUploads((u.uploads as never[]).filter((r: any) => r.network === "meta_ads") as never);
-  }, [workspaceKey, load, listUploads]);
+  }, [organizationId, load, listUploads]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,7 +106,7 @@ function MetaAdsPage() {
     try {
       await save({
         data: {
-          workspace_key: workspaceKey,
+          organizationId,
           enabled: form.enabled,
           pixel_id: form.pixel_id,
           // empty string = leave existing token untouched
@@ -130,7 +131,7 @@ function MetaAdsPage() {
 
   const onDisconnect = async () => {
     if (!confirm("Disconnect Meta Ads? Conversion uploads will stop until you reconnect.")) return;
-    await disconnect({ data: { workspaceKey } });
+    await disconnect({ data: { organizationId } });
     await refresh();
   };
 
@@ -138,7 +139,7 @@ function MetaAdsPage() {
     setTesting(true);
     setTestResult(null);
     try {
-      const r = await test({ data: { workspaceKey } });
+      const r = await test({ data: { organizationId } });
       setTestResult(r);
     } finally {
       setTesting(false);

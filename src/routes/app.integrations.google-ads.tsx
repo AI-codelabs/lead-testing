@@ -10,10 +10,11 @@ import {
   disconnectGoogleAds,
   listGoogleAdsCustomers,
   listGoogleAdsConversionActions,
-} from "@/lib/google-ads-settings.functions";
+} from "@/lib/integrations.functions";
 import { Check, AlertCircle, ExternalLink, Loader2, Plug, Unplug, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/app/integrations/google-ads")({
+  staticData: { width: "narrow" },
   head: () => ({ meta: [{ title: "Google Ads — Leadlogr" }] }),
   ssr: false,
   component: GoogleAdsPage,
@@ -42,7 +43,7 @@ type Action = { id: string; name: string; category: string; status: string };
 
 function GoogleAdsPage() {
   const { activeWorkspace } = useAccount();
-  const workspaceKey = activeWorkspace.key;
+  const organizationId = activeWorkspace.key;
   const load = useServerFn(getGoogleAdsSettings);
   const save = useServerFn(saveGoogleAdsSettings);
   const listUploads = useServerFn(listConversionUploads);
@@ -77,8 +78,8 @@ function GoogleAdsPage() {
 
   const refresh = useCallback(async () => {
     const [s, u] = await Promise.all([
-      load({ data: { workspaceKey } }),
-      listUploads({ data: { workspaceKey, limit: 25 } }),
+      load({ data: { organizationId } }),
+      listUploads({ data: { organizationId, limit: 25 } }),
     ]);
     if (s.settings) {
       setForm({
@@ -96,7 +97,7 @@ function GoogleAdsPage() {
       setConnection({ connected: false, email: null, connectedAt: null });
     }
     setUploads(u.uploads as never);
-  }, [workspaceKey, load, listUploads]);
+  }, [organizationId, load, listUploads]);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,19 +144,19 @@ function GoogleAdsPage() {
   useEffect(() => {
     if (!connection.connected) { setCustomers([]); return; }
     setLoadingCustomers(true);
-    listCustomers({ data: { workspaceKey } })
+    listCustomers({ data: { organizationId } })
       .then((r) => { setCustomers(r.customers as Customer[]); if (r.error) setError(r.error); })
       .finally(() => setLoadingCustomers(false));
-  }, [connection.connected, workspaceKey, listCustomers]);
+  }, [connection.connected, organizationId, listCustomers]);
 
   // Auto-load conversion actions when a customer is picked.
   useEffect(() => {
     if (!connection.connected || !form.customer_id) { setActions([]); return; }
     setLoadingActions(true);
-    listActions({ data: { workspaceKey, customerId: form.customer_id, loginCustomerId: form.login_customer_id || undefined } })
+    listActions({ data: { organizationId, customerId: form.customer_id, loginCustomerId: form.login_customer_id || undefined } })
       .then((r) => { setActions(r.actions as Action[]); if (r.error) setError(r.error); })
       .finally(() => setLoadingActions(false));
-  }, [connection.connected, workspaceKey, form.customer_id, form.login_customer_id, listActions]);
+  }, [connection.connected, organizationId, form.customer_id, form.login_customer_id, listActions]);
 
   const onConnect = () => {
     setError(null);
@@ -170,7 +171,7 @@ function GoogleAdsPage() {
     const host = window.location.host;
     const isPreview = host.endsWith(".lovableproject.com") || host.startsWith("id-preview--");
     const base = isPreview ? PUBLISHED_ORIGIN : window.location.origin;
-    const url = `${base}/api/public/oauth/google-ads/start?workspace_key=${encodeURIComponent(workspaceKey)}`;
+    const url = `${base}/api/public/oauth/google-ads/start?workspace_key=${encodeURIComponent(organizationId)}`;
     const w = 520, h = 640;
     const left = window.screenX + (window.outerWidth - w) / 2;
     const top = window.screenY + (window.outerHeight - h) / 2;
@@ -183,14 +184,14 @@ function GoogleAdsPage() {
 
   const onDisconnect = async () => {
     if (!confirm("Disconnect Google Ads? Conversion uploads will stop until you reconnect.")) return;
-    await disconnect({ data: { workspaceKey } });
+    await disconnect({ data: { organizationId } });
     await refresh();
   };
 
   const onSave = async () => {
     setSaving(true);
     try {
-      await save({ data: { workspace_key: workspaceKey, ...form } });
+      await save({ data: { organizationId, ...form } });
       setSaved(true);
       setTimeout(() => setSaved(false), 1800);
     } finally {

@@ -3,11 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAccount } from "@/lib/account-context";
+import { ConsentNotice } from "@/components/leadlogr/consent-notice";
+import { getIngestKey } from "@/lib/organization.functions";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { useLiveLeads } from "@/hooks/use-live-leads";
 import { Check, Copy, ExternalLink, ShieldCheck, Sparkles, Zap, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/tracking")({
+  staticData: { width: "wide" },
   head: () => ({ meta: [{ title: "Tracking Setup — Leadlogr" }] }),
   ssr: false,
   validateSearch: (search: Record<string, unknown>) => ({
@@ -96,21 +101,38 @@ function FlagToggle({
 // Real workspace keys created by handle_new_user() follow ws_<slug>_<8hex>.
 // Anything that doesn't match (e.g. the placeholder "ws_acmemedia" used
 // before profile hydration) must NOT be shown in the install snippet.
-const WORKSPACE_KEY_RE = /^ws_[a-z0-9]+_[a-z0-9]{6,}$/;
+// The tracker authenticates with the workspace's ingest key: a rotatable
+// credential, deliberately separate from the organization id so the id is
+// never exposed in a public snippet.
+const INGEST_KEY_RE = /^[a-f0-9]{32,}$/;
 
 function TrackingPage() {
   const search = Route.useSearch();
-  const { activeWorkspace, authReady, isAuthenticated } = useAccount();
-  const workspaceId = activeWorkspace.key;
-  const workspaceReady = isAuthenticated && WORKSPACE_KEY_RE.test(workspaceId);
+  const { activeWorkspace, activeOrganizationId, authReady, isAuthenticated } = useAccount();
+  const fetchIngestKey = useServerFn(getIngestKey);
+
+  const { data: ingestData } = useQuery({
+    queryKey: ["ingest-key", activeOrganizationId],
+    queryFn: () => fetchIngestKey({ data: { organizationId: activeOrganizationId } }),
+    enabled: isAuthenticated && !!activeOrganizationId,
+  });
+
+  const ingestKey = ingestData?.ingestKey ?? "";
+  const workspaceReady = isAuthenticated && INGEST_KEY_RE.test(ingestKey);
   const integrationId = ["gtm", "wordpress", "api", "zapier"].includes(search.integration) ? search.integration : "gtm";
   const integrationName = INTEGRATION_NAMES[integrationId] ?? "Google Tag Manager";
 
   // Backend (ingest + tracker script) is always served from Lovable, even when
   // the dashboard frontend is hosted elsewhere (e.g. Vercel on leadlogr.com).
-  const BACKEND_ORIGIN = "https://lead-testing.lovable.app";
-  const [origin, setOrigin] = useState<string>(BACKEND_ORIGIN);
-  useEffect(() => { setOrigin(BACKEND_ORIGIN); }, []);
+  // The tracker script and the ingest endpoint are served by THIS app, so the
+  // snippet must point at wherever it is running. Previously hardcoded to the
+  // old Lovable host, which still answers but writes to the retired backend —
+  // live leads would have gone to the wrong database.
+  const [origin, setOrigin] = useState<string>(import.meta.env.VITE_SITE_URL ?? "");
+  useEffect(() => {
+    if (typeof window !== "undefined") setOrigin(window.location.origin);
+  }, []);
+  const BACKEND_ORIGIN = origin || import.meta.env.VITE_SITE_URL || "";
   const defaultEndpoint = `${BACKEND_ORIGIN}/api/public/leads/collect`;
   const trackerSrc = `${BACKEND_ORIGIN}/api/public/tracker/v1`;
 
@@ -124,7 +146,7 @@ function TrackingPage() {
   });
 
   // Live ingestion status
-  const liveLeads = useLiveLeads(workspaceId);
+  const liveLeads = useLiveLeads(activeOrganizationId);
   const integrationLeads = useMemo(
     () => liveLeads.filter((lead) => (lead.integrationId || "gtm") === integrationId),
     [liveLeads, integrationId],
@@ -149,7 +171,7 @@ function TrackingPage() {
   if (window.__LEADLOGR_LOADED__) return;
   window.__LEADLOGR_LOADED__ = true;
   window.LEADLOGR_CONFIG = {
-    workspaceId: ${JSON.stringify(workspaceId)},
+    ingestKey: ${JSON.stringify(ingestKey)},
     endpoint:    ${JSON.stringify(effectiveEndpoint)},
     integrationId: ${JSON.stringify(integrationId)},
     debug:       ${flags.debug},
@@ -166,7 +188,7 @@ function TrackingPage() {
 <script
   id="leadlogr-tracker"
   src="${trackerSrc}"
-  data-workspace-id="${workspaceId}"
+  data-ingest-key="${ingestKey}"
   data-endpoint="${effectiveEndpoint}"
   data-integration-id="${integrationId}"
   data-debug="${flags.debug}"
@@ -221,6 +243,10 @@ window.Leadlogr.submitForm({
                 <Loader2 className="size-3 animate-spin" /> {authReady && !isAuthenticated ? "Sign in to view" : "Loading workspace…"}
               </span>
             )}
+          </div>
+
+          <div className="mb-4">
+            <ConsentNotice allowConsentFallback={flags.allowConsentFallback} />
           </div>
 
           {!workspaceReady && (
@@ -300,7 +326,7 @@ window.Leadlogr.submitForm({
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
-                            workspace_key: workspaceId,
+                            ingest_key: ingestKey,
                             integration_id: integrationId,
                             name: "Test Lead",
                             email: "test@example.com",
@@ -317,7 +343,7 @@ window.Leadlogr.submitForm({
                         if (!res.ok) {
                           toast.error(
                             body?.error === "unknown_workspace"
-                              ? `Unknown workspace key (${workspaceId}). Re-copy the snippet from this page.`
+                              ? `Unknown ingest key (${ingestKey.slice(0, 12)}…). Re-copy the snippet from this page.`
                               : `Test event failed (${res.status})`,
                           );
                           return;
@@ -346,9 +372,9 @@ window.Leadlogr.submitForm({
             </label>
             <div className="mt-1.5 flex items-center gap-2">
               <code className="flex-1 text-xs font-mono px-3 py-2 rounded-md bg-muted/40 ring-1 ring-border truncate">
-                {workspaceId}
+                {ingestKey}
               </code>
-              <CopyButton text={workspaceId} />
+              <CopyButton text={ingestKey} />
             </div>
             <p className="text-[11px] text-muted-foreground mt-1.5">
               Routes incoming leads to this workspace. Auto-filled.

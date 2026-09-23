@@ -6,10 +6,11 @@ import { PageHeader } from "@/components/leadlogr/page-header";
 import { IntegrationLogo } from "@/components/leadlogr/integration-logo";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAccount } from "@/lib/account-context";
-import { getIntegrationStatuses } from "@/lib/integration-status.functions";
+import { getIntegrationStatuses } from "@/lib/integrations.functions";
 import { Check } from "lucide-react";
 
 export const Route = createFileRoute("/app/integrations")({
+  staticData: { width: "wide" },
   head: () => ({ meta: [{ title: "Integrations — Leadlogr" }] }),
   component: IntegrationsPage,
 });
@@ -184,7 +185,7 @@ function ConnectedBadge({ label = "Connected" }: { label?: string }) {
 
 function IntegrationCard({ item, connected }: { item: IntegrationItem; connected?: boolean }) {
   return (
-    <div className="bg-card ring-1 ring-border rounded-lg p-5 flex flex-col">
+    <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-5 flex flex-col">
       <div className="flex items-start justify-between mb-4">
         <div className="size-10 rounded-md bg-muted ring-1 ring-border grid place-items-center text-foreground">
           <IntegrationLogo id={item.id} />
@@ -264,12 +265,12 @@ function Grid({ items, connectedIds }: { items: IntegrationItem[]; connectedIds:
 function IntegrationsPage() {
   const location = useLocation();
   const { activeWorkspace } = useAccount();
-  const workspaceKey = activeWorkspace.key;
+  const organizationId = activeWorkspace.key;
   const fetchStatuses = useServerFn(getIntegrationStatuses);
   const { data: statuses } = useQuery({
-    queryKey: ["integration-statuses", workspaceKey],
-    queryFn: () => fetchStatuses({ data: { workspaceKey } }),
-    enabled: !!workspaceKey,
+    queryKey: ["integration-statuses", organizationId],
+    queryFn: () => fetchStatuses({ data: { organizationId } }),
+    enabled: !!organizationId,
   });
 
   const connectedIds = useMemo(() => {

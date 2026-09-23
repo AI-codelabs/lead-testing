@@ -2,6 +2,9 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AppSidebar } from "@/components/leadlogr/app-sidebar";
 import { useAccount } from "@/lib/account-context";
+import { PageContainer } from "@/components/leadlogr/page-container";
+import { usePageWidth } from "@/lib/page-width";
+
 
 export const Route = createFileRoute("/app")({
   ssr: false,
@@ -9,15 +12,31 @@ export const Route = createFileRoute("/app")({
 });
 
 function AppLayout() {
-  const { accountType, isAgencyViewing, viewingClientId, clientWorkspaces, ownWorkspace } = useAccount();
+  const pageWidth = usePageWidth();
+  const {
+    accountType, isAgencyViewing, viewingClientId, clientWorkspaces, ownWorkspace, workspaceReady,
+    authReady,
+    isAuthenticated,
+  } = useAccount();
   const navigate = useNavigate();
 
-  // Agencies that aren't currently inside a client workspace get bounced to /agency.
+  // Agencies that aren't currently inside a client workspace get bounced to
+  // /agency — but only once the active organization has actually been resolved.
+  // accountType is restored from localStorage on mount, so acting on it before
+  // then redirects using a value the server has not confirmed, and a user whose
+  // account type has changed gets bounced to the wrong section.
   useEffect(() => {
+    // See agency.tsx: a signed-out user must land on /login, not be shuffled
+    // between authenticated sections by a stale account type.
+    if (authReady && !isAuthenticated) {
+      navigate({ to: "/login", replace: true });
+      return;
+    }
+    if (!workspaceReady) return;
     if (accountType === "agency" && !isAgencyViewing) {
       navigate({ to: "/agency", replace: true });
     }
-  }, [accountType, isAgencyViewing, navigate]);
+  }, [authReady, isAuthenticated, workspaceReady, accountType, isAgencyViewing, navigate]);
 
   const workspaceName = isAgencyViewing
     ? clientWorkspaces.find((c) => c.id === viewingClientId)?.name ?? "Client"
@@ -36,9 +55,9 @@ function AppLayout() {
             <span className="text-xs font-medium text-muted-foreground">All systems synced</span>
           </div>
         </div>
-        <div className="p-8 max-w-7xl">
+        <PageContainer width={pageWidth}>
           <Outlet />
-        </div>
+        </PageContainer>
       </main>
     </div>
   );

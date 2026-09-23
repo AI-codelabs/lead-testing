@@ -1,8 +1,12 @@
-import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
-import { LayoutGrid, LogOut, Mail, Settings } from "lucide-react";
+import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { LayoutGrid, Mail, Settings } from "lucide-react";
+import { PageContainer } from "@/components/leadlogr/page-container";
+import { usePageWidth } from "@/lib/page-width";
 import { Logo } from "@/components/leadlogr/logo";
 import { useAccount } from "@/lib/account-context";
 import { WorkspaceSwitcher } from "@/components/agency/workspace-switcher";
+import { OrganizationSwitcher } from "@/components/leadlogr/organization-switcher";
 
 export const Route = createFileRoute("/agency")({
   ssr: false,
@@ -10,29 +14,47 @@ export const Route = createFileRoute("/agency")({
 });
 
 function AgencyLayout() {
-  const { accountType, signOut } = useAccount();
+  const pageWidth = usePageWidth();
+  const { accountType, workspaceReady, authReady, isAuthenticated } = useAccount();
   const navigate = useNavigate();
 
-  // Soft guard: if not an agency, send them back to the app.
-  if (accountType !== "agency") {
-    if (typeof window !== "undefined") {
-      throw redirect({ to: "/app/account" });
+  // Soft guard: non-agency workspaces belong in the main app.
+  //
+  // This runs in an effect rather than `throw redirect()` in the render body.
+  // A thrown redirect here is caught by the route's error boundary instead of
+  // being handled by the router, which surfaced as "This page didn't load".
+  // The account type is also only known once the active organization has
+  // resolved, so acting earlier redirects on an unconfirmed default.
+  useEffect(() => {
+    // Signing out clears the account type, which would otherwise read as
+    // "not an agency" and bounce the user into the authenticated app shell
+    // instead of the login page.
+    if (authReady && !isAuthenticated) {
+      navigate({ to: "/login", replace: true });
+      return;
     }
-    return null;
-  }
+    if (!workspaceReady) return;
+    if (accountType !== "agency") {
+      navigate({ to: "/app/account", replace: true });
+    }
+  }, [authReady, isAuthenticated, workspaceReady, accountType, navigate]);
+
+  if (!isAuthenticated || !workspaceReady || accountType !== "agency") return null;
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-      <aside className="w-60 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col h-screen sticky top-0">
+      <aside className="w-60 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col sticky top-[var(--agency-bar-height,0px)] h-[calc(100dvh-var(--agency-bar-height,0px))]">
         <div className="h-16 px-5 flex items-center border-b border-sidebar-border">
           <Logo to="/agency" />
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
+        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
           <Link
             to="/agency"
             activeOptions={{ exact: true }}
             activeProps={{ className: "bg-muted text-foreground ring-1 ring-border" }}
-            inactiveProps={{ className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground" }}
+            inactiveProps={{
+              className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+            }}
             className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors"
           >
             <LayoutGrid className="size-4" />
@@ -41,7 +63,9 @@ function AgencyLayout() {
           <Link
             to="/agency/invites"
             activeProps={{ className: "bg-muted text-foreground ring-1 ring-border" }}
-            inactiveProps={{ className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground" }}
+            inactiveProps={{
+              className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+            }}
             className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors"
           >
             <Mail className="size-4" />
@@ -50,26 +74,18 @@ function AgencyLayout() {
           <Link
             to="/agency/account"
             activeProps={{ className: "bg-muted text-foreground ring-1 ring-border" }}
-            inactiveProps={{ className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground" }}
+            inactiveProps={{
+              className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+            }}
             className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors"
           >
             <Settings className="size-4" />
             Account
           </Link>
         </nav>
-        <div className="p-3 border-t border-sidebar-border space-y-2">
+        <div className="shrink-0 p-3 border-t border-sidebar-border space-y-2">
           <WorkspaceSwitcher />
-          <button
-            type="button"
-            onClick={async () => {
-              await signOut();
-              navigate({ to: "/login" });
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
-          >
-            <LogOut className="size-4" />
-            Sign out
-          </button>
+          <OrganizationSwitcher />
         </div>
       </aside>
       <main className="flex-1 min-w-0">
@@ -78,9 +94,9 @@ function AgencyLayout() {
             Agency · Overview
           </div>
         </div>
-        <div className="p-8 max-w-7xl">
+        <PageContainer width={pageWidth}>
           <Outlet />
-        </div>
+        </PageContainer>
       </main>
     </div>
   );

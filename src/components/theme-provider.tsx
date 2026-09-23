@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 export type Theme = "light" | "dark" | "system";
 
 const STORAGE_KEY = "leadlogr.theme";
-const DEFAULT_THEME: Theme = "dark";
+const DEFAULT_THEME: Theme = "light";
 
 interface ThemeContextValue {
   theme: Theme;
@@ -20,7 +20,9 @@ function readStoredTheme(): Theme {
 }
 
 function systemPrefersDark(): boolean {
-  if (typeof window === "undefined") return true;
+  // On the server there is no media query to consult. Match DEFAULT_THEME so the
+  // markup React renders agrees with what the bootstrap script applies.
+  if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
@@ -43,7 +45,7 @@ export const themeBootstrapScript = `
   var r=document.documentElement;
   if(d)r.classList.add('dark');else r.classList.remove('dark');
   r.style.colorScheme=d?'dark':'light';
-}catch(e){document.documentElement.classList.add('dark');}})();
+}catch(e){/* storage blocked: fall back to the light default */}})();
 `.trim();
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

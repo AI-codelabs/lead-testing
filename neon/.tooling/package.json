@@ -1,0 +1,7 @@
+{
+  "name": "neon-port-tooling",
+  "private": true,
+  "type": "module",
+  "description": "Applies the Supabase-compat shim + migrations to Neon. Not part of the app build.",
+  "dependencies": { "pg": "^8.23.0" }
+}

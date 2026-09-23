@@ -120,7 +120,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // themeBootstrapScript sets the theme class and color-scheme on this
+    // element before React hydrates, so the DOM deliberately differs from the
+    // server markup here. Without this, React logs a hydration mismatch on
+    // every page load and discards the server-rendered tree.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <HeadContent />

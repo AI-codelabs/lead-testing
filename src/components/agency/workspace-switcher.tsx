@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, Link} from "@tanstack/react-router";
 import { Briefcase, Check, ChevronsUpDown, LayoutGrid } from "lucide-react";
 import { useAccount } from "@/lib/account-context";
 import {
@@ -100,8 +100,13 @@ export function WorkspaceSwitcher() {
           );
         })}
         {clientWorkspaces.length === 0 && (
-          <div className="px-2 py-1.5 text-xs text-muted-foreground">
-            No clients yet.
+          // A dropdown is too tight for a featured icon, so this stays text —
+          // but it points somewhere instead of dead-ending.
+          <div className="px-2 py-2 text-xs text-muted-foreground">
+            No client workspaces yet.{" "}
+            <Link to="/agency/invites" className="font-medium text-foreground underline underline-offset-2">
+              Invite one
+            </Link>
           </div>
         )}
       </DropdownMenuContent>

@@ -3,10 +3,11 @@ import { AuthShell, Field } from "@/components/leadlogr/auth-shell";
 import { useEffect, useState, type FormEvent } from "react";
 import { Briefcase, Building2, MailCheck } from "lucide-react";
 import { useAccount, type AccountType } from "@/lib/account-context";
-import { supabase } from "@/integrations/supabase/client";
+import { signUp, authClient } from "@/auth/client";
+import { createOrganization } from "@/auth/session";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useServerFn } from "@tanstack/react-start";
-import { acceptInvite } from "@/lib/agency-invites.functions";
+import { acceptInvite } from "@/lib/invitations.functions";
 
 const PENDING_INVITE_KEY = "leadlogr.pending_invite_token";
 const PENDING_CLIENT_INVITE_KEY = "leadlogr.pending_client_invite_token";
@@ -20,10 +21,10 @@ export const Route = createFileRoute("/signup")({
     ],
   }),
   validateSearch: (s: Record<string, unknown>) => {
-    const out: Partial<{ invite: string; clientInvite: string; agencyMember: string }> = {};
+    const out: Partial<{ invite: string; clientInvite: string; memberInvite: string }> = {};
     if (typeof s.invite === "string") out.invite = s.invite;
     if (typeof s.clientInvite === "string") out.clientInvite = s.clientInvite;
-    if (typeof s.agencyMember === "string") out.agencyMember = s.agencyMember;
+    if (typeof s.memberInvite === "string") out.memberInvite = s.memberInvite;
     return out;
   },
   component: SignupPage,
@@ -50,7 +51,7 @@ function SignupPage() {
   const search = Route.useSearch();
   const inviteToken = search.invite;
   const clientInviteToken = search.clientInvite;
-  const memberInviteToken = search.agencyMember;
+  const memberInviteToken = search.memberInvite;
   const acceptFn = useServerFn(acceptInvite);
   const forcedType: AccountType | null = clientInviteToken
     ? "standard"
@@ -66,6 +67,30 @@ function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  /** Null while unknown, so the form does not flicker between the two shapes. */
+  const [hasSession, setHasSession] = useState<boolean | null>(null);
+
+  // An authenticated visitor with no workspace only needs the workspace step.
+  useEffect(() => {
+    let cancelled = false;
+    authClient
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const user = data?.user ?? null;
+        setHasSession(!!user);
+        if (user?.email) setEmail(user.email);
+        if (user?.name) {
+          const [first, ...rest] = user.name.split(" ");
+          setFirstName(first ?? "");
+          setLastName(rest.join(" "));
+        }
+      })
+      .catch(() => !cancelled && setHasSession(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Persist invite tokens so they survive email-confirm round trips.
   useEffect(() => {
@@ -84,45 +109,49 @@ function SignupPage() {
       const effectiveWorkspaceName = memberInviteToken
         ? `${ownerName || email.split("@")[0] || "Teammate"}'s space`
         : workspaceName.trim();
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/app/dashboard`,
-          data: {
-            account_type: type,
-            workspace_name: effectiveWorkspaceName,
-            owner_name: ownerName,
-          },
-        },
-      });
-      if (signUpError) throw signUpError;
+
+      // Someone can arrive here already authenticated but without a workspace:
+      // login sends them over when resolveActiveOrganization finds no
+      // organization, and an invited client lands here from their invite link.
+      // Signing them up again would fail on the duplicate email, so in that
+      // case only the workspace still needs creating.
+      if (!hasSession) {
+        const { error: signUpError } = await signUp.email({
+          email: email.trim(),
+          password,
+          name: ownerName || email.split("@")[0],
+        });
+        if (signUpError) throw new Error(signUpError.message ?? "Could not create account");
+      }
+
+      // Better Auth creates the user and signs them in. The workspace is ours
+      // to create: it becomes a Better Auth organization plus our settings row.
+      await createOrganization(effectiveWorkspaceName, type);
+
       createAccount({
         accountType: type,
         workspaceName: effectiveWorkspaceName,
         ownerName,
         ownerEmail: email,
       });
-      if (data.session) {
-        const tokenToAccept =
-          (type === "agency" && memberInviteToken) ||
-          (type === "agency" && inviteToken) ||
-          (type === "standard" && clientInviteToken) ||
-          null;
-        if (tokenToAccept) {
-          try {
-            await acceptFn({ data: { token: tokenToAccept } });
-            window.localStorage.removeItem(PENDING_INVITE_KEY);
-            window.localStorage.removeItem(PENDING_CLIENT_INVITE_KEY);
-            window.localStorage.removeItem(PENDING_MEMBER_INVITE_KEY);
-          } catch (err) {
-            console.error("Failed to auto-accept invite", err);
-          }
+      // Better Auth signs the user in as part of sign-up, so there is no
+      // "check your inbox" step here the way Supabase's email confirmation had.
+      const tokenToAccept =
+        (type === "agency" && memberInviteToken) ||
+        (type === "agency" && inviteToken) ||
+        (type === "standard" && clientInviteToken) ||
+        null;
+      if (tokenToAccept) {
+        try {
+          await acceptFn({ data: { token: tokenToAccept } });
+          window.localStorage.removeItem(PENDING_INVITE_KEY);
+          window.localStorage.removeItem(PENDING_CLIENT_INVITE_KEY);
+          window.localStorage.removeItem(PENDING_MEMBER_INVITE_KEY);
+        } catch (err) {
+          console.error("Failed to auto-accept invite", err);
         }
-        navigate({ to: type === "agency" ? "/agency" : "/app/dashboard" });
-      } else {
-        setConfirmOpen(true);
       }
+      navigate({ to: type === "agency" ? "/agency" : "/app/dashboard" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create account");
     } finally {
@@ -135,8 +164,12 @@ function SignupPage() {
   return (
     <>
     <AuthShell
-      title="Create your account"
-      subtitle="Choose how you'll use Leadlogr — for your own workspace or to manage many."
+      title={hasSession ? "Create your workspace" : "Create your account"}
+      subtitle={
+        hasSession
+          ? `Signed in as ${email || "your account"}. Name the workspace to finish setting up.`
+          : "Choose how you'll use Leadlogr — for your own workspace or to manage many."
+      }
       footer={
         <>
           Already have an account?{" "}
@@ -175,11 +208,15 @@ function SignupPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="First name" placeholder="Jane" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-          <Field label="Last name" placeholder="Doe" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
-        </div>
-        <Field label="Work email" type="email" placeholder="you@company.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        {!hasSession && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="First name" placeholder="Jane" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+              <Field label="Last name" placeholder="Doe" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+            </div>
+            <Field label="Work email" type="email" placeholder="you@company.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </>
+        )}
         {!memberInviteToken && !clientInviteToken && (
           <Field
             label={isAgency ? "Agency name" : "Workspace name"}
@@ -189,15 +226,17 @@ function SignupPage() {
             required
           />
         )}
-        <Field
-          label="Password"
-          type="password"
-          placeholder="At least 8 characters"
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        {!hasSession && (
+          <Field
+            label="Password"
+            type="password"
+            placeholder="At least 8 characters"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        )}
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
         <button
           type="submit"

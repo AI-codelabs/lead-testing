@@ -1,3 +1,12 @@
+/** Any JSON a form field can produce: text, number, checkbox, multi-select, group. */
+export type FormAnswerValue =
+  | string
+  | number
+  | boolean
+  | null
+  | FormAnswerValue[]
+  | { [key: string]: FormAnswerValue };
+
 export type Priority = "Low" | "Medium" | "High";
 export type Qualification = "Unqualified" | "Qualified" | "Customer";
 export type Consent = "Unknown" | "Accepted" | "Declined";
@@ -115,6 +124,15 @@ export interface Lead {
   referrerUrl: string;
   // Consent
   consent: Consent;
+  /**
+   * Answers from the customer's own intake form.
+   *
+   * Intentionally schema-free: every workspace asks different questions, so
+   * anything the collector does not recognise as a known field lands here
+   * verbatim. Typed as JSON rather than `unknown` so it can cross the server
+   * function boundary.
+   */
+  formAnswers: Record<string, FormAnswerValue>;
   // Lifecycle
   label: LeadLabel;
   /** ISO date when this lead expires (auto-closes if no activity). */
@@ -234,6 +252,7 @@ export function emptyLead(stage: string = "New"): Lead {
     pagePath: "",
     referrerUrl: "",
     consent: "Unknown",
+    formAnswers: {},
     history: [
       { id: crypto.randomUUID(), kind: "created", at: now.toISOString(), message: "Lead created" },
     ],

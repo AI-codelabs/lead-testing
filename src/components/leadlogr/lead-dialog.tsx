@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FormAnswers } from "./form-answers";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,25 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
       setTagInput("");
     }
   }, [open, lead]);
+
+  // Only count questions that were actually answered, so the badge reflects
+
+  // what there is to read rather than how many fields the form has.
+
+  const answerCount = Object.values(draft.formAnswers ?? {}).filter(
+
+    (v) =>
+
+      v !== null &&
+
+      v !== undefined &&
+
+      !(typeof v === "string" && v.trim() === "") &&
+
+      !(Array.isArray(v) && v.length === 0),
+
+  ).length;
+
 
   const set = <K extends keyof Lead>(key: K, value: Lead[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -92,6 +112,7 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
             <TabsList className="bg-transparent p-0 h-auto gap-0 w-full justify-start rounded-none">
               {[
                 ["contact", "Contact"],
+                ["answers", answerCount > 0 ? `Answers · ${answerCount}` : "Answers"],
                 ["details", "Details"],
                 ["tracking", "Tracking"],
                 ["urls", "URLs"],
@@ -121,6 +142,15 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
               <Field label="Lead description">
                 <Textarea rows={4} value={draft.description} onChange={(e) => set("description", e.target.value)} />
               </Field>
+            </TabsContent>
+
+            <TabsContent value="answers" className="mt-0 space-y-4">
+              <SectionTitle>Form answers</SectionTitle>
+              <p className="-mt-2 text-xs text-muted-foreground">
+                Submitted with this lead. Fields come from your own form, so they differ per
+                workspace.
+              </p>
+              <FormAnswers answers={draft.formAnswers ?? {}} />
             </TabsContent>
 
             <TabsContent value="details" className="mt-0 space-y-4">

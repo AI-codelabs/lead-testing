@@ -1,15 +1,9 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Logo } from "./logo";
-import {
-  LayoutDashboard,
-  KanbanSquare,
-  Users,
-  Plug,
-  Settings,
-  LogOut,
-} from "lucide-react";
+import { LayoutDashboard, KanbanSquare, Users, Plug, Settings, LogOut } from "lucide-react";
 import { useAccount } from "@/lib/account-context";
 import { WorkspaceSwitcher } from "@/components/agency/workspace-switcher";
+import { OrganizationSwitcher } from "@/components/leadlogr/organization-switcher";
 
 const nav = [
   { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -30,11 +24,11 @@ export function AppSidebar() {
     navigate({ to: "/login", replace: true });
   };
   return (
-    <aside className="w-60 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col h-screen sticky top-0">
+    <aside className="w-60 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col sticky top-[var(--agency-bar-height,0px)] h-[calc(100dvh-var(--agency-bar-height,0px))]">
       <div className="h-16 px-5 flex items-center border-b border-sidebar-border">
         <Logo to="/app/dashboard" />
       </div>
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {visibleNav.map(({ to, label, icon: Icon }) => (
           <Link
             key={to}
@@ -50,26 +44,9 @@ export function AppSidebar() {
           </Link>
         ))}
       </nav>
-      <div className="p-3 border-t border-sidebar-border">
-        {isAgency ? (
-          <WorkspaceSwitcher />
-        ) : (
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="size-8 rounded-full bg-muted ring-1 ring-border" />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{ownWorkspace.ownerName}</div>
-              <div className="text-xs text-muted-foreground truncate">{ownWorkspace.name}</div>
-            </div>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Sign out"
-            >
-              <LogOut className="size-4" />
-            </button>
-          </div>
-        )}
+      <div className="shrink-0 p-3 border-t border-sidebar-border space-y-1">
+        {isAgency && <WorkspaceSwitcher />}
+        <OrganizationSwitcher />
       </div>
     </aside>
   );

@@ -1,263 +1,290 @@
 import { createServerFn } from "@tanstack/react-start";
+import { withOwner } from "@/db";
+import {
+  buildGoogleAdsCreds,
+  uploadClickConversion,
+  sha256Hex,
+  formatConversionDateTime,
+} from "./google-ads.server";
+import { sendMetaCapiEvent, buildFbc } from "./meta-capi.server";
+import type { DbStage } from "./lead-mapping";
 
 /**
- * Send (or re-send) a Google Ads click conversion for one lead at a given stage.
- * - Only fires when the lead has a gclid/wbraid/gbraid (i.e. it actually came from Google).
- * - Idempotent per (lead_id, network, stage): a successful upload is recorded in
- *   conversion_uploads and won't be sent again.
- * - Records request/response and failures for debugging.
+ * Conversion upload to Google Ads and Meta.
  *
- * Returns a serialisable status. Never throws on upstream API failures —
- * caller logs and continues.
+ * Runs on the owner connection rather than a user-scoped one, because it needs
+ * ad platform credentials that app_user is deliberately not granted, and
+ * because it is triggered in the background where no session exists. The lead
+ * id is resolved to its organization here — nothing about the tenant comes
+ * from the caller.
  */
-export const sendGoogleAdsConversion = createServerFn({ method: "POST" })
-  .inputValidator((data: { leadId: string; stage: string }) => {
-    if (!data || typeof data.leadId !== "string" || typeof data.stage !== "string") {
-      throw new Error("Invalid input");
-    }
-    return data;
-  })
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const {
-      buildGoogleAdsCreds,
-      uploadClickConversion,
-      formatConversionDateTime,
-      sha256Hex,
-    } = await import("./google-ads.server");
 
-    const stage = data.stage;
-    const STAGE_MAP: Record<string, "conversion_action_new" | "conversion_action_qualified" | "conversion_action_won" | "conversion_action_lost"> = {
-      New: "conversion_action_new",
-      Qualified: "conversion_action_qualified",
-      Won: "conversion_action_won",
-      Lost: "conversion_action_lost",
-      Disqualified: "conversion_action_lost",
-    };
-    const settingsField = STAGE_MAP[stage];
-    if (!settingsField) {
-      return { ok: false, skipped: true, reason: `unsupported_stage:${stage}` };
-    }
+const STAGE_TO_ACTION_COLUMN: Record<DbStage, string | null> = {
+  new: "action_new",
+  contacted: null,
+  qualified: "action_qualified",
+  won: "action_won",
+  lost: "action_lost",
+  disqualified: "action_lost",
+};
 
-    // Already uploaded successfully? — short-circuit (dedupes Google's side too).
-    const existing = await supabaseAdmin
-      .from("conversion_uploads")
-      .select("id, status")
-      .eq("lead_id", data.leadId)
-      .eq("network", "google_ads")
-      .eq("stage", stage)
-      .maybeSingle();
-    if (existing.data && existing.data.status === "success") {
-      return { ok: true, skipped: true, reason: "already_sent" };
-    }
+type LeadForUpload = {
+  id: string;
+  organization_id: string;
+  stage: DbStage;
+  email: string | null;
+  phone: string | null;
+  consent: string;
+  gclid: string | null;
+  wbraid: string | null;
+  gbraid: string | null;
+  fbclid: string | null;
+  fbp: string | null;
+  won_value: string | null;
+  currency: string;
+  stage_changed_at: string | null;
+  updated_at: string;
+  created_at: string;
+};
 
-    const { data: lead, error: leadErr } = await supabaseAdmin
-      .from("leads")
-      .select("*")
-      .eq("id", data.leadId)
-      .single();
-    if (leadErr || !lead) return { ok: false, skipped: true, reason: "lead_not_found" };
+type SettingsForUpload = {
+  enabled: boolean;
+  account_id: string | null;
+  secondary_id: string | null;
+  default_currency: string;
+  test_event_code: string | null;
+  action: string | null;
+  refresh_token: string | null;
+  access_token: string | null;
+};
 
-    // Must have a Google click identifier
-    const gclid = (lead as any).gclid as string;
-    const wbraid = (lead as any).wbraid as string;
-    const gbraid = (lead as any).gbraid as string;
-    if (!gclid && !wbraid && !gbraid) {
-      return { ok: false, skipped: true, reason: "no_google_click_id" };
-    }
+async function loadContext(leadId: string, network: "google_ads" | "meta_ads", stage: DbStage) {
+  const actionColumn = STAGE_TO_ACTION_COLUMN[stage];
+  if (!actionColumn) return null;
 
-    const { data: settings } = await supabaseAdmin
-      .from("google_ads_settings")
-      .select("*")
-      .eq("workspace_key", lead.workspace_key)
-      .maybeSingle();
-    if (!settings || !settings.enabled) {
-      return { ok: false, skipped: true, reason: "google_ads_not_configured" };
-    }
-    if (!settings.customer_id) {
-      return { ok: false, skipped: true, reason: "no_customer_id" };
-    }
-    const conversionActionId = (settings as unknown as Record<string, string | null>)[settingsField];
-    if (!conversionActionId) {
-      return { ok: false, skipped: true, reason: `no_conversion_action_for:${stage}` };
-    }
+  return withOwner(async (db) => {
+    const lead = await db.one<LeadForUpload>(
+      `SELECT id, organization_id, stage, email, phone, consent::text AS consent,
+              gclid, wbraid, gbraid, fbclid, fbp, won_value, currency,
+              stage_changed_at, updated_at, created_at
+         FROM public.leads WHERE id = $1`,
+      [leadId],
+    );
+    if (!lead) return null;
 
-    const creds = buildGoogleAdsCreds((settings as { oauth_refresh_token?: string | null }).oauth_refresh_token);
-    if (!creds) {
-      return { ok: false, skipped: true, reason: "not_connected" };
-    }
-
-    // Enhanced conversions: hashed email + phone (when consent was given).
-    const userIdentifiers: Array<{ hashedEmail: string } | { hashedPhoneNumber: string }> = [];
-    const consent = String(lead.consent || "").toLowerCase();
-    if (consent === "accepted") {
-      if (lead.email) userIdentifiers.push({ hashedEmail: await sha256Hex(lead.email) });
-      if (lead.phone) userIdentifiers.push({ hashedPhoneNumber: await sha256Hex(lead.phone.replace(/[^\d+]/g, "")) });
-    }
-
-    const value =
-      stage === "Won" && (lead as any).won_value != null
-        ? Number((lead as any).won_value)
-        : undefined;
-
-    const conversionDateTime = formatConversionDateTime(
-      new Date((lead as any).stage_changed_at || lead.updated_at || lead.created_at),
+    const settings = await db.one<SettingsForUpload>(
+      `SELECT s.enabled, s.account_id, s.secondary_id, s.default_currency, s.test_event_code,
+              s.${actionColumn} AS action,
+              c.refresh_token, c.access_token
+         FROM public.ad_platform_settings s
+    LEFT JOIN public.ad_platform_credentials c
+           ON c.organization_id = s.organization_id AND c.network = s.network
+        WHERE s.organization_id = $1 AND s.network = $2::ad_network`,
+      [lead.organization_id, network],
     );
 
-    const result = await uploadClickConversion(creds, {
-      customerId: settings.customer_id,
-      loginCustomerId: settings.login_customer_id ?? undefined,
-      conversionActionId,
-      gclid: gclid || undefined,
-      wbraid: !gclid && wbraid ? wbraid : undefined,
-      gbraid: !gclid && !wbraid && gbraid ? gbraid : undefined,
-      conversionDateTime,
-      value,
-      currencyCode: value != null ? settings.default_currency || "EUR" : undefined,
-      orderId: `${lead.id}:${stage}`,
-      userIdentifiers: userIdentifiers.length ? userIdentifiers : undefined,
-    });
+    return { lead, settings };
+  });
+}
 
-    const row = {
-      lead_id: lead.id,
-      workspace_key: lead.workspace_key,
-      network: "google_ads",
-      stage,
-      status: result.ok ? "success" : "failed",
-      conversion_action: conversionActionId,
-      value: value ?? null,
-      currency: value != null ? settings.default_currency || "EUR" : null,
-      click_id: gclid || wbraid || gbraid,
-      click_id_type: gclid ? "gclid" : wbraid ? "wbraid" : "gbraid",
-      request_payload: JSON.parse(JSON.stringify(result.request)),
-      response_payload: JSON.parse(JSON.stringify(result.response)),
-      error: result.error ?? null,
-      attempts: (existing.data ? 1 : 0) + 1,
-      attempted_at: new Date().toISOString(),
-      succeeded_at: result.ok ? new Date().toISOString() : null,
-    };
-    await supabaseAdmin
-      .from("conversion_uploads")
-      .upsert(row as never, { onConflict: "lead_id,network,stage" });
+async function recordUpload(row: {
+  organizationId: string;
+  leadId: string;
+  network: "google_ads" | "meta_ads";
+  stage: DbStage;
+  status: "sent" | "failed" | "skipped";
+  conversionAction: string | null;
+  value: number | null;
+  currency: string | null;
+  clickId: string | null;
+  clickIdType: string | null;
+  request: unknown;
+  response: unknown;
+  error: string | null;
+}) {
+  await withOwner((db) =>
+    db.sql(
+      `INSERT INTO public.conversion_uploads AS u
+         (organization_id, lead_id, network, stage, status, conversion_action,
+          value, currency, click_id, click_id_type,
+          request_payload, response_payload, error, attempts, attempted_at, succeeded_at)
+       VALUES ($1, $2, $3::ad_network, $4::lead_stage, $5::upload_status, $6,
+               $7, $8, $9, $10, $11, $12, $13, 1, now(),
+               CASE WHEN $5 = 'sent' THEN now() END)
+       ON CONFLICT (lead_id, network, stage) DO UPDATE SET
+         status           = EXCLUDED.status,
+         conversion_action= EXCLUDED.conversion_action,
+         value            = EXCLUDED.value,
+         currency         = EXCLUDED.currency,
+         click_id         = EXCLUDED.click_id,
+         click_id_type    = EXCLUDED.click_id_type,
+         request_payload  = EXCLUDED.request_payload,
+         response_payload = EXCLUDED.response_payload,
+         error            = EXCLUDED.error,
+         attempts         = u.attempts + 1,
+         attempted_at     = now(),
+         succeeded_at     = CASE WHEN EXCLUDED.status = 'sent' THEN now() ELSE u.succeeded_at END`,
+      [
+        row.organizationId,
+        row.leadId,
+        row.network,
+        row.stage,
+        row.status,
+        row.conversionAction,
+        row.value,
+        row.currency,
+        row.clickId,
+        row.clickIdType,
+        JSON.stringify(row.request ?? null),
+        JSON.stringify(row.response ?? null),
+        row.error,
+      ],
+    ),
+  );
+}
 
-    return { ok: result.ok, status: result.status, error: result.error };
+type UploadResult = { ok: boolean; skipped?: boolean; reason?: string; error?: string };
+
+async function uploadGoogleAds(leadId: string, stage: DbStage): Promise<UploadResult> {
+  const ctx = await loadContext(leadId, "google_ads", stage);
+  if (!ctx) return { ok: false, skipped: true, reason: "stage_not_reported" };
+
+  const { lead, settings } = ctx;
+  if (!settings?.enabled) return { ok: false, skipped: true, reason: "not_configured" };
+  if (!settings.account_id) return { ok: false, skipped: true, reason: "no_customer_id" };
+  if (!settings.action) return { ok: false, skipped: true, reason: `no_action_for:${stage}` };
+
+  const creds = buildGoogleAdsCreds(settings.refresh_token);
+  if (!creds) return { ok: false, skipped: true, reason: "not_connected" };
+
+  // Enhanced conversions carry hashed identifiers, and only with consent.
+  const userIdentifiers: Array<{ hashedEmail: string } | { hashedPhoneNumber: string }> = [];
+  if (lead.consent === "accepted") {
+    if (lead.email) userIdentifiers.push({ hashedEmail: await sha256Hex(lead.email) });
+    if (lead.phone) {
+      userIdentifiers.push({ hashedPhoneNumber: await sha256Hex(lead.phone.replace(/[^\d+]/g, "")) });
+    }
+  }
+
+  const value = stage === "won" && lead.won_value != null ? Number(lead.won_value) : undefined;
+  const currency = value != null ? (settings.default_currency || lead.currency || "EUR") : undefined;
+
+  const result = await uploadClickConversion(creds, {
+    customerId: settings.account_id,
+    loginCustomerId: settings.secondary_id ?? undefined,
+    conversionActionId: settings.action,
+    gclid: lead.gclid ?? undefined,
+    wbraid: !lead.gclid && lead.wbraid ? lead.wbraid : undefined,
+    gbraid: !lead.gclid && !lead.wbraid && lead.gbraid ? lead.gbraid : undefined,
+    conversionDateTime: formatConversionDateTime(
+      new Date(lead.stage_changed_at || lead.updated_at || lead.created_at),
+    ),
+    value,
+    currencyCode: currency,
+    orderId: `${lead.id}:${stage}`,
+    userIdentifiers: userIdentifiers.length ? userIdentifiers : undefined,
   });
 
+  await recordUpload({
+    organizationId: lead.organization_id,
+    leadId: lead.id,
+    network: "google_ads",
+    stage,
+    status: result.ok ? "sent" : "failed",
+    conversionAction: settings.action,
+    value: value ?? null,
+    currency: currency ?? null,
+    clickId: lead.gclid || lead.wbraid || lead.gbraid || null,
+    clickIdType: lead.gclid ? "gclid" : lead.wbraid ? "wbraid" : lead.gbraid ? "gbraid" : null,
+    request: result.request,
+    response: result.response,
+    error: result.error ?? null,
+  });
+
+  return { ok: result.ok, error: result.error ?? undefined };
+}
+
+async function uploadMeta(leadId: string, stage: DbStage): Promise<UploadResult> {
+  const ctx = await loadContext(leadId, "meta_ads", stage);
+  if (!ctx) return { ok: false, skipped: true, reason: "stage_not_reported" };
+
+  const { lead, settings } = ctx;
+  if (!settings?.enabled) return { ok: false, skipped: true, reason: "not_configured" };
+  if (!settings.access_token || !settings.account_id) {
+    return { ok: false, skipped: true, reason: "not_connected" };
+  }
+  if (!settings.action) return { ok: false, skipped: true, reason: `no_event_for:${stage}` };
+
+  const value = stage === "won" && lead.won_value != null ? Number(lead.won_value) : undefined;
+  const currency = value != null ? (settings.default_currency || lead.currency || "EUR") : undefined;
+
+  const withConsent = lead.consent === "accepted";
+
+  const result = await sendMetaCapiEvent(
+    {
+      pixelId: settings.account_id,
+      accessToken: settings.access_token,
+      testEventCode: settings.test_event_code,
+    },
+    {
+      eventName: settings.action,
+      eventId: `${lead.id}:${stage}`,
+      eventTime: Math.floor(
+        new Date(lead.stage_changed_at || lead.updated_at || lead.created_at).getTime() / 1000,
+      ),
+      actionSource: "system_generated",
+      userData: {
+        // Personal identifiers are only sent when the lead consented.
+        email: withConsent ? lead.email ?? undefined : undefined,
+        phone: withConsent ? lead.phone ?? undefined : undefined,
+        fbc: lead.fbclid ? buildFbc(lead.fbclid) : undefined,
+        fbp: lead.fbp ?? undefined,
+      },
+      value,
+      currency,
+      orderId: `${lead.id}:${stage}`,
+    },
+  );
+
+  await recordUpload({
+    organizationId: lead.organization_id,
+    leadId: lead.id,
+    network: "meta_ads",
+    stage,
+    status: result.ok ? "sent" : "failed",
+    conversionAction: settings.action,
+    value: value ?? null,
+    currency: currency ?? null,
+    clickId: lead.fbclid ?? null,
+    clickIdType: lead.fbclid ? "fbclid" : null,
+    request: result.request,
+    response: result.response,
+    error: result.error ?? null,
+  });
+
+  return { ok: result.ok, error: result.error ?? undefined };
+}
+
 /**
- * Send a Meta Conversions API event for one lead at a given stage.
- * - Fires for any lead — Meta CAPI accepts website + system_generated events
- *   without requiring an fbc/fbclid. fbc/fbp are attached when available.
- * - Idempotent per (lead_id, network, stage).
+ * Reports one stage change to every configured network.
+ *
+ * Idempotent per (lead, network, stage) via the unique index on
+ * conversion_uploads, so a retried stage change cannot double-report.
  */
-export const sendMetaConversion = createServerFn({ method: "POST" })
+export const queueConversion = createServerFn({ method: "POST" })
   .inputValidator((data: { leadId: string; stage: string }) => {
-    if (!data || typeof data.leadId !== "string" || typeof data.stage !== "string") {
-      throw new Error("Invalid input");
-    }
-    return data;
+    if (!data?.leadId) throw new Error("leadId is required");
+    if (!data?.stage) throw new Error("stage is required");
+    return { leadId: data.leadId, stage: data.stage as DbStage };
   })
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { sendMetaCapiEvent, buildFbc } = await import("./meta-capi.server");
+    const [google, meta] = await Promise.allSettled([
+      uploadGoogleAds(data.leadId, data.stage),
+      uploadMeta(data.leadId, data.stage),
+    ]);
 
-    const stage = data.stage;
-    const STAGE_TO_FIELD: Record<string, "event_name_new" | "event_name_qualified" | "event_name_won" | "event_name_lost"> = {
-      New: "event_name_new",
-      Qualified: "event_name_qualified",
-      Won: "event_name_won",
-      Lost: "event_name_lost",
-      Disqualified: "event_name_lost",
+    return {
+      google: google.status === "fulfilled" ? google.value : { ok: false, error: String(google.reason) },
+      meta: meta.status === "fulfilled" ? meta.value : { ok: false, error: String(meta.reason) },
     };
-    const settingsField = STAGE_TO_FIELD[stage];
-    if (!settingsField) return { ok: false, skipped: true, reason: `unsupported_stage:${stage}` };
-
-    const existing = await supabaseAdmin
-      .from("conversion_uploads")
-      .select("id, status")
-      .eq("lead_id", data.leadId)
-      .eq("network", "meta_ads")
-      .eq("stage", stage)
-      .maybeSingle();
-    if (existing.data && existing.data.status === "success") {
-      return { ok: true, skipped: true, reason: "already_sent" };
-    }
-
-    const { data: lead, error: leadErr } = await supabaseAdmin
-      .from("leads")
-      .select("*")
-      .eq("id", data.leadId)
-      .single();
-    if (leadErr || !lead) return { ok: false, skipped: true, reason: "lead_not_found" };
-
-    const { data: settings } = await supabaseAdmin
-      .from("meta_ads_settings")
-      .select("*")
-      .eq("workspace_key", lead.workspace_key)
-      .maybeSingle();
-    const s = settings as Record<string, unknown> | null;
-    if (!s || !s.enabled) return { ok: false, skipped: true, reason: "meta_not_configured" };
-    if (!s.access_token || !s.pixel_id) return { ok: false, skipped: true, reason: "not_connected" };
-    const eventName = s[settingsField] as string | null;
-    if (!eventName) return { ok: false, skipped: true, reason: `no_event_name_for:${stage}` };
-
-    const consent = String(lead.consent || "").toLowerCase();
-    const consented = consent === "accepted";
-
-    const fbclid = (lead as any).fbclid as string;
-    const fbp = (lead as any).fbp as string;
-    const fbc = fbclid ? buildFbc(fbclid) : undefined;
-
-    const value =
-      stage === "Won" && (lead as any).won_value != null
-        ? Number((lead as any).won_value)
-        : undefined;
-
-    const result = await sendMetaCapiEvent(
-      {
-        pixelId: s.pixel_id as string,
-        accessToken: s.access_token as string,
-        testEventCode: (s.test_event_code as string | null) ?? null,
-      },
-      {
-        eventName,
-        eventTime: Math.floor(new Date((lead as any).stage_changed_at || lead.updated_at || lead.created_at).getTime() / 1000),
-        eventId: `${lead.id}:${stage}`,
-        eventSourceUrl: (lead as any).landing_page_url || (lead as any).page_path || undefined,
-        actionSource: fbc || fbp ? "website" : "system_generated",
-        userData: {
-          email: consented && lead.email ? lead.email : undefined,
-          phone: consented && lead.phone ? lead.phone : undefined,
-          fbp: fbp || undefined,
-          fbc,
-          clientUserAgent: (lead as any).user_agent || undefined,
-        },
-        value,
-        currency: value != null ? ((s.default_currency as string) || "EUR") : undefined,
-        orderId: `${lead.id}:${stage}`,
-      },
-    );
-
-    const uploadRow = {
-      lead_id: lead.id,
-      workspace_key: lead.workspace_key,
-      network: "meta_ads",
-      stage,
-      status: result.ok ? "success" : "failed",
-      conversion_action: eventName,
-      value: value ?? null,
-      currency: value != null ? (s.default_currency as string) || "EUR" : null,
-      click_id: fbclid || fbp || null,
-      click_id_type: fbclid ? "fbclid" : fbp ? "fbp" : null,
-      request_payload: JSON.parse(JSON.stringify(result.request)),
-      response_payload: JSON.parse(JSON.stringify(result.response)),
-      error: result.error ?? null,
-      attempts: (existing.data ? 1 : 0) + 1,
-      attempted_at: new Date().toISOString(),
-      succeeded_at: result.ok ? new Date().toISOString() : null,
-    };
-    await supabaseAdmin
-      .from("conversion_uploads")
-      .upsert(uploadRow as never, { onConflict: "lead_id,network,stage" });
-
-    return { ok: result.ok, status: result.status, error: result.error };
   });

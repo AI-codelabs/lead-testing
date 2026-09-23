@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AuthShell, Field } from "@/components/leadlogr/auth-shell";
 import { useState, type FormEvent } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { signIn } from "@/auth/client";
+import { resolveActiveOrganization } from "@/auth/session";
 import { useServerFn } from "@tanstack/react-start";
-import { acceptInvite } from "@/lib/agency-invites.functions";
+import { acceptInvite } from "@/lib/invitations.functions";
 
 const PENDING_INVITE_KEY = "leadlogr.pending_invite_token";
 
@@ -30,13 +31,19 @@ function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await signIn.email({
         email: email.trim(),
         password,
       });
-      if (signInError) throw signInError;
-      const { data: userRes } = await supabase.auth.getUser();
-      const accountType = (userRes.user?.user_metadata?.account_type as string) ?? "standard";
+      if (signInError) throw new Error(signInError.message ?? "Could not sign in");
+
+      const active = await resolveActiveOrganization();
+      if (!active) {
+        // Signed in, but belongs to no workspace yet — finish signup.
+        navigate({ to: "/signup" });
+        return;
+      }
+      const accountType = active.accountType;
 
       const pendingToken =
         typeof window !== "undefined" ? window.localStorage.getItem(PENDING_INVITE_KEY) : null;

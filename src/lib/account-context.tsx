@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
-import { listAgencyClients } from "@/lib/agency-invites.functions";
+import { authClient, signOut as authSignOut, clearAuthToken } from "@/auth/client";
+import { resolveActiveOrganization, forgetOrganization } from "@/auth/session";
+import { listAgencyClients } from "@/lib/agency-clients.functions";
 
 export type AccountType = "standard" | "agency";
 export type AccessLevel = "full" | "names_only" | "metrics_only";
@@ -69,6 +70,14 @@ type AccountState = {
   signOut: () => Promise<void>;
   /** True once the auth session has been checked. */
   authReady: boolean;
+  /** True once the active organization has been resolved (or found absent). */
+  workspaceReady: boolean;
+  /**
+   * The organization every server call should be scoped to. Pass this
+   * explicitly — the activeOrganizationId JWT claim is never minted by Neon's
+   * hosted Better Auth, so there is no server-side fallback.
+   */
+  activeOrganizationId: string;
   /** True when a Supabase session is active. */
   isAuthenticated: boolean;
 };
@@ -120,6 +129,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [viewingClientId, setViewingClientId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [workspaceReady, setWorkspaceReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -137,25 +147,26 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   // Hydrate workspace state from the authenticated user's profile row.
   useEffect(() => {
     let cancelled = false;
-    async function hydrateFromProfile(userId: string, userEmail: string | null) {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("account_type,workspace_key,workspace_name,owner_name,owner_email")
-        .eq("id", userId)
-        .maybeSingle();
+    async function hydrateFromOrganization(userEmail: string | null) {
+      const active = await resolveActiveOrganization().catch(() => null);
       if (cancelled) return;
-      if (error || !data) return;
-      _setAccountType((data.account_type === "agency" ? "agency" : "standard"));
+      // Mark the workspace resolved either way. Guards that redirect on
+      // account type must not fire while this is still in flight, or a fresh
+      // login bounces out of /agency before the type is known.
+      setWorkspaceReady(true);
+      if (!active) return;
+      _setAccountType(active.accountType);
       setOwnWorkspace({
-        key: data.workspace_key,
-        name: data.workspace_name,
-        ownerName: data.owner_name || userEmail || "Workspace owner",
-        ownerEmail: data.owner_email || userEmail || "",
+        key: active.organizationId,
+        name: active.name,
+        ownerName: userEmail || "Workspace owner",
+        ownerEmail: userEmail || "",
         invitedAgencyEmail: null,
         grantedAccess: "full",
       });
-      if (data.account_type === "agency") setClientWorkspaces([]);
+      if (active.accountType === "agency") setClientWorkspaces([]);
     }
+
     async function consumePendingInvite() {
       if (typeof window === "undefined") return;
       const agencyToken = window.localStorage.getItem("leadlogr.pending_invite_token");
@@ -164,7 +175,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       const token = agencyToken || clientToken || memberToken;
       if (!token) return;
       try {
-        const { acceptInvite } = await import("@/lib/agency-invites.functions");
+        const { acceptInvite } = await import("@/lib/invitations.functions");
         await acceptInvite({ data: { token } });
       } catch (err) {
         console.error("Failed to auto-accept pending invite", err);
@@ -174,49 +185,61 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         window.localStorage.removeItem("leadlogr.pending_member_invite_token");
       }
     }
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return;
-      setIsAuthenticated(!!data.session);
-      setAuthReady(true);
-      if (data.session?.user) {
-        hydrateFromProfile(data.session.user.id, data.session.user.email ?? null);
-        consumePendingInvite().then(() =>
-          hydrateFromProfile(data.session!.user.id, data.session!.user.email ?? null),
-        );
-      }
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      setIsAuthenticated(!!session);
-      if (session?.user) {
-        hydrateFromProfile(session.user.id, session.user.email ?? null);
-        if (event === "SIGNED_IN") {
-          consumePendingInvite().then(() =>
-            hydrateFromProfile(session.user.id, session.user.email ?? null),
-          );
+    // Better Auth holds the session on the Neon auth origin; ask it directly
+    // rather than subscribing to a client-side auth event stream.
+    authClient
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const user = data?.user ?? null;
+        setIsAuthenticated(!!user);
+        setAuthReady(true);
+        if (!user) {
+          setWorkspaceReady(true);
+          return;
         }
-      }
-    });
+        void hydrateFromOrganization(user.email ?? null);
+        void consumePendingInvite().then(() => hydrateFromOrganization(user.email ?? null));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setIsAuthenticated(false);
+        setAuthReady(true);
+        setWorkspaceReady(true);
+      });
+
     return () => {
       cancelled = true;
-      sub.subscription.unsubscribe();
     };
   }, []);
 
+  // The organization is passed explicitly rather than relying on the
+  // activeOrganizationId claim in the JWT: Better Auth's setActive does not
+  // reliably reach the minted token, so the server-side fallback resolves to
+  // null and the request fails with "No organization selected".
+  const activeOrganizationId = ownWorkspace.key;
+
   const { data: agencyClientsData } = useQuery({
-    queryKey: ["agency-clients"],
-    queryFn: () => listClientsFn(),
-    enabled: authReady && isAuthenticated && accountType === "agency",
+    queryKey: ["agency-clients", activeOrganizationId],
+    queryFn: () => listClientsFn({ data: { organizationId: activeOrganizationId } }),
+    enabled:
+      authReady && isAuthenticated && accountType === "agency" && !!activeOrganizationId,
   });
 
   useEffect(() => {
     if (accountType === "agency" && agencyClientsData?.clients) {
       setClientWorkspaces(agencyClientsData.clients as ClientWorkspace[]);
     }
-  }, [accountType, agencyClientsData]);
+  }, [accountType, agencyClientsData, workspaceReady]);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    await authSignOut();
+    clearAuthToken();
+    forgetOrganization();
+    // Must be cleared: the layout guards redirect a signed-out user to /login
+    // by watching this. Leaving it true meant they instead saw the account
+    // type reset to "standard" and bounced into the authenticated app shell.
+    setIsAuthenticated(false);
     setOwnWorkspace(EMPTY_OWN_WORKSPACE);
     setClientWorkspaces([]);
     _setAccountType("standard");
@@ -311,6 +334,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       isAgencyViewing,
       signOut,
       authReady,
+      workspaceReady,
+      activeOrganizationId,
       isAuthenticated,
     };
   }, [

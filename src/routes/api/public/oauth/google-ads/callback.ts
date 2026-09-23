@@ -21,21 +21,21 @@ export const Route = createFileRoute("/api/public/oauth/google-ads/callback")({
         const clientSecret = process.env.GOOGLE_ADS_OAUTH_CLIENT_SECRET;
         if (!clientId || !clientSecret) return popupResult({ ok: false, error: "server_not_configured" });
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { withOwner } = await import("@/db");
 
-        // Validate + consume the state row.
-        const { data: stateRow } = await supabaseAdmin
-          .from("google_ads_oauth_states")
-          .select("workspace_key, expires_at")
-          .eq("state", state)
-          .maybeSingle();
+        // Consume the state row in one statement: DELETE ... RETURNING means a
+        // replayed callback finds nothing, so the state is single-use.
+        const stateRow = await withOwner((db) =>
+          db.one<{ organization_id: string; expired: boolean }>(
+            `DELETE FROM public.oauth_states
+              WHERE state = $1 AND network = 'google_ads'
+          RETURNING organization_id, (expires_at < now()) AS expired`,
+            [state],
+          ),
+        );
         if (!stateRow) return popupResult({ ok: false, error: "invalid_state" });
-        const { workspace_key, expires_at } = stateRow as { workspace_key: string; expires_at: string };
-        if (new Date(expires_at).getTime() < Date.now()) {
-          await supabaseAdmin.from("google_ads_oauth_states").delete().eq("state", state);
-          return popupResult({ ok: false, error: "state_expired" });
-        }
-        await supabaseAdmin.from("google_ads_oauth_states").delete().eq("state", state);
+        if (stateRow.expired) return popupResult({ ok: false, error: "state_expired" });
+        const organizationId = stateRow.organization_id;
 
         const redirectUri = `${url.origin}/api/public/oauth/google-ads/callback`;
 
@@ -72,20 +72,32 @@ export const Route = createFileRoute("/api/public/oauth/google-ads/callback")({
           }
         } catch { /* non-fatal */ }
 
-        // Upsert into google_ads_settings.
-        const { error: upErr } = await supabaseAdmin
-          .from("google_ads_settings")
-          .upsert(
-            {
-              workspace_key,
-              oauth_refresh_token: tok.refresh_token,
-              oauth_email: email,
-              connected_at: new Date().toISOString(),
-              enabled: true,
-            } as never,
-            { onConflict: "workspace_key" },
-          );
-        if (upErr) return popupResult({ ok: false, error: `save_failed: ${upErr.message}` });
+        // The refresh token goes to ad_platform_credentials, which the app's
+        // user-scoped role cannot read; only the non-secret half lands in
+        // ad_platform_settings where the UI can see it.
+        try {
+          await withOwner(async (db) => {
+            await db.sql(
+              `INSERT INTO public.ad_platform_settings AS s
+                 (organization_id, network, enabled, connected_email, connected_at)
+               VALUES ($1, 'google_ads', true, $2, now())
+               ON CONFLICT (organization_id, network) DO UPDATE SET
+                 enabled = true, connected_email = EXCLUDED.connected_email,
+                 connected_at = EXCLUDED.connected_at`,
+              [organizationId, email || null],
+            );
+            await db.sql(
+              `INSERT INTO public.ad_platform_credentials AS c
+                 (organization_id, network, refresh_token)
+               VALUES ($1, 'google_ads', $2)
+               ON CONFLICT (organization_id, network) DO UPDATE SET
+                 refresh_token = EXCLUDED.refresh_token`,
+              [organizationId, tok.refresh_token],
+            );
+          });
+        } catch (err) {
+          return popupResult({ ok: false, error: `save_failed: ${String(err).slice(0, 200)}` });
+        }
 
         return popupResult({ ok: true, email });
       },

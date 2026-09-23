@@ -1,25 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useAccount } from "@/lib/account-context";
+import { TeamMembersPanel } from "@/components/account/team-members-panel";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, Copy, Trash2, UserPlus, X } from "lucide-react";
+import { Check, Copy, X } from "lucide-react";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ACCESS_LEVEL_META, type AccessLevel } from "@/lib/account-context";
-import { listInviteStatuses } from "@/lib/agency-invite-status.functions";
-import {
-  acceptInvite,
-  createClientWorkspaceInvite,
-  declineInvite,
-  listAgencyMembers,
-  listReceivedInvites,
-  removeAgencyMember,
-  revokeInvite,
-  sendAgencyMemberInvite,
-} from "@/lib/agency-invites.functions";
+import { listSentInvites } from "@/lib/invitations.functions";
+import { inviteClientWorkspace } from "@/lib/agency-clients.functions";
+import { acceptInvite, declineInvite, listReceivedInvites, revokeInvite } from "@/lib/invitations.functions";
 
 export const Route = createFileRoute("/agency/invites")({
+  staticData: { width: "wide" },
   head: () => ({ meta: [{ title: "Invites — Leadlogr Agency" }] }),
   ssr: false,
   component: InvitesPage,
@@ -71,7 +66,7 @@ function InvitesPage() {
         <TabsContent value="client">
           <SectionCard
             title="New client workspace"
-            description="We email the client a signup link. Once they create their account, the workspace appears under your clients automatically."
+            description="Creates a signup link for the client. Once they create their account, the workspace appears under your clients automatically."
           >
             <NewClientPanel />
           </SectionCard>
@@ -118,7 +113,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-card ring-1 ring-border rounded-lg p-6">
+    <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-6">
       <div className="mb-5">
         <h3 className="font-semibold">{title}</h3>
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
@@ -131,8 +126,9 @@ function SectionCard({
 /* ------------------------- Invite a client ------------------------- */
 
 function NewClientPanel() {
+  const { activeOrganizationId } = useAccount();
   const qc = useQueryClient();
-  const createFn = useServerFn(createClientWorkspaceInvite);
+  const createFn = useServerFn(inviteClientWorkspace);
   const [name, setName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
@@ -142,14 +138,20 @@ function NewClientPanel() {
     mutationFn: () =>
       createFn({
         data: {
-          workspaceName: name.trim(),
-          ownerName: ownerName.trim() || undefined,
-          ownerEmail: ownerEmail.trim(),
-          accessLevel: access,
+          organizationId: activeOrganizationId,
+          email: ownerEmail.trim(),
+          accessLevel: access as "full" | "read_only",
         },
       }),
-    onSuccess: () => {
-      toast.success("Invite sent — we emailed the client a signup link.");
+    onSuccess: (res) => {
+      // No delivery pipeline yet, so hand the inviter the link rather than
+      // telling them an email was sent that never leaves the server.
+      if (res?.link) {
+        navigator.clipboard?.writeText(res.link).catch(() => {});
+        toast.success("Invite created — signup link copied to your clipboard.");
+      } else {
+        toast.success("Invite created.");
+      }
       setName("");
       setOwnerName("");
       setOwnerEmail("");
@@ -231,135 +233,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 /* ------------------------- Team ------------------------- */
 
+// The agency Team tab and the standard account page now share one panel:
+// membership was never agency-specific, only its UI was.
 function TeamPanel() {
-  const qc = useQueryClient();
-  const listFn = useServerFn(listAgencyMembers);
-  const inviteFn = useServerFn(sendAgencyMemberInvite);
-  const removeFn = useServerFn(removeAgencyMember);
-  const [email, setEmail] = useState("");
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["agency-members"],
-    queryFn: () => listFn(),
-  });
-
-  const invite = useMutation({
-    mutationFn: () => inviteFn({ data: { email: email.trim() } }),
-    onSuccess: (res: any) => {
-      setEmail("");
-      toast.success("Invitation sent. Link copied to clipboard.");
-      if (res?.acceptUrl && typeof navigator !== "undefined") {
-        navigator.clipboard?.writeText(res.acceptUrl).catch(() => {});
-      }
-      qc.invalidateQueries({ queryKey: ["agency-members"] });
-      qc.invalidateQueries({ queryKey: ["agency-invite-statuses"] });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not send invite"),
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: string) => removeFn({ data: { id } }),
-    onSuccess: () => {
-      toast.success("Teammate removed.");
-      qc.invalidateQueries({ queryKey: ["agency-members"] });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not remove teammate"),
-  });
-
-  const copyLink = (token: string) => {
-    const url = `${window.location.origin}/signup?agencyMember=${token}`;
-    navigator.clipboard.writeText(url).then(
-      () => toast.success("Invite link copied"),
-      () => toast.error("Could not copy link"),
-    );
-  };
-
-  const members = data?.members ?? [];
-  const pending = data?.pendingInvites ?? [];
-
-  return (
-    <div className="space-y-5">
-      <div className="flex gap-2">
-        <input
-          type="email"
-          value={email}
-          placeholder="teammate@youragency.com"
-          onChange={(e) => setEmail(e.target.value)}
-          className="flex-1 bg-card ring-1 ring-border rounded-md text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <button
-          onClick={() => email.trim() && invite.mutate()}
-          disabled={invite.isPending || !email.trim()}
-          className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
-          <UserPlus className="size-4" />
-          {invite.isPending ? "Sending…" : "Invite teammate"}
-        </button>
-      </div>
-
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading team…</p>
-      ) : (
-        <div className="rounded-md ring-1 ring-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 border-b border-border">
-              <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                <th className="px-4 py-2.5">Member</th>
-                <th className="px-4 py-2.5">Role</th>
-                <th className="px-4 py-2.5" />
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((m: any) => (
-                <tr key={m.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-2.5">
-                    <div className="font-medium">{m.name || m.email}</div>
-                    <div className="text-xs text-muted-foreground">{m.email}</div>
-                  </td>
-                  <td className="px-4 py-2.5 capitalize">{m.role}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    {m.role !== "owner" && (
-                      <button
-                        onClick={() => remove.mutate(m.id)}
-                        disabled={remove.isPending}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-destructive hover:bg-destructive/10 rounded px-2 py-1"
-                      >
-                        <Trash2 className="size-3" /> Remove
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {pending.map((p: any) => (
-                <tr key={p.id} className="border-b border-border last:border-0 bg-muted/20">
-                  <td className="px-4 py-2.5">
-                    <div className="font-medium">{p.agency_email}</div>
-                    <div className="text-xs text-muted-foreground">Invitation pending</div>
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">Invited</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <button
-                      onClick={() => copyLink(p.token)}
-                      className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded ring-1 ring-border hover:bg-muted"
-                    >
-                      <Copy className="size-3" /> Copy link
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {members.length === 0 && pending.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    No teammates yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
+  return <TeamMembersPanel />;
 }
 
 /* ------------------------- Received ------------------------- */
@@ -421,7 +298,7 @@ function ReceivedInvitesPanel() {
           {invites.map((i: any) => (
             <tr key={i.id} className="border-b border-border last:border-0">
               <td className="px-4 py-2.5">
-                <div className="font-medium">{i.inviter_workspace_name}</div>
+                <div className="font-medium">{i.organization_name}</div>
                 <div className="text-xs text-muted-foreground">{i.inviter_email}</div>
               </td>
               <td className="px-4 py-2.5 capitalize">{i.access_level.replace("_", " ")}</td>
@@ -463,13 +340,14 @@ function ReceivedInvitesPanel() {
 /* ------------------------- History ------------------------- */
 
 function HistoryPanel() {
-  const listFn = useServerFn(listInviteStatuses);
+  const { activeOrganizationId } = useAccount();
+  const listFn = useServerFn(listSentInvites);
   const revokeFn = useServerFn(revokeInvite);
   const qc = useQueryClient();
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["agency-invite-statuses"],
-    queryFn: () => listFn(),
+    queryKey: ["agency-invite-statuses", activeOrganizationId],
+    queryFn: () => listFn({ data: { organizationId: activeOrganizationId } }),
   });
 
   const revoke = useMutation({
@@ -477,13 +355,15 @@ function HistoryPanel() {
     onSuccess: () => {
       toast.success("Invite revoked");
       qc.invalidateQueries({ queryKey: ["agency-invite-statuses"] });
-      qc.invalidateQueries({ queryKey: ["agency-members"] });
+      // Revoking a member invitation removes a pending row from the team
+      // table, which the shared panel caches under "org-members".
+      qc.invalidateQueries({ queryKey: ["org-members"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to revoke"),
   });
 
   const copyLink = (token: string, kind: string) => {
-    const param = kind === "agency_member" ? "agencyMember" : "clientInvite";
+    const param = kind === "member" ? "memberInvite" : "clientInvite";
     const url = `${window.location.origin}/signup?${param}=${token}`;
     navigator.clipboard.writeText(url).then(
       () => toast.success("Signup link copied"),
@@ -532,15 +412,15 @@ function HistoryPanel() {
             {invites.map((i: any) => (
               <tr key={i.id} className="border-b border-border last:border-0 align-top">
                 <td className="px-5 py-3.5">
-                  <div className="font-medium">{i.agency_email}</div>
-                  {i.inviter_workspace_name && (
-                    <div className="text-xs text-muted-foreground">{i.inviter_workspace_name}</div>
+                  <div className="font-medium">{i.email}</div>
+                  {i.organization_name && (
+                    <div className="text-xs text-muted-foreground">{i.organization_name}</div>
                   )}
                 </td>
                 <td className="px-5 py-3.5 text-xs text-muted-foreground">
                   {i.kind === "client_invite"
                     ? "Client signup"
-                    : i.kind === "agency_member"
+                    : i.kind === "member"
                       ? "Teammate"
                       : "Agency link"}
                 </td>
@@ -561,7 +441,7 @@ function HistoryPanel() {
                   {new Date(i.created_at).toLocaleString()}
                 </td>
                 <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                  {(i.kind === "client_invite" || i.kind === "agency_member") && i.status === "pending" && (
+                  {(i.kind === "client_invite" || i.kind === "member") && i.status === "pending" && (
                     <button
                       onClick={() => copyLink(i.token, i.kind)}
                       className="text-xs font-medium px-2.5 py-1.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors mr-2"

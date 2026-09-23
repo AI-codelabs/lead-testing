@@ -3,10 +3,13 @@ import { PageHeader } from "@/components/leadlogr/page-header";
 import { useTheme, type Theme } from "@/components/theme-provider";
 import { Lock, Monitor, Moon, Sun } from "lucide-react";
 import { AgencyAccessPanel } from "@/components/account/agency-access-panel";
+import { ReceivedInvitesPanel } from "@/components/account/received-invites-panel";
+import { TeamMembersPanel } from "@/components/account/team-members-panel";
 import { useAccount } from "@/lib/account-context";
 
 
 export const Route = createFileRoute("/app/account")({
+  staticData: { width: "wide" },
   head: () => ({ meta: [{ title: "Account — Leadlogr" }] }),
   ssr: false,
   component: AccountPage,
@@ -16,7 +19,7 @@ function AccountPage() {
   const { isAgencyViewing, ownWorkspace } = useAccount();
   if (isAgencyViewing) {
     return (
-      <div className="max-w-xl mx-auto mt-20 bg-card ring-1 ring-border rounded-lg p-8 text-center">
+      <div className="max-w-xl mx-auto mt-20 rounded-xl bg-card shadow-xs ring-1 ring-border p-8 text-center">
         <div className="size-10 rounded-full bg-muted ring-1 ring-border mx-auto flex items-center justify-center mb-4">
           <Lock className="size-4 text-muted-foreground" />
         </div>
@@ -42,6 +45,20 @@ function AccountPage() {
       />
 
       <div className="space-y-4">
+        <SectionCard
+          title="Invitations"
+          description="Agencies that have asked to manage this workspace."
+        >
+          <ReceivedInvitesPanel />
+        </SectionCard>
+
+        <SectionCard
+          title="Team"
+          description="People who can access this workspace. Owners and admins can invite."
+        >
+          <TeamMembersPanel />
+        </SectionCard>
+
         <SectionCard title="Agency access" description="Invite an agency and control what they can see in your workspace.">
           <AgencyAccessPanel />
         </SectionCard>
@@ -101,7 +118,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-card ring-1 ring-border rounded-lg p-6">
+    <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-6">
       <div className="mb-5">
         <h3 className="font-semibold">{title}</h3>
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>

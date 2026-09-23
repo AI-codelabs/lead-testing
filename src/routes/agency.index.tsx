@@ -1,9 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { ArrowRight, Building2, Mail } from "lucide-react";
+import { TableEmptyState } from "@/components/leadlogr/empty-state";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { ACCESS_LEVEL_META, useAccount } from "@/lib/account-context";
 
 export const Route = createFileRoute("/agency/")({
+  staticData: { width: "full" },
   head: () => ({ meta: [{ title: "Clients — Leadlogr Agency" }] }),
   component: AgencyOverview,
 });
@@ -40,7 +42,7 @@ function AgencyOverview() {
         <SummaryCard label="Avg. conversion" value={`${(avgConv * 100).toFixed(1)}%`} hint={`${totalLeads} total leads`} />
       </div>
 
-      <div className="bg-card ring-1 ring-border rounded-lg overflow-hidden">
+      <div className="rounded-xl bg-card shadow-xs ring-1 ring-border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 border-b border-border">
             <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -88,11 +90,21 @@ function AgencyOverview() {
               );
             })}
             {clientWorkspaces.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground text-sm">
-                  No clients yet. Create one from the "New client" page.
-                </td>
-              </tr>
+              <TableEmptyState
+                colSpan={6}
+                icon={Building2}
+                title="No client workspaces yet"
+                description="Invite a client and their workspace appears here with live lead counts and conversion rates."
+                action={
+                  <Link
+                    to="/agency/invites"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-xs transition-colors hover:bg-primary/90"
+                  >
+                    <Mail className="size-4" />
+                    Invite a client
+                  </Link>
+                }
+              />
             )}
           </tbody>
         </table>
@@ -103,7 +115,7 @@ function AgencyOverview() {
 
 function SummaryCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="bg-card ring-1 ring-border rounded-lg p-5">
+    <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-5">
       <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</div>
       <div className="text-3xl font-semibold tracking-tight mt-3">{value}</div>
       {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
