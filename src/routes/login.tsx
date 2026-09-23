@@ -26,6 +26,19 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Leaves the login page after a successful sign-in.
+   *
+   * A full document load rather than a client-side navigate: the account
+   * context, the active organization and every cached query are derived from
+   * the session that has only just been created, and the router transition
+   * raced that setup — sign-in succeeded but the user stayed on /login.
+   */
+  const enter = (path: string) => {
+    if (typeof window === "undefined") return;
+    window.location.assign(path);
+  };
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -40,7 +53,7 @@ function LoginPage() {
       const active = await resolveActiveOrganization();
       if (!active) {
         // Signed in, but belongs to no workspace yet — finish signup.
-        navigate({ to: "/signup" });
+        enter("/signup");
         return;
       }
       const accountType = active.accountType;
@@ -57,7 +70,7 @@ function LoginPage() {
         }
       }
 
-      navigate({ to: accountType === "agency" ? "/agency" : "/app/dashboard" });
+      enter(accountType === "agency" ? "/agency" : "/app/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not sign in");
     } finally {

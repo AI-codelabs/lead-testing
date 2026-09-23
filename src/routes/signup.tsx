@@ -151,7 +151,11 @@ function SignupPage() {
           console.error("Failed to auto-accept invite", err);
         }
       }
-      navigate({ to: type === "agency" ? "/agency" : "/app/dashboard" });
+      // Same reasoning as login: the session and organization were created
+      // moments ago, so let the app boot fresh against them.
+      if (typeof window !== "undefined") {
+        window.location.assign(type === "agency" ? "/agency" : "/app/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create account");
     } finally {
