@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Briefcase, Building2, MailCheck } from "lucide-react";
 import { useAccount, type AccountType } from "@/lib/account-context";
 import { signUp, authClient } from "@/auth/client";
-import { createOrganization } from "@/auth/session";
+import { createOrganization, switchOrganization } from "@/auth/session";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useServerFn } from "@tanstack/react-start";
 import { acceptInvite } from "@/lib/invitations.functions";
@@ -12,6 +12,17 @@ import { acceptInvite } from "@/lib/invitations.functions";
 const PENDING_INVITE_KEY = "leadlogr.pending_invite_token";
 const PENDING_CLIENT_INVITE_KEY = "leadlogr.pending_client_invite_token";
 const PENDING_MEMBER_INVITE_KEY = "leadlogr.pending_member_invite_token";
+
+function clearPendingInviteTokens(): void {
+  if (typeof window === "undefined") return;
+  for (const key of [PENDING_INVITE_KEY, PENDING_CLIENT_INVITE_KEY, PENDING_MEMBER_INVITE_KEY]) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      /* storage blocked; the token is single-use anyway */
+    }
+  }
+}
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -53,9 +64,17 @@ function SignupPage() {
   const clientInviteToken = search.clientInvite;
   const memberInviteToken = search.memberInvite;
   const acceptFn = useServerFn(acceptInvite);
+  /**
+   * A member invite joins an organization that already exists, so there is no
+   * account type to pick and no workspace to create — its type is whatever the
+   * inviting workspace already is. It used to be lumped in with the agency
+   * branch below, which signed every invited teammate up as an agency and gave
+   * them a stray personal workspace on top.
+   */
+  const joiningExisting = !!memberInviteToken;
   const forcedType: AccountType | null = clientInviteToken
     ? "standard"
-    : inviteToken || memberInviteToken
+    : inviteToken
       ? "agency"
       : null;
   const [type, setType] = useState<AccountType>(forcedType ?? "standard");
@@ -106,9 +125,29 @@ function SignupPage() {
     setSubmitting(true);
     const ownerName = [firstName, lastName].filter(Boolean).join(" ");
     try {
-      const effectiveWorkspaceName = memberInviteToken
-        ? `${ownerName || email.split("@")[0] || "Teammate"}'s space`
-        : workspaceName.trim();
+      if (joiningExisting) {
+        if (!hasSession) {
+          const { error: signUpError } = await signUp.email({
+            email: email.trim(),
+            password,
+            name: ownerName || email.split("@")[0],
+          });
+          if (signUpError) throw new Error(signUpError.message ?? "Could not create account");
+        }
+        // Unlike the other paths this one must not swallow a failed accept:
+        // there is no workspace of their own to fall back into, so a silent
+        // failure would drop them somewhere with nothing.
+        // Cleared first: AccountProvider redeems whatever it finds in storage,
+        // and there is no reason for both of us to race for the same token.
+        clearPendingInviteTokens();
+        const joined = await acceptFn({ data: { token: memberInviteToken } });
+        // Resolves the joined workspace's account type and navigates to the
+        // matching layout, rather than assuming which one it is.
+        await switchOrganization(joined.organizationId);
+        return;
+      }
+
+      const effectiveWorkspaceName = workspaceName.trim();
 
       // Someone can arrive here already authenticated but without a workspace:
       // login sends them over when resolveActiveOrganization finds no
@@ -137,16 +176,13 @@ function SignupPage() {
       // Better Auth signs the user in as part of sign-up, so there is no
       // "check your inbox" step here the way Supabase's email confirmation had.
       const tokenToAccept =
-        (type === "agency" && memberInviteToken) ||
         (type === "agency" && inviteToken) ||
         (type === "standard" && clientInviteToken) ||
         null;
       if (tokenToAccept) {
         try {
           await acceptFn({ data: { token: tokenToAccept } });
-          window.localStorage.removeItem(PENDING_INVITE_KEY);
-          window.localStorage.removeItem(PENDING_CLIENT_INVITE_KEY);
-          window.localStorage.removeItem(PENDING_MEMBER_INVITE_KEY);
+          clearPendingInviteTokens();
         } catch (err) {
           console.error("Failed to auto-accept invite", err);
         }
@@ -168,11 +204,21 @@ function SignupPage() {
   return (
     <>
     <AuthShell
-      title={hasSession ? "Create your workspace" : "Create your account"}
+      title={
+        joiningExisting
+          ? "Join the workspace"
+          : hasSession
+            ? "Create your workspace"
+            : "Create your account"
+      }
       subtitle={
-        hasSession
-          ? `Signed in as ${email || "your account"}. Name the workspace to finish setting up.`
-          : "Choose how you'll use Leadlogr — for your own workspace or to manage many."
+        joiningExisting
+          ? hasSession
+            ? `Signed in as ${email || "your account"}. Accept the invitation to join.`
+            : "You've been invited to an existing Leadlogr workspace. Create your account to join it."
+          : hasSession
+            ? `Signed in as ${email || "your account"}. Name the workspace to finish setting up.`
+            : "Choose how you'll use Leadlogr — for your own workspace or to manage many."
       }
       footer={
         <>
@@ -184,6 +230,7 @@ function SignupPage() {
       }
     >
       <form className="space-y-4" onSubmit={onSubmit}>
+        {!joiningExisting && (
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
             Account type
@@ -211,6 +258,7 @@ function SignupPage() {
             })}
           </div>
         </div>
+        )}
 
         {!hasSession && (
           <>
@@ -247,7 +295,15 @@ function SignupPage() {
           disabled={submitting}
           className="w-full bg-primary text-primary-foreground text-sm font-medium px-4 py-2.5 rounded-md ring-1 ring-primary shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
         >
-          {submitting ? "Creating…" : isAgency ? "Create agency account" : "Create workspace"}
+          {submitting
+            ? joiningExisting
+              ? "Joining…"
+              : "Creating…"
+            : joiningExisting
+              ? "Join workspace"
+              : isAgency
+                ? "Create agency account"
+                : "Create workspace"}
         </button>
         <p className="text-xs text-muted-foreground">
           By creating an account you agree to our Terms of Service and Privacy Policy.

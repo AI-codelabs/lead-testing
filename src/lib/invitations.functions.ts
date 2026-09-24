@@ -148,12 +148,28 @@ export const acceptInvite = createServerFn({ method: "POST" })
       return { ok: true, kind: "member" as const, organizationId: accepted.org };
     }
 
-    // Otherwise an agency-to-client invitation.
+    // Already accepted, by this caller, is success rather than failure.
+    // Two paths race to redeem the same token — the signup form, and the
+    // auto-accept in AccountProvider that reads it back out of localStorage —
+    // so whichever lost used to report "Invite not found or expired" for an
+    // invite that had in fact just been accepted.
+    const alreadyMember = await context.db.one<{ organization_id: string }>(
+      `SELECT organization_id FROM app.org_invitations
+        WHERE id = $1 AND status = 'accepted' AND lower(email) = $2`,
+      [data.token, email],
+    );
+    if (alreadyMember) {
+      return { ok: true, kind: "member" as const, organizationId: alreadyMember.organization_id };
+    }
+
+    // Otherwise an agency-to-client invitation. Accepts an already-accepted one
+    // for the same reason; the insert below is a no-op on conflict anyway.
     const clientInvite = await context.db.one<{ agency_org_id: string; access_level: AccessLevel }>(
       `SELECT agency_org_id, access_level
          FROM public.agency_client_invites
-        WHERE id = $1 AND status = 'pending' AND expires_at > now()
-          AND lower(client_email) = $2`,
+        WHERE id = $1
+          AND lower(client_email) = $2
+          AND (status = 'accepted' OR (status = 'pending' AND expires_at > now()))`,
       [data.token, email],
     );
     if (!clientInvite) throw new Error("Invite not found or expired");
