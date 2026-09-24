@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAccount } from "@/lib/account-context";
 import { TeamMembersPanel } from "@/components/account/team-members-panel";
@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/leadlogr/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ACCESS_LEVEL_META, type AccessLevel } from "@/lib/account-context";
 import { listSentInvites } from "@/lib/invitations.functions";
-import { inviteSignupUrl, type InviteKind } from "@/lib/invite-links";
+import { inviteSignupUrl } from "@/lib/invite-links";
 import { inviteClientWorkspace } from "@/lib/agency-clients.functions";
 import { acceptInvite, declineInvite, listReceivedInvites, revokeInvite } from "@/lib/invitations.functions";
 
@@ -387,7 +387,7 @@ function HistoryPanel() {
           Refresh
         </button>
       </div>
-      <div className="rounded-md ring-1 ring-border overflow-hidden">
+      <div className="rounded-md ring-1 ring-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 border-b border-border">
             <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -428,11 +428,6 @@ function HistoryPanel() {
                   {i.organization_name && (
                     <div className="text-xs text-muted-foreground">{i.organization_name}</div>
                   )}
-                  {/* Nothing emails the invite yet, so the link has to be
-                      readable here — it is the only way the recipient gets it. */}
-                  {i.status === "pending" && (
-                    <InviteLink token={i.token} kind={i.kind === "member" ? "member" : "client"} />
-                  )}
                 </td>
                 <td className="px-5 py-3.5 text-xs text-muted-foreground">
                   {i.kind === "member" ? "Teammate" : "Client signup"}
@@ -443,7 +438,7 @@ function HistoryPanel() {
                   </span>
                 </td>
                 <td className="px-5 py-3.5">
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded ring-1 ${emailBadge(i.email_status)}`}>
+                  <span className={`inline-block whitespace-nowrap text-[10px] font-medium px-2 py-0.5 rounded ring-1 ${emailBadge(i.email_status)}`}>
                     {EMAIL_STATUS_LABELS[i.email_status] ?? i.email_status ?? "no log"}
                   </span>
                   {i.email_error && (
@@ -479,33 +474,6 @@ function HistoryPanel() {
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-/**
- * The signup link, shown in full rather than hidden behind a copy button.
- *
- * With no delivery pipeline, an agency has to pass this to the client by hand
- * — over WhatsApp, usually — so it needs to be readable and selectable, not
- * just copyable.
- */
-function InviteLink({ token, kind }: { token: string; kind: InviteKind }) {
-  // Built in an effect: the URL depends on window.location, and reading it
-  // during render would differ between the server and the client.
-  const [url, setUrl] = useState("");
-  useEffect(() => setUrl(inviteSignupUrl(token, kind)), [token, kind]);
-  if (!url) return null;
-
-  return (
-    <div className="mt-1.5 flex items-center gap-1.5">
-      <input
-        readOnly
-        value={url}
-        onFocus={(e) => e.currentTarget.select()}
-        aria-label="Signup link"
-        className="w-full max-w-[22rem] min-w-0 rounded bg-muted/50 px-2 py-1 font-mono text-[11px] text-muted-foreground ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-ring"
-      />
     </div>
   );
 }
