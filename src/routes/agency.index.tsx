@@ -62,7 +62,16 @@ function AgencyOverview() {
                 <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="px-5 py-3.5">
                     <div className="font-medium">{c.name}</div>
-                    <div className="text-xs text-muted-foreground">{c.ownerName} · {c.ownerEmail}</div>
+                    {c.claimed ? (
+                      <div className="text-xs text-muted-foreground">{c.ownerName} · {c.ownerEmail}</div>
+                    ) : (
+                      // The workspace is live and already collecting leads; only
+                      // the client's own account is missing.
+                      <div className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
+                        <span className="inline-block size-1.5 rounded-full bg-stage-amber" />
+                        Awaiting client · not invited yet
+                      </div>
+                    )}
                   </td>
                   <td className="px-5 py-3.5">
                     {access ? (

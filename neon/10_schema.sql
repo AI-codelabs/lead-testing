@@ -240,6 +240,9 @@ CREATE TABLE public.agency_clients (
   client_org_id uuid NOT NULL REFERENCES neon_auth.organization(id) ON DELETE CASCADE,
   access_level  text NOT NULL DEFAULT 'full'
                   CHECK (access_level IN ('full', 'read_only')),
+  -- Null while an agency has built the workspace but the client has not taken
+  -- it over yet. The workspace is fully live either way.
+  claimed_at    timestamptz,
   created_at    timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (agency_org_id, client_org_id),
   CONSTRAINT agency_not_own_client CHECK (agency_org_id <> client_org_id)
@@ -653,7 +656,25 @@ SET search_path = neon_auth, public, pg_catalog AS $$
    LIMIT 1
 $$;
 
+-- Marks a pre-made workspace as taken over by its client. SECURITY DEFINER
+-- because app_user holds no UPDATE on agency_clients; this one transition is
+-- the only change it may make, and only by the owner themselves.
+CREATE OR REPLACE FUNCTION app.claim_client_workspace(client_org uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, neon_auth, pg_catalog AS $$
+BEGIN
+  IF NOT app.has_role(client_org, ARRAY['owner']) THEN
+    RETURN false;
+  END IF;
+  UPDATE public.agency_clients
+     SET claimed_at = now()
+   WHERE client_org_id = client_org AND claimed_at IS NULL;
+  RETURN FOUND;
+END $$;
+
 REVOKE ALL ON FUNCTION app.organization_name(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION app.org_owner(uuid)         FROM PUBLIC;
+REVOKE ALL ON FUNCTION app.claim_client_workspace(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION app.organization_name(uuid) TO app_user;
+GRANT EXECUTE ON FUNCTION app.claim_client_workspace(uuid) TO app_user;
 GRANT EXECUTE ON FUNCTION app.org_owner(uuid)         TO app_user;

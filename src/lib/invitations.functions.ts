@@ -145,6 +145,13 @@ export const acceptInvite = createServerFn({ method: "POST" })
       [data.token],
     );
     if (accepted?.org) {
+      // If this was a workspace an agency built and is handing over, record the
+      // hand-over. A no-op for an ordinary teammate invite.
+      await context.db
+        .sql(`SELECT app.claim_client_workspace($1)`, [accepted.org])
+        .catch(() => {
+          /* the membership is what matters; the marker can be set again later */
+        });
       return { ok: true, kind: "member" as const, organizationId: accepted.org };
     }
 

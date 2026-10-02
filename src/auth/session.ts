@@ -60,6 +60,41 @@ export function forgetOrganization(): void {
   }
 }
 
+/** A readable, collision-resistant slug. Better Auth requires slugs be unique. */
+function slugFor(name: string): string {
+  const stem =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "workspace";
+  return `${stem}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Creates a workspace an agency will manage, without the client existing yet.
+ *
+ * Deliberately does NOT make it active or remember it, which is the whole
+ * difference from createOrganization below: the agency is creating somebody
+ * else's workspace and must stay in its own. Better Auth makes the caller the
+ * owner, so the agency owns it until the client accepts and becomes a co-owner.
+ */
+export async function createClientWorkspaceOrg(name: string): Promise<{ organizationId: string }> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Enter a name for the workspace.");
+
+  const { data, error } = await authClient.organization.create({
+    name: trimmed,
+    slug: slugFor(trimmed),
+  });
+  if (error || !data?.id) {
+    throw new Error(error?.message ?? "Could not create the workspace");
+  }
+
+  // A client workspace is always standard; an agency never manages an agency.
+  await initializeOrganization({ data: { organizationId: data.id, accountType: "standard" } });
+  return { organizationId: data.id };
+}
+
 /**
  * Creates an organization for a user who has none, and seeds its settings.
  * Used by signup, where Better Auth has created the user but nothing else.
@@ -74,14 +109,7 @@ export async function createOrganization(
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Enter a name for your workspace.");
 
-  const slug = `${
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "workspace"
-  }-${Math.random().toString(36).slice(2, 8)}`;
-
-  const { data, error } = await authClient.organization.create({ name: trimmed, slug });
+  const { data, error } = await authClient.organization.create({ name: trimmed, slug: slugFor(trimmed) });
   if (error || !data?.id) {
     throw new Error(error?.message ?? "Could not create workspace");
   }

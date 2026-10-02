@@ -11,6 +11,12 @@ export type AccessLevel = "full" | "names_only" | "metrics_only";
 export type ClientWorkspace = {
   id: string;
   name: string;
+  /**
+   * False while the agency has built the workspace but the client has not
+   * accepted yet. The workspace is fully usable either way — it collects leads
+   * from the moment it exists; only the client's own account is missing.
+   */
+  claimed: boolean;
   ownerName: string;
   ownerEmail: string;
   monthlyReferralFee: number;

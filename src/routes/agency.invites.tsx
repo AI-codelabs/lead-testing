@@ -11,7 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ACCESS_LEVEL_META, type AccessLevel } from "@/lib/account-context";
 import { listSentInvites } from "@/lib/invitations.functions";
 import { inviteSignupUrl } from "@/lib/invite-links";
-import { inviteClientWorkspace } from "@/lib/agency-clients.functions";
+import {
+  inviteClientWorkspace,
+  inviteClientOwner,
+  linkClientWorkspace,
+} from "@/lib/agency-clients.functions";
+import { createClientWorkspaceOrg } from "@/auth/session";
 import { acceptInvite, declineInvite, listReceivedInvites, revokeInvite } from "@/lib/invitations.functions";
 
 export const Route = createFileRoute("/agency/invites")({
@@ -61,13 +66,23 @@ function InvitesPage() {
         description="Send client invitations, manage teammates, and track every invite link in one place."
       />
 
-      <Tabs defaultValue="client" className="space-y-4">
+      <Tabs defaultValue="build" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="build">Build a workspace</TabsTrigger>
           <TabsTrigger value="client">Invite a client</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="received">Received</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="build">
+          <SectionCard
+            title="Build the workspace first"
+            description="Creates the workspace straight away, so you can install tracking and start collecting leads before the client has an account. Invite them whenever you're ready."
+          >
+            <BuildWorkspacePanel />
+          </SectionCard>
+        </TabsContent>
 
         <TabsContent value="client">
           <SectionCard
@@ -344,6 +359,169 @@ function ReceivedInvitesPanel() {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/* --------------------- Build a workspace --------------------- */
+
+/**
+ * Creates a client's workspace up front, then optionally invites them into it.
+ *
+ * The inverse of the invite-first flow beside it: there, nothing exists until
+ * the client signs up, so the agency cannot install a tracker or connect an ad
+ * account while it waits. Here the workspace is real immediately — it has its
+ * own ingest key and collects leads from the moment it is created — and the
+ * client's account is the last step rather than the first.
+ */
+function BuildWorkspacePanel() {
+  const { activeOrganizationId } = useAccount();
+  const qc = useQueryClient();
+  const linkFn = useServerFn(linkClientWorkspace);
+  const inviteOwnerFn = useServerFn(inviteClientOwner);
+
+  const [name, setName] = useState("");
+  const [access, setAccess] = useState<AccessLevel>("full");
+  const [built, setBuilt] = useState<{ id: string; name: string } | null>(null);
+  const [email, setEmail] = useState("");
+
+  const build = useMutation({
+    mutationFn: async () => {
+      // Better Auth creates organizations from the browser against the caller's
+      // own session, so the two halves cannot be one server call.
+      const { organizationId } = await createClientWorkspaceOrg(name.trim());
+      await linkFn({
+        data: {
+          organizationId: activeOrganizationId,
+          clientOrgId: organizationId,
+          // The picker offers three levels; the database stores two. Anything
+          // short of full maps to read_only — the safer of the two — rather
+          // than being cast to full, which is what the form beside this one
+          // still does.
+          accessLevel: access === "full" ? "full" : "read_only",
+        },
+      });
+      return { id: organizationId, name: name.trim() };
+    },
+    onSuccess: (res) => {
+      setBuilt(res);
+      setName("");
+      toast.success(`${res.name} is live — you can set up tracking now.`);
+      qc.invalidateQueries({ queryKey: ["agency-clients"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not create the workspace"),
+  });
+
+  const invite = useMutation({
+    mutationFn: () => inviteOwnerFn({ data: { clientOrgId: built!.id, email: email.trim() } }),
+    onSuccess: (res) => {
+      setEmail("");
+      if (res?.link) {
+        navigator.clipboard?.writeText(res.link).catch(() => {});
+        toast.success("Invite created — link copied to your clipboard.");
+      } else {
+        toast.success("Invite created.");
+      }
+      qc.invalidateQueries({ queryKey: ["agency-invite-statuses"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not invite the client"),
+  });
+
+  if (built) {
+    return (
+      <div className="space-y-5 max-w-2xl">
+        <div className="rounded-md ring-1 ring-border bg-muted/40 px-4 py-3">
+          <div className="text-sm font-semibold">{built.name} is ready</div>
+          <p className="text-xs text-muted-foreground mt-1">
+            It appears under your clients now and starts collecting leads as soon as you install
+            the tracker. Inviting the client is optional and can wait.
+          </p>
+        </div>
+
+        <Field label="Invite the client (optional)">
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="owner@client.com"
+              className="min-w-0 flex-1"
+            />
+            <button
+              type="button"
+              onClick={() => invite.mutate()}
+              disabled={!email.trim().includes("@") || invite.isPending}
+              className="shrink-0 text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {invite.isPending ? "Creating…" : "Create invite link"}
+            </button>
+          </div>
+        </Field>
+        <p className="text-xs text-muted-foreground">
+          They join as an owner of this workspace and fill in their own details. You keep access
+          either way.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => setBuilt(null)}
+          className="text-sm font-medium px-3 py-2 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors"
+        >
+          Build another workspace
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (name.trim() && !build.isPending) build.mutate();
+      }}
+      className="space-y-5 max-w-2xl"
+    >
+      <Field label="Workspace name">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          placeholder="Acme Media"
+        />
+      </Field>
+
+      <div>
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+          Your access level
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {LEVELS.map((lvl) => {
+            const active = access === lvl;
+            return (
+              <button
+                key={lvl}
+                type="button"
+                onClick={() => setAccess(lvl)}
+                aria-pressed={active}
+                className={`text-left rounded-md p-3 ring-1 transition-colors ${
+                  active ? "ring-foreground bg-muted" : "ring-border bg-card hover:bg-muted/60"
+                }`}
+              >
+                <div className="text-sm font-semibold">{ACCESS_LEVEL_META[lvl].label}</div>
+                <p className="text-xs text-muted-foreground mt-1">{ACCESS_LEVEL_META[lvl].hint}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        disabled={!name.trim() || build.isPending}
+        className="text-sm font-medium px-4 py-2 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+      >
+        {build.isPending ? "Creating…" : "Create workspace"}
+      </button>
+    </form>
   );
 }
 

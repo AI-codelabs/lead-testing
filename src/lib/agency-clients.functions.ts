@@ -145,6 +145,97 @@ export const listManagingAgencies = createServerFn({ method: "POST" })
     return { agencies };
   });
 
+/**
+ * Attaches a workspace the agency has just created to that agency.
+ *
+ * Split from creating the organization because Better Auth owns organization
+ * creation and runs it from the browser against the caller's session; this half
+ * is ours. The insert is gated by the agency_clients_manage policy, which
+ * already allows an agency's owners and admins to add a link without the client
+ * being involved — nothing new is granted here.
+ */
+export const linkClientWorkspace = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator(
+    (data: { organizationId: string; clientOrgId: string; accessLevel?: AccessLevel }) => {
+      if (!data?.organizationId) throw new Error("organizationId is required");
+      if (!data?.clientOrgId) throw new Error("clientOrgId is required");
+      return {
+        organizationId: data.organizationId,
+        clientOrgId: data.clientOrgId,
+        accessLevel: data.accessLevel === "read_only" ? "read_only" : "full",
+      };
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const agencyOrgId = await requireOrganization(context.db, data.organizationId);
+
+    // DO NOTHING rather than DO UPDATE: app_user is granted SELECT, INSERT and
+    // DELETE on this table but deliberately not UPDATE, so an upsert is refused
+    // outright by the grant, before any policy is consulted.
+    const rows = await context.db.sql<{ client_org_id: string }>(
+      `INSERT INTO public.agency_clients (agency_org_id, client_org_id, access_level, claimed_at)
+       VALUES ($1, $2, $3, NULL)
+       ON CONFLICT (agency_org_id, client_org_id) DO NOTHING
+       RETURNING client_org_id`,
+      [agencyOrgId, data.clientOrgId, data.accessLevel],
+    );
+    if (rows.length > 0) return { ok: true, clientOrgId: rows[0].client_org_id };
+
+    // No row can mean the link already existed, or that the policy refused it.
+    // Only the first is success, so distinguish them rather than guessing.
+    const existing = await context.db.one<{ client_org_id: string }>(
+      `SELECT client_org_id FROM public.agency_clients
+        WHERE agency_org_id = $1 AND client_org_id = $2`,
+      [agencyOrgId, data.clientOrgId],
+    );
+    if (!existing) throw new Error("Only owners and admins can add a client workspace");
+
+    return { ok: true, clientOrgId: existing.client_org_id };
+  });
+
+/**
+ * Invites the client into a workspace the agency already built for them.
+ *
+ * The role is owner, not member: this is handing someone their own workspace,
+ * not adding a teammate to the agency's. app.create_invitation checks the
+ * caller holds owner or admin on that workspace, which the agency does because
+ * it created it — so no privilege is added here either.
+ *
+ * The recipient follows an ordinary member-invite link, which joins the
+ * existing workspace rather than creating a second one.
+ */
+export const inviteClientOwner = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data: { clientOrgId: string; email: string }) => {
+    if (!data?.clientOrgId) throw new Error("clientOrgId is required");
+    const email = String(data?.email ?? "").trim().toLowerCase();
+    if (!email || !email.includes("@")) throw new Error("A valid email is required");
+    return { clientOrgId: data.clientOrgId, email };
+  })
+  .handler(async ({ data, context }) => {
+    // Membership in the workspace is what authorises the invite, so prove it
+    // before the function that would otherwise raise a bare SQL exception.
+    const orgId = await requireOrganization(context.db, data.clientOrgId);
+
+    const existing = await context.db.one<{ id: string }>(
+      `SELECT id FROM app.org_members
+        WHERE organization_id = $1 AND lower(email) = $2`,
+      [orgId, data.email],
+    );
+    if (existing) throw new Error("That person already has access to this workspace");
+
+    const invite = await context.db.one<{ id: string }>(
+      `SELECT app.create_invitation($1, $2, 'owner') AS id`,
+      [orgId, data.email],
+    );
+
+    const link = `${process.env.SITE_URL ?? ""}/signup?memberInvite=${invite!.id}`;
+    console.info(`[client-owner-invite] ${data.email} -> ${link}`);
+
+    return { ok: true, inviteId: invite!.id, link, emailSent: false };
+  });
+
 export const listAgencyClients = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((data: { organizationId: string }) => {
@@ -164,6 +255,7 @@ export const listAgencyClients = createServerFn({ method: "POST" })
       leadsCount: string;
       wonCount: string;
       agencyAccess: AccessLevel;
+      claimed: boolean;
     }>(
       `SELECT ac.client_org_id                       AS "id",
               app.organization_name(ac.client_org_id) AS "name",
@@ -171,7 +263,8 @@ export const listAgencyClients = createServerFn({ method: "POST" })
               COALESCE(owner.email, '')              AS "ownerEmail",
               COALESCE(stats.total, 0)               AS "leadsCount",
               COALESCE(stats.won, 0)                 AS "wonCount",
-              ac.access_level                        AS "agencyAccess"
+              ac.access_level                        AS "agencyAccess",
+              (ac.claimed_at IS NOT NULL)            AS "claimed"
          FROM public.agency_clients ac
     LEFT JOIN LATERAL app.org_owner(ac.client_org_id) owner ON true
     LEFT JOIN LATERAL (
@@ -191,8 +284,11 @@ export const listAgencyClients = createServerFn({ method: "POST" })
         return {
           id: c.id,
           name: c.name,
-          ownerName: c.ownerName || c.ownerEmail,
-          ownerEmail: c.ownerEmail,
+          claimed: c.claimed,
+          // While unclaimed the only owner is whoever at the agency created it,
+          // so there is no client contact to show yet.
+          ownerName: c.claimed ? c.ownerName || c.ownerEmail : "",
+          ownerEmail: c.claimed ? c.ownerEmail : "",
           monthlyReferralFee: 0,
           currency: "EUR" as const,
           leadsCount: total,
