@@ -46,14 +46,16 @@ function statusBadge(status: string) {
   return map[status] ?? "bg-muted text-muted-foreground ring-border";
 }
 
-/** Email delivery is not wired up yet, so "not_sent" is the normal state. */
 const EMAIL_STATUS_LABELS: Record<string, string> = {
+  sent: "Sent",
+  failed: "Not delivered — share the link",
   not_sent: "Not sent — share the link",
 };
 
 function emailBadge(status: string | null) {
   if (!status) return "bg-muted text-muted-foreground ring-border";
   const map: Record<string, string> = {
+    not_sent: "bg-muted text-muted-foreground ring-border",
     sent: "bg-emerald-100 text-emerald-900 ring-emerald-200",
     pending: "bg-amber-100 text-amber-900 ring-amber-200",
     dlq: "bg-red-100 text-red-900 ring-red-200",
@@ -621,7 +623,11 @@ function HistoryPanel() {
                   )}
                 </td>
                 <td className="px-5 py-3.5 text-xs text-muted-foreground">
-                  {i.kind === "member" ? "Teammate" : "Client signup"}
+                  {i.kind === "member"
+                    ? "Teammate"
+                    : i.kind === "client_owner"
+                      ? "Workspace owner"
+                      : "Client signup"}
                 </td>
                 <td className="px-5 py-3.5">
                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded ring-1 ${statusBadge(i.status)}`}>

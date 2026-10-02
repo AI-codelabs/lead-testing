@@ -95,11 +95,24 @@ export const inviteOrganizationMember = createServerFn({ method: "POST" })
       [orgId, data.email, data.role],
     );
 
-    // No email is sent yet: the queue this used to go through was Supabase
-    // infrastructure and has not been replaced. The link is returned so the
-    // inviter can pass it on, and logged for local development.
     const link = `${process.env.SITE_URL ?? ""}/signup?memberInvite=${invite!.id}`;
-    console.info(`[invite] ${data.email} -> ${link}`);
 
-    return { ok: true, inviteId: invite!.id, link, emailSent: false };
+    const workspace = await context.db.one<{ name: string }>(
+      `SELECT app.organization_name($1) AS name`,
+      [orgId],
+    );
+
+    // The link is still returned either way: a failed send must not cost the
+    // inviter the invite, and they can always pass it on by hand.
+    const { sendTeammateInvite } = await import("./email.server");
+    const sent = await sendTeammateInvite({
+      inviteId: invite!.id,
+      organizationId: orgId,
+      to: data.email,
+      fromName: workspace?.name ?? "your workspace",
+      url: link,
+    });
+    if (!sent.ok) console.error(`[invite] send failed for ${data.email}: ${sent.error}`);
+
+    return { ok: true, inviteId: invite!.id, link, emailSent: sent.ok };
   });

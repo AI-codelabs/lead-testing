@@ -65,20 +65,34 @@ export const listSentInvites = createServerFn({ method: "POST" })
     const orgId = await requireOrganization(context.db, data.organizationId);
     const [memberInvites, clientInvites] = await Promise.all([
       context.db.sql<InviteRow>(
+        // Also covers workspaces this agency manages. An owner invite into a
+        // workspace the agency built lives on the CLIENT organization, so
+        // filtering on the agency's own id alone hid it from this list
+        // entirely — the agency sent an invite and saw no trace of it.
         `SELECT i.id, i.id::text AS token, i.email, i.role, i.status,
                 i.expires_at, i.created_at,
                 i.organization_name,
-                'member' AS kind, 'not_sent' AS email_status, NULL AS email_error
+                CASE WHEN i.organization_id <> $1 AND i.role = 'owner'
+                     THEN 'client_owner' ELSE 'member' END AS kind,
+                COALESCE(log.status, 'not_sent') AS email_status,
+                log.error AS email_error
            FROM app.org_invitations i
-          WHERE i.organization_id = $1`,
+      LEFT JOIN public.invite_email_log log ON log.invite_id = i.id
+          WHERE i.organization_id = $1
+             OR i.organization_id IN (
+                  SELECT ac.client_org_id FROM public.agency_clients ac
+                   WHERE ac.agency_org_id = $1)`,
         [orgId],
       ),
       context.db.sql<InviteRow>(
         `SELECT ci.id, ci.id::text AS token, ci.client_email AS email, ci.access_level AS role, ci.status,
                 ci.expires_at, ci.created_at,
                 app.organization_name(ci.agency_org_id) AS organization_name,
-                'client' AS kind, 'not_sent' AS email_status, NULL AS email_error
+                'client' AS kind,
+                COALESCE(log.status, 'not_sent') AS email_status,
+                log.error AS email_error
            FROM public.agency_client_invites ci
+      LEFT JOIN public.invite_email_log log ON log.invite_id = ci.id
           WHERE ci.agency_org_id = $1`,
         [orgId],
       ),

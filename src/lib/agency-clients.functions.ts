@@ -49,6 +49,12 @@ export const inviteClientWorkspace = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const orgId = await requireOrganization(context.db, data.organizationId);
 
+    const agencyRow = await context.db.one<{ name: string }>(
+      `SELECT app.organization_name($1) AS name`,
+      [orgId],
+    );
+    const agencyName = agencyRow?.name ?? null;
+
     const rows = await context.db.sql<{ id: string }>(
       `INSERT INTO public.agency_client_invites
          (agency_org_id, client_email, access_level, inviter_id,
@@ -64,9 +70,18 @@ export const inviteClientWorkspace = createServerFn({ method: "POST" })
     // decide the account type, and `invite` forces an agency account — which
     // signs the invited company up as an agency.
     const link = `${process.env.SITE_URL ?? ""}/signup?clientInvite=${rows[0].id}`;
-    console.info(`[client-invite] ${data.email} -> ${link}`);
 
-    return { ok: true, inviteId: rows[0].id, link, emailSent: false };
+    const { sendClientSignupInvite } = await import("./email.server");
+    const sent = await sendClientSignupInvite({
+      inviteId: rows[0].id,
+      organizationId: orgId,
+      to: data.email,
+      fromName: agencyName ?? "Your agency",
+      url: link,
+    });
+    if (!sent.ok) console.error(`[client-invite] send failed for ${data.email}: ${sent.error}`);
+
+    return { ok: true, inviteId: rows[0].id, link, emailSent: sent.ok };
   });
 
 
@@ -247,9 +262,27 @@ export const inviteClientOwner = createServerFn({ method: "POST" })
     );
 
     const link = `${process.env.SITE_URL ?? ""}/signup?memberInvite=${invite!.id}`;
-    console.info(`[client-owner-invite] ${data.email} -> ${link}`);
 
-    return { ok: true, inviteId: invite!.id, link, emailSent: false };
+    const names = await context.db.one<{ workspace: string; agency: string | null }>(
+      `SELECT app.organization_name($1) AS workspace,
+              (SELECT app.organization_name(ac.agency_org_id)
+                 FROM public.agency_clients ac
+                WHERE ac.client_org_id = $1 LIMIT 1) AS agency`,
+      [orgId],
+    );
+
+    const { sendWorkspaceOwnerInvite } = await import("./email.server");
+    const sent = await sendWorkspaceOwnerInvite({
+      inviteId: invite!.id,
+      organizationId: orgId,
+      to: data.email,
+      fromName: names?.agency ?? "Your agency",
+      workspaceName: names?.workspace ?? "Your workspace",
+      url: link,
+    });
+    if (!sent.ok) console.error(`[client-owner-invite] send failed for ${data.email}: ${sent.error}`);
+
+    return { ok: true, inviteId: invite!.id, link, emailSent: sent.ok };
   });
 
 /**
