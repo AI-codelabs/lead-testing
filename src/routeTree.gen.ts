@@ -9,48 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TrackerDotv1DotjsRouteImport } from './routes/tracker[.]v1[.]js'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as AppRouteImport } from './routes/app'
-import { Route as AgencyRouteImport } from './routes/agency'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AgencyRouteImport } from './routes/agency'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as TrackerDotv1DotjsRouteImport } from './routes/tracker[.]v1[.]js'
 import { Route as AgencyIndexRouteImport } from './routes/agency.index'
-import { Route as TrackerV1DotjsRouteImport } from './routes/tracker.v1[.]js'
-import { Route as AuthSplatRouteImport } from './routes/auth/$'
-import { Route as AppTrackingRouteImport } from './routes/app.tracking'
-import { Route as AppPipelineRouteImport } from './routes/app.pipeline'
-import { Route as AppIntegrationsRouteImport } from './routes/app.integrations'
-import { Route as AppDashboardRouteImport } from './routes/app.dashboard'
-import { Route as AppCrmRouteImport } from './routes/app.crm'
-import { Route as AppAccountRouteImport } from './routes/app.account'
-import { Route as AgencyInvitesRouteImport } from './routes/agency.invites'
 import { Route as AgencyAccountRouteImport } from './routes/agency.account'
-import { Route as AppIntegrationsMetaAdsRouteImport } from './routes/app.integrations.meta-ads'
+import { Route as AgencyInvitesRouteImport } from './routes/agency.invites'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppAccountRouteImport } from './routes/app.account'
+import { Route as AppCrmRouteImport } from './routes/app.crm'
+import { Route as AppDashboardRouteImport } from './routes/app.dashboard'
+import { Route as AppIntegrationsRouteImport } from './routes/app.integrations'
+import { Route as AppPipelineRouteImport } from './routes/app.pipeline'
+import { Route as AppTrackingRouteImport } from './routes/app.tracking'
+import { Route as AuthSplatRouteImport } from './routes/auth/$'
+import { Route as TrackerV1DotjsRouteImport } from './routes/tracker.v1[.]js'
 import { Route as AppIntegrationsGoogleAdsRouteImport } from './routes/app.integrations.google-ads'
-import { Route as ApiPublicTrackerV1RouteImport } from './routes/api/public/tracker.v1'
+import { Route as AppIntegrationsMetaAdsRouteImport } from './routes/app.integrations.meta-ads'
 import { Route as ApiPublicLeadsCollectRouteImport } from './routes/api/public/leads/collect'
+import { Route as ApiPublicTrackerV1RouteImport } from './routes/api/public/tracker.v1'
 import { Route as ApiPublicOauthGoogleAdsCallbackRouteImport } from './routes/api/public/oauth/google-ads/callback'
 
-const TrackerDotv1DotjsRoute = TrackerDotv1DotjsRouteImport.update({
-  id: '/tracker.v1.js',
-  path: '/tracker.v1.js',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppRoute = AppRouteImport.update({
-  id: '/app',
-  path: '/app',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgencyRoute = AgencyRouteImport.update({
@@ -58,64 +43,29 @@ const AgencyRoute = AgencyRouteImport.update({
   path: '/agency',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppIndexRoute = AppIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppRoute,
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrackerDotv1DotjsRoute = TrackerDotv1DotjsRouteImport.update({
+  id: '/tracker.v1.js',
+  path: '/tracker.v1.js',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AgencyIndexRoute = AgencyIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AgencyRoute,
-} as any)
-const TrackerV1DotjsRoute = TrackerV1DotjsRouteImport.update({
-  id: '/tracker/v1.js',
-  path: '/tracker/v1.js',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthSplatRoute = AuthSplatRouteImport.update({
-  id: '/auth/$',
-  path: '/auth/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppTrackingRoute = AppTrackingRouteImport.update({
-  id: '/tracking',
-  path: '/tracking',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPipelineRoute = AppPipelineRouteImport.update({
-  id: '/pipeline',
-  path: '/pipeline',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
-  id: '/integrations',
-  path: '/integrations',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDashboardRoute = AppDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppCrmRoute = AppCrmRouteImport.update({
-  id: '/crm',
-  path: '/crm',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAccountRoute = AppAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => AppRoute,
-} as any)
-const AgencyInvitesRoute = AgencyInvitesRouteImport.update({
-  id: '/invites',
-  path: '/invites',
   getParentRoute: () => AgencyRoute,
 } as any)
 const AgencyAccountRoute = AgencyAccountRouteImport.update({
@@ -123,10 +73,55 @@ const AgencyAccountRoute = AgencyAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AgencyRoute,
 } as any)
-const AppIntegrationsMetaAdsRoute = AppIntegrationsMetaAdsRouteImport.update({
-  id: '/meta-ads',
-  path: '/meta-ads',
-  getParentRoute: () => AppIntegrationsRoute,
+const AgencyInvitesRoute = AgencyInvitesRouteImport.update({
+  id: '/invites',
+  path: '/invites',
+  getParentRoute: () => AgencyRoute,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccountRoute = AppAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCrmRoute = AppCrmRouteImport.update({
+  id: '/crm',
+  path: '/crm',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPipelineRoute = AppPipelineRouteImport.update({
+  id: '/pipeline',
+  path: '/pipeline',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTrackingRoute = AppTrackingRouteImport.update({
+  id: '/tracking',
+  path: '/tracking',
+  getParentRoute: () => AppRoute,
+} as any)
+const AuthSplatRoute = AuthSplatRouteImport.update({
+  id: '/auth/$',
+  path: '/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrackerV1DotjsRoute = TrackerV1DotjsRouteImport.update({
+  id: '/tracker/v1.js',
+  path: '/tracker/v1.js',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppIntegrationsGoogleAdsRoute =
   AppIntegrationsGoogleAdsRouteImport.update({
@@ -134,14 +129,19 @@ const AppIntegrationsGoogleAdsRoute =
     path: '/google-ads',
     getParentRoute: () => AppIntegrationsRoute,
   } as any)
-const ApiPublicTrackerV1Route = ApiPublicTrackerV1RouteImport.update({
-  id: '/api/public/tracker/v1',
-  path: '/api/public/tracker/v1',
-  getParentRoute: () => rootRouteImport,
+const AppIntegrationsMetaAdsRoute = AppIntegrationsMetaAdsRouteImport.update({
+  id: '/meta-ads',
+  path: '/meta-ads',
+  getParentRoute: () => AppIntegrationsRoute,
 } as any)
 const ApiPublicLeadsCollectRoute = ApiPublicLeadsCollectRouteImport.update({
   id: '/api/public/leads/collect',
   path: '/api/public/leads/collect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicTrackerV1Route = ApiPublicTrackerV1RouteImport.update({
+  id: '/api/public/tracker/v1',
+  path: '/api/public/tracker/v1',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicOauthGoogleAdsCallbackRoute =
@@ -317,32 +317,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tracker.v1.js': {
-      id: '/tracker.v1.js'
-      path: '/tracker.v1.js'
-      fullPath: '/tracker.v1.js'
-      preLoaderRoute: typeof TrackerDotv1DotjsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app': {
-      id: '/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AppRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agency': {
@@ -352,88 +331,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgencyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app/': {
-      id: '/app/'
-      path: '/'
-      fullPath: '/app/'
-      preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRoute
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tracker.v1.js': {
+      id: '/tracker.v1.js'
+      path: '/tracker.v1.js'
+      fullPath: '/tracker.v1.js'
+      preLoaderRoute: typeof TrackerDotv1DotjsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/agency/': {
       id: '/agency/'
       path: '/'
       fullPath: '/agency/'
       preLoaderRoute: typeof AgencyIndexRouteImport
-      parentRoute: typeof AgencyRoute
-    }
-    '/tracker/v1.js': {
-      id: '/tracker/v1.js'
-      path: '/tracker/v1.js'
-      fullPath: '/tracker/v1.js'
-      preLoaderRoute: typeof TrackerV1DotjsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/$': {
-      id: '/auth/$'
-      path: '/auth/$'
-      fullPath: '/auth/$'
-      preLoaderRoute: typeof AuthSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app/tracking': {
-      id: '/app/tracking'
-      path: '/tracking'
-      fullPath: '/app/tracking'
-      preLoaderRoute: typeof AppTrackingRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/pipeline': {
-      id: '/app/pipeline'
-      path: '/pipeline'
-      fullPath: '/app/pipeline'
-      preLoaderRoute: typeof AppPipelineRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/integrations': {
-      id: '/app/integrations'
-      path: '/integrations'
-      fullPath: '/app/integrations'
-      preLoaderRoute: typeof AppIntegrationsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/dashboard': {
-      id: '/app/dashboard'
-      path: '/dashboard'
-      fullPath: '/app/dashboard'
-      preLoaderRoute: typeof AppDashboardRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/crm': {
-      id: '/app/crm'
-      path: '/crm'
-      fullPath: '/app/crm'
-      preLoaderRoute: typeof AppCrmRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/account': {
-      id: '/app/account'
-      path: '/account'
-      fullPath: '/app/account'
-      preLoaderRoute: typeof AppAccountRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/agency/invites': {
-      id: '/agency/invites'
-      path: '/invites'
-      fullPath: '/agency/invites'
-      preLoaderRoute: typeof AgencyInvitesRouteImport
       parentRoute: typeof AgencyRoute
     }
     '/agency/account': {
@@ -443,12 +373,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgencyAccountRouteImport
       parentRoute: typeof AgencyRoute
     }
-    '/app/integrations/meta-ads': {
-      id: '/app/integrations/meta-ads'
-      path: '/meta-ads'
-      fullPath: '/app/integrations/meta-ads'
-      preLoaderRoute: typeof AppIntegrationsMetaAdsRouteImport
-      parentRoute: typeof AppIntegrationsRoute
+    '/agency/invites': {
+      id: '/agency/invites'
+      path: '/invites'
+      fullPath: '/agency/invites'
+      preLoaderRoute: typeof AgencyInvitesRouteImport
+      parentRoute: typeof AgencyRoute
+    }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/account': {
+      id: '/app/account'
+      path: '/account'
+      fullPath: '/app/account'
+      preLoaderRoute: typeof AppAccountRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/crm': {
+      id: '/app/crm'
+      path: '/crm'
+      fullPath: '/app/crm'
+      preLoaderRoute: typeof AppCrmRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dashboard': {
+      id: '/app/dashboard'
+      path: '/dashboard'
+      fullPath: '/app/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/integrations': {
+      id: '/app/integrations'
+      path: '/integrations'
+      fullPath: '/app/integrations'
+      preLoaderRoute: typeof AppIntegrationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/pipeline': {
+      id: '/app/pipeline'
+      path: '/pipeline'
+      fullPath: '/app/pipeline'
+      preLoaderRoute: typeof AppPipelineRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/tracking': {
+      id: '/app/tracking'
+      path: '/tracking'
+      fullPath: '/app/tracking'
+      preLoaderRoute: typeof AppTrackingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/auth/$': {
+      id: '/auth/$'
+      path: '/auth/$'
+      fullPath: '/auth/$'
+      preLoaderRoute: typeof AuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tracker/v1.js': {
+      id: '/tracker/v1.js'
+      path: '/tracker/v1.js'
+      fullPath: '/tracker/v1.js'
+      preLoaderRoute: typeof TrackerV1DotjsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/app/integrations/google-ads': {
       id: '/app/integrations/google-ads'
@@ -457,18 +450,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIntegrationsGoogleAdsRouteImport
       parentRoute: typeof AppIntegrationsRoute
     }
-    '/api/public/tracker/v1': {
-      id: '/api/public/tracker/v1'
-      path: '/api/public/tracker/v1'
-      fullPath: '/api/public/tracker/v1'
-      preLoaderRoute: typeof ApiPublicTrackerV1RouteImport
-      parentRoute: typeof rootRouteImport
+    '/app/integrations/meta-ads': {
+      id: '/app/integrations/meta-ads'
+      path: '/meta-ads'
+      fullPath: '/app/integrations/meta-ads'
+      preLoaderRoute: typeof AppIntegrationsMetaAdsRouteImport
+      parentRoute: typeof AppIntegrationsRoute
     }
     '/api/public/leads/collect': {
       id: '/api/public/leads/collect'
       path: '/api/public/leads/collect'
       fullPath: '/api/public/leads/collect'
       preLoaderRoute: typeof ApiPublicLeadsCollectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/tracker/v1': {
+      id: '/api/public/tracker/v1'
+      path: '/api/public/tracker/v1'
+      fullPath: '/api/public/tracker/v1'
+      preLoaderRoute: typeof ApiPublicTrackerV1RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/oauth/google-ads/callback': {

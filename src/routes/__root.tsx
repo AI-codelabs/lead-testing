@@ -39,12 +39,14 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+// `error` is typed unknown by the router: a thrown value need not be an Error.
+function ErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
+  const asError = error instanceof Error ? error : new Error(String(error));
+  console.error(asError);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
+    reportLovableError(asError, { boundary: "tanstack_root_error_component" });
+  }, [asError]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
