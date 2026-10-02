@@ -7,8 +7,18 @@ import { requireAuth, requireOrganization } from "@/auth/middleware";
  * workspace membership lives in organization-members.functions.ts.
  */
 
-/** How much of a client workspace the managing agency can see. */
-export type AccessLevel = "full" | "read_only";
+/**
+ * How much of a client workspace the managing agency can see.
+ *
+ * These are the three levels the UI has always offered. The column used to
+ * store only two, so a form casting its value saved "Limited" as "full".
+ */
+export type AccessLevel = "full" | "names_only" | "metrics_only";
+
+/** Narrows anything arriving from a client to a level the database accepts. */
+export function toAccessLevel(value: unknown): AccessLevel {
+  return value === "names_only" || value === "metrics_only" ? value : "full";
+}
 
 export const inviteClientWorkspace = createServerFn({ method: "POST" })
   .middleware([requireAuth])
@@ -29,7 +39,7 @@ export const inviteClientWorkspace = createServerFn({ method: "POST" })
       if (!workspaceName) throw new Error("A workspace name is required");
       return {
         email,
-        accessLevel: data.accessLevel === "read_only" ? "read_only" : "full",
+        accessLevel: toAccessLevel(data.accessLevel),
         organizationId: data.organizationId,
         workspaceName,
         ownerName: String(data?.ownerName ?? "").trim().slice(0, 120) || null,
@@ -163,7 +173,7 @@ export const linkClientWorkspace = createServerFn({ method: "POST" })
       return {
         organizationId: data.organizationId,
         clientOrgId: data.clientOrgId,
-        accessLevel: data.accessLevel === "read_only" ? "read_only" : "full",
+        accessLevel: toAccessLevel(data.accessLevel),
       };
     },
   )
@@ -234,6 +244,25 @@ export const inviteClientOwner = createServerFn({ method: "POST" })
     console.info(`[client-owner-invite] ${data.email} -> ${link}`);
 
     return { ok: true, inviteId: invite!.id, link, emailSent: false };
+  });
+
+/**
+ * Sets what the managing agency may see in this workspace.
+ *
+ * Only the client's own owners and admins may call it, enforced inside
+ * app.set_agency_access — an agency cannot widen its own access. Until now the
+ * picker only moved React state, so reloading the page restored "Full access".
+ */
+export const setAgencyAccess = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data: { organizationId: string; accessLevel: AccessLevel }) => {
+    if (!data?.organizationId) throw new Error("organizationId is required");
+    return { organizationId: data.organizationId, accessLevel: toAccessLevel(data.accessLevel) };
+  })
+  .handler(async ({ data, context }) => {
+    const orgId = await requireOrganization(context.db, data.organizationId);
+    await context.db.sql(`SELECT app.set_agency_access($1, $2)`, [orgId, data.accessLevel]);
+    return { ok: true, accessLevel: data.accessLevel };
   });
 
 export const listAgencyClients = createServerFn({ method: "POST" })

@@ -1,5 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireAuth, requireOrganization } from "@/auth/middleware";
+import {
+  requireAuth,
+  requireOrganization,
+  resolveWorkspaceAccess,
+  type WorkspaceAccess,
+} from "@/auth/middleware";
 import type { Lead } from "@/components/leadlogr/lead-types";
 import {
   LEAD_COLUMNS,
@@ -12,11 +17,33 @@ import {
 } from "./lead-mapping";
 
 /**
+ * Strips what a managing agency is not entitled to see.
+ *
+ * Applied here rather than in the browser, which is where it used to happen:
+ * the UI hid fields the server had already sent, so the data was one network
+ * tab away. A member of the workspace is never masked.
+ */
+function applyAccess(lead: Lead, access: WorkspaceAccess): Lead {
+  if (access.viaMembership || access.level === "full") return lead;
+  // metrics_only never reaches here — those callers get no rows at all.
+  return {
+    ...lead,
+    email: "",
+    phone: "",
+    description: "",
+    notes: "",
+    value: 0,
+    formAnswers: {},
+    history: [],
+  };
+}
+
+/**
  * Leads for one organization.
  *
- * Row level security restricts this to organizations the caller belongs to,
- * so the organizationId below narrows the result — it does not authorize it.
- * Passing another tenant's id returns nothing.
+ * Authorization is the access resolution below, not the organizationId: a
+ * member sees everything, a managing agency sees what the client granted, and
+ * anyone else is refused.
  */
 export const listLeads = createServerFn({ method: "POST" })
   .middleware([requireAuth])
@@ -28,7 +55,11 @@ export const listLeads = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data, context }): Promise<Lead[]> => {
-    const organizationId = await requireOrganization(context.db, data.organizationId);
+    const access = await resolveWorkspaceAccess(context.db, data.organizationId);
+
+    // Aggregates only: an agency on metrics_only gets no individual leads, and
+    // gets them withheld here rather than hidden after delivery.
+    if (access.level === "metrics_only" && !access.viaMembership) return [];
 
     const rows = await context.db.sql<LeadRow>(
       `SELECT ${LEAD_COLUMNS}
@@ -36,10 +67,10 @@ export const listLeads = createServerFn({ method: "POST" })
         WHERE l.organization_id = $1
      ORDER BY l.created_at DESC
         LIMIT $2`,
-      [organizationId, data.limit],
+      [access.organizationId, data.limit],
     );
 
-    return rows.map(rowToLead);
+    return rows.map(rowToLead).map((lead) => applyAccess(lead, access));
   });
 
 /** One lead, with its activity timeline. */
@@ -50,8 +81,11 @@ export const getLead = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data, context }): Promise<Lead | null> => {
-    const row = await context.db.one<LeadRow>(
+    // organization_id is not in the shared column list; this is the one caller
+    // that needs it, to resolve what the reader is entitled to see.
+    const row = await context.db.one<LeadRow & { organization_id: string }>(
       `SELECT ${LEAD_COLUMNS},
+              l.organization_id,
               COALESCE(
                 (SELECT json_agg(json_build_object(
                           'id', a.id, 'kind', a.kind, 'at', a.created_at,
@@ -65,8 +99,14 @@ export const getLead = createServerFn({ method: "POST" })
         WHERE l.id = $1`,
       [data.leadId],
     );
+    if (!row) return null;
 
-    return row ? rowToLead(row) : null;
+    // The row arrived under row level security, which lets a managing agency
+    // read it. What that agency may SEE of it is the client's choice.
+    const access = await resolveWorkspaceAccess(context.db, row.organization_id);
+    if (access.level === "metrics_only" && !access.viaMembership) return null;
+
+    return applyAccess(rowToLead(row), access);
   });
 
 /**

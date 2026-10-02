@@ -208,7 +208,8 @@ export function TeamMembersPanel() {
 
 const ACCESS_LABELS: Record<AccessLevel, string> = {
   full: "Full access to this workspace",
-  read_only: "Read-only access to this workspace",
+  names_only: "Limited access — no contact details or values",
+  metrics_only: "Aggregate metrics only — no individual leads",
 };
 
 function formatLinkedAt(iso: string): string {

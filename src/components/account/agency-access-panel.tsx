@@ -4,7 +4,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ACCESS_LEVEL_META, useAccount, type AccessLevel } from "@/lib/account-context";
-import { inviteClientWorkspace } from "@/lib/agency-clients.functions";
+import {
+  inviteClientWorkspace,
+  listManagingAgencies,
+  setAgencyAccess,
+} from "@/lib/agency-clients.functions";
 import { listSentInvites, revokeInvite } from "@/lib/invitations.functions";
 
 const LEVELS: AccessLevel[] = ["full", "names_only", "metrics_only"];
@@ -15,6 +19,30 @@ export function AgencyAccessPanel() {
   const qc = useQueryClient();
 
   const sendFn = useServerFn(inviteClientWorkspace);
+  const agenciesFn = useServerFn(listManagingAgencies);
+  const accessFn = useServerFn(setAgencyAccess);
+
+  // The level an agency is actually operating under, read back from the link
+  // rather than assumed. Until this existed the picker showed "Full access" on
+  // every reload whatever the client had chosen.
+  const { data: agencyData } = useQuery({
+    queryKey: ["managing-agencies", activeOrganizationId],
+    queryFn: () => agenciesFn({ data: { organizationId: activeOrganizationId } }),
+    enabled: !!activeOrganizationId,
+  });
+  const liveAgency = agencyData?.agencies?.[0] ?? null;
+  const effectiveLevel: AccessLevel = liveAgency?.accessLevel ?? ownWorkspace.grantedAccess;
+
+  const changeAccess = useMutation({
+    mutationFn: (lvl: AccessLevel) =>
+      accessFn({ data: { organizationId: activeOrganizationId, accessLevel: lvl } }),
+    onSuccess: (_res, lvl) => {
+      setGrantedAccess(lvl);
+      toast.success("Agency access updated.");
+      qc.invalidateQueries({ queryKey: ["managing-agencies"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not change access"),
+  });
   const listFn = useServerFn(listSentInvites);
   const revokeFn = useServerFn(revokeInvite);
 
@@ -33,7 +61,7 @@ export function AgencyAccessPanel() {
         data: {
           organizationId: activeOrganizationId,
           email: email.trim(),
-          accessLevel: ownWorkspace.grantedAccess as "full" | "read_only",
+          accessLevel: ownWorkspace.grantedAccess,
         },
       }),
     onSuccess: (res) => {
@@ -78,7 +106,7 @@ export function AgencyAccessPanel() {
             <Mail className="size-3.5 text-muted-foreground" />
             <span className="font-medium">{invited}</span>
             <span className="text-xs text-muted-foreground">
-              · {ACCESS_LEVEL_META[ownWorkspace.grantedAccess].label}
+              · {ACCESS_LEVEL_META[effectiveLevel].label}
               {pendingInvite ? ` · ${pendingInvite.status}` : null}
             </span>
           </div>
@@ -119,11 +147,12 @@ export function AgencyAccessPanel() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {LEVELS.map((lvl) => {
-            const active = ownWorkspace.grantedAccess === lvl;
+            const active = effectiveLevel === lvl;
             return (
               <button
                 key={lvl}
-                onClick={() => setGrantedAccess(lvl)}
+                disabled={changeAccess.isPending}
+                onClick={() => (liveAgency ? changeAccess.mutate(lvl) : setGrantedAccess(lvl))}
                 aria-pressed={active}
                 className={`text-left rounded-md p-3 ring-1 transition-colors ${
                   active ? "ring-foreground bg-muted" : "ring-border bg-card hover:bg-muted/60"

@@ -161,7 +161,7 @@ function NewClientPanel() {
         data: {
           organizationId: activeOrganizationId,
           email: ownerEmail.trim(),
-          accessLevel: access as "full" | "read_only",
+          accessLevel: access,
           // Both fields the form asks for now travel with the invite instead of
           // being collected and dropped on the floor.
           workspaceName: name.trim(),
@@ -393,11 +393,7 @@ function BuildWorkspacePanel() {
         data: {
           organizationId: activeOrganizationId,
           clientOrgId: organizationId,
-          // The picker offers three levels; the database stores two. Anything
-          // short of full maps to read_only — the safer of the two — rather
-          // than being cast to full, which is what the form beside this one
-          // still does.
-          accessLevel: access === "full" ? "full" : "read_only",
+          accessLevel: access,
         },
       });
       return { id: organizationId, name: name.trim() };
