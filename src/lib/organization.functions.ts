@@ -32,6 +32,20 @@ export const listMyOrganizations = createServerFn({ method: "GET" })
               COALESCE(s.timezone, 'Europe/Amsterdam') AS "timezone"
          FROM app.organizations o
     LEFT JOIN public.organization_settings s ON s.organization_id = o.id
+        -- A workspace an agency built for a client is one the agency belongs to
+        -- as an admin, which would otherwise list it under "Your workspaces"
+        -- alongside the agency's own. It belongs under clients, reached by
+        -- opening it from the clients overview.
+        --
+        -- Scoped to non-owners on purpose: someone who genuinely owns a
+        -- workspace keeps it here even when an agency they also work for
+        -- manages it.
+        WHERE o.my_role = 'owner'
+           OR NOT EXISTS (
+                SELECT 1
+                  FROM public.agency_clients ac
+                 WHERE ac.client_org_id = o.id
+                   AND app.is_member(ac.agency_org_id))
      ORDER BY o.created_at ASC`,
       [],
     );

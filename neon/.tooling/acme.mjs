@@ -1,0 +1,11 @@
+import pg from 'pg'; import fs from 'node:fs';
+const env = fs.readFileSync('/Users/thobiasreinderswerk/Documents/lead-testing/.env.local','utf8');
+const url = env.split('\n').find(l=>l.startsWith('DATABASE_URL='))?.slice('DATABASE_URL='.length).trim();
+const c = new pg.Client({ connectionString: url }); await c.connect();
+const { rows:[o] } = await c.query(`SELECT id FROM neon_auth."organization" WHERE name='Acme media'`);
+console.log('ACMEORG', o?.id ?? 'none');
+const { rows:i } = await c.query(`SELECT id, email, status FROM neon_auth."invitation" WHERE "organizationId"=$1`,[o.id]);
+for (const r of i) console.log(`INVITE ${r.id} ${r.email} ${r.status}`);
+const { rows:m } = await c.query(`SELECT u.email, m.role FROM neon_auth."member" m JOIN neon_auth."user" u ON u.id=m."userId" WHERE m."organizationId"=$1`,[o.id]);
+console.log('MEMBERS', m.map(r=>`${r.email}=${r.role}`).join(', '));
+await c.end();

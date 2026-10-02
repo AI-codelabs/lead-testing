@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, Monitor, Moon, Sun, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useTheme, type Theme } from "@/components/theme-provider";
@@ -8,6 +9,7 @@ import { useAccount } from "@/lib/account-context";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { acceptInvite, declineInvite, listReceivedInvites } from "@/lib/invitations.functions";
 import { toast } from "sonner";
+import { createOrganization } from "@/auth/session";
 
 export const Route = createFileRoute("/agency/account")({
   staticData: { width: "wide" },
@@ -49,13 +51,19 @@ function AgencyAccountPage() {
           </SectionCard>
         </TabsContent>
 
-        <TabsContent value="agency">
+        <TabsContent value="agency" className="space-y-4">
           <SectionCard title="Agency" description="Public-facing details for your agency.">
             <div className="grid md:grid-cols-2 gap-4">
               <Row label="Agency name" value={ownWorkspace.name} />
               <Row label="Primary contact" value={ownWorkspace.ownerEmail || "Not set"} />
-              <Row label="Plan" value="Agency · €199/mo" />
             </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Your own workspace"
+            description="A workspace for your agency's own lead tracking, not a client's. You own this one."
+          >
+            <OwnWorkspacePanel />
           </SectionCard>
         </TabsContent>
       </Tabs>
@@ -160,6 +168,65 @@ function InvitesList() {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * Creates a workspace the agency itself owns.
+ *
+ * Deliberately separate from building a client workspace. That one makes the
+ * agency an admin and leaves the client as owner, and it is listed under
+ * clients rather than here. This one is the agency's own: it owns it, and it
+ * appears in the workspace switcher beside the agency account.
+ */
+function OwnWorkspacePanel() {
+  const [name, setName] = useState("");
+  const qc = useQueryClient();
+
+  const create = useMutation({
+    mutationFn: async () => {
+      const ctx = await createOrganization(name.trim(), "standard");
+      return ctx;
+    },
+    onSuccess: (ctx) => {
+      setName("");
+      toast.success(`${ctx.name} created — switching you to it.`);
+      void qc.invalidateQueries({ queryKey: ["my-organizations"] });
+      // createOrganization already made it active; a full load rebuilds the
+      // account context against it, the same as the workspace switcher does.
+      if (typeof window !== "undefined") window.location.assign("/app/dashboard");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not create the workspace"),
+  });
+
+  return (
+    <form
+      className="space-y-4 max-w-md"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (name.trim() && !create.isPending) create.mutate();
+      }}
+    >
+      <div>
+        <label htmlFor="own-workspace-name" className="text-xs font-medium">
+          Workspace name
+        </label>
+        <input
+          id="own-workspace-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Our own leads"
+          className="mt-1.5 w-full rounded-md bg-card px-3 py-2 text-sm ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={!name.trim() || create.isPending}
+        className="text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+      >
+        {create.isPending ? "Creating…" : "Create workspace"}
+      </button>
+    </form>
   );
 }
 
