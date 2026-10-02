@@ -147,6 +147,10 @@ function NewClientPanel() {
           organizationId: activeOrganizationId,
           email: ownerEmail.trim(),
           accessLevel: access as "full" | "read_only",
+          // Both fields the form asks for now travel with the invite instead of
+          // being collected and dropped on the floor.
+          workspaceName: name.trim(),
+          ownerName: ownerName.trim(),
         },
       }),
     onSuccess: (res) => {

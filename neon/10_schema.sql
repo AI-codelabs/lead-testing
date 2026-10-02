@@ -254,6 +254,10 @@ CREATE TABLE public.agency_client_invites (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   agency_org_id uuid NOT NULL REFERENCES neon_auth.organization(id) ON DELETE CASCADE,
   client_email  text NOT NULL,
+  -- What the agency typed when sending the invite. Nullable: older invites
+  -- predate these columns, and the client can override the name at signup.
+  client_workspace_name text,
+  client_owner_name     text,
   access_level  text NOT NULL DEFAULT 'full'
                   CHECK (access_level IN ('full', 'read_only')),
   status        text NOT NULL DEFAULT 'pending'

@@ -8,6 +8,7 @@ import { createOrganization, switchOrganization } from "@/auth/session";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useServerFn } from "@tanstack/react-start";
 import { acceptInvite } from "@/lib/invitations.functions";
+import { lookupClientInvite } from "@/lib/agency-clients.functions";
 
 const PENDING_INVITE_KEY = "leadlogr.pending_invite_token";
 const PENDING_CLIENT_INVITE_KEY = "leadlogr.pending_client_invite_token";
@@ -110,6 +111,29 @@ function SignupPage() {
       cancelled = true;
     };
   }, []);
+
+  // Prefill the workspace name from the invite the agency sent. The field is
+  // still shown and still editable: the agency's guess at the client's name is
+  // a starting point, not a decision the client is stuck with.
+  const lookupFn = useServerFn(lookupClientInvite);
+  const [invitedBy, setInvitedBy] = useState<string | null>(null);
+  useEffect(() => {
+    if (!clientInviteToken) return;
+    let cancelled = false;
+    lookupFn({ data: { token: clientInviteToken } })
+      .then((res) => {
+        if (cancelled || !res?.valid) return;
+        setInvitedBy(res.agencyName);
+        // Never clobber something already typed.
+        setWorkspaceName((current) => current || res.workspaceName || "");
+      })
+      .catch(() => {
+        /* a bad or expired token just means no prefill */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientInviteToken, lookupFn]);
 
   // Persist invite tokens so they survive email-confirm round trips.
   useEffect(() => {
@@ -216,9 +240,11 @@ function SignupPage() {
           ? hasSession
             ? `Signed in as ${email || "your account"}. Accept the invitation to join.`
             : "You've been invited to an existing Leadlogr workspace. Create your account to join it."
-          : hasSession
-            ? `Signed in as ${email || "your account"}. Name the workspace to finish setting up.`
-            : "Choose how you'll use Leadlogr — for your own workspace or to manage many."
+          : invitedBy
+            ? `${invitedBy} invited you. Confirm the workspace name to finish setting up.`
+            : hasSession
+              ? `Signed in as ${email || "your account"}. Name the workspace to finish setting up.`
+              : "Choose how you'll use Leadlogr — for your own workspace or to manage many."
       }
       footer={
         <>
@@ -269,7 +295,10 @@ function SignupPage() {
             <Field label="Work email" type="email" placeholder="you@company.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </>
         )}
-        {!memberInviteToken && !clientInviteToken && (
+        {/* Shown for a client invite too. Hiding it assumed the invite carried
+            the name, which nothing ever supplied — so the organization was
+            created with an empty name and Better Auth rejected it. */}
+        {!memberInviteToken && (
           <Field
             label={isAgency ? "Agency name" : "Workspace name"}
             placeholder={isAgency ? "Hive Hive" : "My business"}

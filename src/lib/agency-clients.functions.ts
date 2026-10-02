@@ -13,14 +13,26 @@ export type AccessLevel = "full" | "read_only";
 export const inviteClientWorkspace = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator(
-    (data: { email: string; accessLevel?: AccessLevel; organizationId: string }) => {
+    (data: {
+      email: string;
+      accessLevel?: AccessLevel;
+      organizationId: string;
+      workspaceName?: string;
+      ownerName?: string;
+    }) => {
       if (!data?.organizationId) throw new Error("organizationId is required");
       const email = String(data?.email ?? "").trim().toLowerCase();
       if (!email || !email.includes("@")) throw new Error("A valid email is required");
+      // The form has always required a workspace name; until now it was thrown
+      // away here, which left signup with nothing to name the organization.
+      const workspaceName = String(data?.workspaceName ?? "").trim().slice(0, 120);
+      if (!workspaceName) throw new Error("A workspace name is required");
       return {
         email,
         accessLevel: data.accessLevel === "read_only" ? "read_only" : "full",
         organizationId: data.organizationId,
+        workspaceName,
+        ownerName: String(data?.ownerName ?? "").trim().slice(0, 120) || null,
       };
     },
   )
@@ -29,10 +41,12 @@ export const inviteClientWorkspace = createServerFn({ method: "POST" })
 
     const rows = await context.db.sql<{ id: string }>(
       `INSERT INTO public.agency_client_invites
-         (agency_org_id, client_email, access_level, inviter_id)
-       VALUES ($1, $2, $3, $4)
+         (agency_org_id, client_email, access_level, inviter_id,
+          client_workspace_name, client_owner_name)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
-      [orgId, data.email, data.accessLevel, context.userId],
+      [orgId, data.email, data.accessLevel, context.userId,
+       data.workspaceName, data.ownerName],
     );
     if (rows.length === 0) throw new Error("Only owners and admins can invite clients");
 
@@ -61,6 +75,48 @@ export const inviteClientWorkspace = createServerFn({ method: "POST" })
  * client could read a person at the agency is a privacy decision, not a
  * display one.
  */
+const INVITE_TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * What an invite link should say before the recipient has an account.
+ *
+ * Unauthenticated by necessity: the invitee arrives with no session, so the
+ * read policy on agency_client_invites — which matches on membership or on the
+ * caller's verified email — cannot resolve for them. The token is the
+ * credential, exactly as it is for the link itself.
+ *
+ * Returns the two display strings and nothing else. Notably not the invited
+ * email address: echoing that back would turn a leaked link into a way to
+ * learn who it was for.
+ */
+export const lookupClientInvite = createServerFn({ method: "POST" })
+  .inputValidator((data: { token: string }) => {
+    const token = String(data?.token ?? "").trim();
+    if (!INVITE_TOKEN_RE.test(token)) throw new Error("invalid token");
+    return { token };
+  })
+  .handler(async ({ data }): Promise<{
+    valid: boolean;
+    workspaceName: string | null;
+    agencyName: string | null;
+  }> => {
+    const { withOwner } = await import("@/db");
+    const row = await withOwner((db) =>
+      db.one<{ workspaceName: string | null; agencyName: string | null }>(
+        `SELECT ci.client_workspace_name AS "workspaceName",
+                o.name                   AS "agencyName"
+           FROM public.agency_client_invites ci
+           JOIN neon_auth."organization" o ON o.id = ci.agency_org_id
+          WHERE ci.id = $1
+            AND ci.status = 'pending'
+            AND ci.expires_at > now()`,
+        [data.token],
+      ),
+    );
+    if (!row) return { valid: false, workspaceName: null, agencyName: null };
+    return { valid: true, workspaceName: row.workspaceName, agencyName: row.agencyName };
+  });
+
 export const listManagingAgencies = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((data: { organizationId: string }) => {

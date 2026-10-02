@@ -68,6 +68,12 @@ export async function createOrganization(
   name: string,
   accountType: "standard" | "agency",
 ): Promise<ActiveContext> {
+  // Caught here rather than at the API: Better Auth answers an empty name with
+  // "[body.name] Too small: expected string to have >=1 characters", which is
+  // accurate, unreadable, and was being rendered straight into the signup form.
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Enter a name for your workspace.");
+
   const slug = `${
     name
       .toLowerCase()
@@ -75,7 +81,7 @@ export async function createOrganization(
       .replace(/^-|-$/g, "") || "workspace"
   }-${Math.random().toString(36).slice(2, 8)}`;
 
-  const { data, error } = await authClient.organization.create({ name, slug });
+  const { data, error } = await authClient.organization.create({ name: trimmed, slug });
   if (error || !data?.id) {
     throw new Error(error?.message ?? "Could not create workspace");
   }
