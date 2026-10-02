@@ -7,7 +7,7 @@ import { signUp, authClient } from "@/auth/client";
 import { createOrganization, switchOrganization } from "@/auth/session";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useServerFn } from "@tanstack/react-start";
-import { acceptInvite } from "@/lib/invitations.functions";
+import { acceptInvite, lookupMemberInvite } from "@/lib/invitations.functions";
 import { lookupClientInvite } from "@/lib/agency-clients.functions";
 
 const PENDING_INVITE_KEY = "leadlogr.pending_invite_token";
@@ -116,7 +116,14 @@ function SignupPage() {
   // still shown and still editable: the agency's guess at the client's name is
   // a starting point, not a decision the client is stuck with.
   const lookupFn = useServerFn(lookupClientInvite);
+  const lookupMemberFn = useServerFn(lookupMemberInvite);
   const [invitedBy, setInvitedBy] = useState<string | null>(null);
+  const [joiningName, setJoiningName] = useState<string | null>(null);
+  /**
+   * Fixed by the invitation. app.accept_invitation refuses any other address,
+   * so letting it be edited only produced an account with no workspace.
+   */
+  const [emailLocked, setEmailLocked] = useState(false);
   useEffect(() => {
     if (!clientInviteToken) return;
     let cancelled = false;
@@ -126,6 +133,10 @@ function SignupPage() {
         setInvitedBy(res.agencyName);
         // Never clobber something already typed.
         setWorkspaceName((current) => current || res.workspaceName || "");
+        if (res.email) {
+          setEmail(res.email);
+          setEmailLocked(true);
+        }
       })
       .catch(() => {
         /* a bad or expired token just means no prefill */
@@ -134,6 +145,27 @@ function SignupPage() {
       cancelled = true;
     };
   }, [clientInviteToken, lookupFn]);
+
+  // The membership invite names both the workspace and the person invited.
+  useEffect(() => {
+    if (!memberInviteToken) return;
+    let cancelled = false;
+    lookupMemberFn({ data: { token: memberInviteToken } })
+      .then((res) => {
+        if (cancelled || !res?.valid) return;
+        setJoiningName(res.workspaceName);
+        if (res.email) {
+          setEmail(res.email);
+          setEmailLocked(true);
+        }
+      })
+      .catch(() => {
+        /* a bad or expired token just means no prefill */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [memberInviteToken, lookupMemberFn]);
 
   // Persist invite tokens so they survive email-confirm round trips.
   useEffect(() => {
@@ -230,7 +262,9 @@ function SignupPage() {
     <AuthShell
       title={
         joiningExisting
-          ? "Join the workspace"
+          ? joiningName
+            ? `Join ${joiningName}`
+            : "Join the workspace"
           : hasSession
             ? "Create your workspace"
             : "Create your account"
@@ -239,7 +273,9 @@ function SignupPage() {
         joiningExisting
           ? hasSession
             ? `Signed in as ${email || "your account"}. Accept the invitation to join.`
-            : "You've been invited to an existing Leadlogr workspace. Create your account to join it."
+            : joiningName
+              ? `You've been invited to ${joiningName}. Create your account to join it.`
+              : "You've been invited to an existing Leadlogr workspace. Create your account to join it."
           : invitedBy
             ? `${invitedBy} invited you. Confirm the workspace name to finish setting up.`
             : hasSession
@@ -292,7 +328,17 @@ function SignupPage() {
               <Field label="First name" placeholder="Jane" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
               <Field label="Last name" placeholder="Doe" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
             </div>
-            <Field label="Work email" type="email" placeholder="you@company.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Field
+              label="Work email"
+              type="email"
+              placeholder="you@company.com"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              readOnly={emailLocked}
+              hint={emailLocked ? "The address this invitation was sent to." : undefined}
+            />
           </>
         )}
         {/* Shown for a client invite too. Hiding it assumed the invite carried

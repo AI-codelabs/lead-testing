@@ -55,6 +55,48 @@ function millis(value: string | Date): number {
   return Number.isNaN(t) ? 0 : t;
 }
 
+const INVITE_TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * What a membership invite link should say before the recipient has an account.
+ *
+ * Unauthenticated by necessity, like its agency-invite counterpart: the
+ * recipient arrives with no session, so the read policy on the invitation view
+ * — which matches on membership or on the caller's verified email — cannot
+ * resolve for them.
+ *
+ * Returns the invited address so signup can fill it in. Accepting under any
+ * other address is refused by app.accept_invitation regardless, so asking the
+ * recipient to retype it only invites the one mistake that leaves them with an
+ * account and no workspace.
+ */
+export const lookupMemberInvite = createServerFn({ method: "POST" })
+  .inputValidator((data: { token: string }) => {
+    const token = String(data?.token ?? "").trim();
+    if (!INVITE_TOKEN_RE.test(token)) throw new Error("invalid token");
+    return { token };
+  })
+  .handler(async ({ data }): Promise<{
+    valid: boolean;
+    email: string | null;
+    workspaceName: string | null;
+  }> => {
+    const { withOwner } = await import("@/db");
+    const row = await withOwner((db) =>
+      db.one<{ email: string; workspaceName: string }>(
+        `SELECT i.email AS "email", o.name AS "workspaceName"
+           FROM neon_auth."invitation" i
+           JOIN neon_auth."organization" o ON o.id = i."organizationId"
+          WHERE i.id = $1
+            AND i.status = 'pending'
+            AND i."expiresAt" > now()`,
+        [data.token],
+      ),
+    );
+    if (!row) return { valid: false, email: null, workspaceName: null };
+    return { valid: true, email: row.email, workspaceName: row.workspaceName };
+  });
+
 export const listSentInvites = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((data: { organizationId: string }) => {

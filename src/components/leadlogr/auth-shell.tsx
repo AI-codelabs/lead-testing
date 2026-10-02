@@ -62,6 +62,8 @@ export function Field({
   value,
   onChange,
   required,
+  readOnly,
+  hint,
 }: {
   label: string;
   type?: string;
@@ -70,6 +72,9 @@ export function Field({
   value?: string;
   onChange?: ChangeEventHandler<HTMLInputElement>;
   required?: boolean;
+  /** Fixed by an invitation: the value is the credential, not a choice. */
+  readOnly?: boolean;
+  hint?: string;
 }) {
   return (
     <label className="block">
@@ -83,8 +88,13 @@ export function Field({
         value={value}
         onChange={onChange}
         required={required}
-        className="mt-2 w-full bg-card ring-1 ring-border rounded-md px-3 py-2.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+        readOnly={readOnly}
+        aria-readonly={readOnly || undefined}
+        className={`mt-2 w-full bg-card ring-1 ring-border rounded-md px-3 py-2.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow ${
+          readOnly ? "text-muted-foreground cursor-not-allowed" : ""
+        }`}
       />
+      {hint ? <span className="mt-1.5 block text-xs text-muted-foreground">{hint}</span> : null}
     </label>
   );
 }

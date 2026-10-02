@@ -110,9 +110,12 @@ const INVITE_TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
  * caller's verified email — cannot resolve for them. The token is the
  * credential, exactly as it is for the link itself.
  *
- * Returns the two display strings and nothing else. Notably not the invited
- * email address: echoing that back would turn a leaked link into a way to
- * learn who it was for.
+ * Returns the invited address so signup can fill it in. The server already
+ * refuses to accept an invitation under any other address, so making the
+ * recipient retype it only creates a way to get it wrong — someone who typed a
+ * different address got an account and no workspace. The token is the
+ * credential here, exactly as it is for the link itself; anyone holding it
+ * holds the message that was sent to that address.
  */
 export const lookupClientInvite = createServerFn({ method: "POST" })
   .inputValidator((data: { token: string }) => {
@@ -124,12 +127,14 @@ export const lookupClientInvite = createServerFn({ method: "POST" })
     valid: boolean;
     workspaceName: string | null;
     agencyName: string | null;
+    email: string | null;
   }> => {
     const { withOwner } = await import("@/db");
     const row = await withOwner((db) =>
-      db.one<{ workspaceName: string | null; agencyName: string | null }>(
+      db.one<{ workspaceName: string | null; agencyName: string | null; email: string }>(
         `SELECT ci.client_workspace_name AS "workspaceName",
-                o.name                   AS "agencyName"
+                o.name                   AS "agencyName",
+                ci.client_email          AS "email"
            FROM public.agency_client_invites ci
            JOIN neon_auth."organization" o ON o.id = ci.agency_org_id
           WHERE ci.id = $1
@@ -138,8 +143,13 @@ export const lookupClientInvite = createServerFn({ method: "POST" })
         [data.token],
       ),
     );
-    if (!row) return { valid: false, workspaceName: null, agencyName: null };
-    return { valid: true, workspaceName: row.workspaceName, agencyName: row.agencyName };
+    if (!row) return { valid: false, workspaceName: null, agencyName: null, email: null };
+    return {
+      valid: true,
+      workspaceName: row.workspaceName,
+      agencyName: row.agencyName,
+      email: row.email,
+    };
   });
 
 export const listManagingAgencies = createServerFn({ method: "POST" })
