@@ -6,6 +6,14 @@ import { TeamMembersPanel } from "@/components/account/team-members-panel";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Check, Copy, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ACCESS_LEVEL_META, type AccessLevel } from "@/lib/account-context";
@@ -411,6 +419,7 @@ function BuildWorkspacePanel() {
     mutationFn: () => inviteOwnerFn({ data: { clientOrgId: built!.id, email: email.trim() } }),
     onSuccess: (res) => {
       setEmail("");
+      setBuilt(null);
       if (res?.link) {
         navigator.clipboard?.writeText(res.link).catch(() => {});
         toast.success("Invite created — link copied to your clipboard.");
@@ -422,53 +431,8 @@ function BuildWorkspacePanel() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not invite the client"),
   });
 
-  if (built) {
-    return (
-      <div className="space-y-5 max-w-2xl">
-        <div className="rounded-md ring-1 ring-border bg-muted/40 px-4 py-3">
-          <div className="text-sm font-semibold">{built.name} is ready</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            It appears under your clients now and starts collecting leads as soon as you install
-            the tracker. Inviting the client is optional and can wait.
-          </p>
-        </div>
-
-        <Field label="Invite the client (optional)">
-          <div className="flex flex-wrap gap-2">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="owner@client.com"
-              className="min-w-0 flex-1"
-            />
-            <button
-              type="button"
-              onClick={() => invite.mutate()}
-              disabled={!email.trim().includes("@") || invite.isPending}
-              className="shrink-0 text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              {invite.isPending ? "Creating…" : "Create invite link"}
-            </button>
-          </div>
-        </Field>
-        <p className="text-xs text-muted-foreground">
-          They join as an owner of this workspace and fill in their own details. You keep access
-          either way.
-        </p>
-
-        <button
-          type="button"
-          onClick={() => setBuilt(null)}
-          className="text-sm font-medium px-3 py-2 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors"
-        >
-          Build another workspace
-        </button>
-      </div>
-    );
-  }
-
   return (
+    <>
     <form
       onSubmit={(e) => {
         e.preventDefault();
@@ -518,6 +482,55 @@ function BuildWorkspacePanel() {
         {build.isPending ? "Creating…" : "Create workspace"}
       </button>
     </form>
+
+    <Dialog open={!!built} onOpenChange={(open) => !open && setBuilt(null)}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{built?.name} is ready</DialogTitle>
+          <DialogDescription>
+            It is live under your clients and starts collecting leads the moment you install the
+            tracker. Invite the client now, or leave it and invite them later.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2">
+          <label htmlFor="client-owner-email" className="text-xs font-medium">
+            Client's email
+          </label>
+          <input
+            id="client-owner-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="owner@client.com"
+            className="w-full rounded-md bg-card px-3 py-2 text-sm ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <p className="text-xs text-muted-foreground">
+            They become the owner of this workspace. You keep admin access to run it, and they can
+            remove you whenever they like.
+          </p>
+        </div>
+
+        <DialogFooter>
+          <button
+            type="button"
+            onClick={() => setBuilt(null)}
+            className="text-sm font-medium px-3 py-2 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors"
+          >
+            Invite later
+          </button>
+          <button
+            type="button"
+            onClick={() => invite.mutate()}
+            disabled={!email.trim().includes("@") || invite.isPending}
+            className="text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {invite.isPending ? "Creating…" : "Create invite link"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

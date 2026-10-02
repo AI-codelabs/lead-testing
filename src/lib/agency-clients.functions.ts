@@ -190,7 +190,13 @@ export const linkClientWorkspace = createServerFn({ method: "POST" })
        RETURNING client_org_id`,
       [agencyOrgId, data.clientOrgId, data.accessLevel],
     );
-    if (rows.length > 0) return { ok: true, clientOrgId: rows[0].client_org_id };
+    if (rows.length > 0) {
+      // Better Auth made the creator the owner. The agency must never hold that
+      // on a client's workspace, so step down to admin the moment the link
+      // exists — leaving the workspace ownerless until its client accepts.
+      await context.db.sql(`SELECT app.demote_agency_creator($1)`, [data.clientOrgId]);
+      return { ok: true, clientOrgId: rows[0].client_org_id };
+    }
 
     // No row can mean the link already existed, or that the policy refused it.
     // Only the first is success, so distinguish them rather than guessing.

@@ -83,11 +83,9 @@ export type WorkspaceAccess = {
  * on leads was unreachable through the server functions, and the access level
  * the client chose was never consulted by anything but browser code.
  *
- * Membership wins: someone who belongs to a workspace sees all of it. The level
- * applies to an agency that manages the workspace from outside. Note that an
- * agency which co-owns a workspace it built is a member, so no level restricts
- * it — ownership is the broader grant, and pretending otherwise would be the
- * same false promise in a new place.
+ * Ownership wins, then the agency level, then plain membership. An agency is an
+ * admin member of a workspace it built — so membership alone cannot be the test,
+ * or the level it chose at creation would govern nothing.
  */
 export async function resolveWorkspaceAccess(
   db: { one: <T>(text: string, params?: unknown[]) => Promise<T | null> },
@@ -95,14 +93,27 @@ export async function resolveWorkspaceAccess(
 ): Promise<WorkspaceAccess> {
   if (!organizationId) throw new Error('No organization selected');
 
-  const member = await db.one<{ ok: boolean }>('SELECT app.is_member($1) AS ok', [organizationId]);
-  if (member?.ok) return { organizationId, level: 'full', viaMembership: true };
+  // The workspace's own owner always sees all of it. Checked before the agency
+  // link because one person can legitimately own a workspace and belong to the
+  // agency that manages it, and ownership is the stronger claim.
+  const owner = await db.one<{ ok: boolean }>(
+    "SELECT app.has_role($1, ARRAY['owner']) AS ok",
+    [organizationId],
+  );
+  if (owner?.ok) return { organizationId, level: 'full', viaMembership: true };
 
+  // An agency managing this workspace sees what the client granted — including
+  // when it is an admin member, which it is on a workspace it built. Membership
+  // lets it configure the workspace; the level governs the lead data.
   const agency = await db.one<{ level: string | null }>(
     'SELECT app.agency_access_level($1) AS level',
     [organizationId],
   );
-  if (!agency?.level) throw new Error('Forbidden');
+  if (!agency?.level) {
+    const member = await db.one<{ ok: boolean }>('SELECT app.is_member($1) AS ok', [organizationId]);
+    if (member?.ok) return { organizationId, level: 'full', viaMembership: true };
+    throw new Error('Forbidden');
+  }
 
   const level =
     agency.level === 'names_only' || agency.level === 'metrics_only' ? agency.level : 'full';

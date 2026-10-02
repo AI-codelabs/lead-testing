@@ -75,8 +75,12 @@ function slugFor(name: string): string {
  *
  * Deliberately does NOT make it active or remember it, which is the whole
  * difference from createOrganization below: the agency is creating somebody
- * else's workspace and must stay in its own. Better Auth makes the caller the
- * owner, so the agency owns it until the client accepts and becomes a co-owner.
+ * else's workspace and must stay in its own.
+ *
+ * Better Auth makes the caller the owner, which is wrong here — a client owns
+ * their own workspace. linkClientWorkspace steps the creator down to admin as
+ * soon as the link exists, so the agency can still set the workspace up without
+ * ever owning it.
  */
 export async function createClientWorkspaceOrg(name: string): Promise<{ organizationId: string }> {
   const trimmed = name.trim();
