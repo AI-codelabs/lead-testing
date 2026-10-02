@@ -86,22 +86,32 @@ function AccountPage() {
           <WorkspacePanel />
         </SectionCard>
 
-        <SectionCard title="Billing" description="Your current plan and upcoming invoice.">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold">Growth · $99/mo</div>
-              <div className="text-xs text-muted-foreground mt-1">Next invoice on Jul 1, 2026</div>
-            </div>
-            <button className="text-sm font-medium px-3 py-2 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors">
-              Manage billing
-            </button>
-          </div>
+        <SectionCard title="Billing" description="Not set up yet.">
+          {/* Was "Growth · $99/mo, next invoice Jul 1 2026" with a button that
+              did nothing. No plan exists and nothing is charged, so saying so
+              beats showing a figure nobody is paying. */}
+          <p className="text-sm text-muted-foreground">
+            There is no plan on this workspace and nothing is being charged. Billing arrives
+            with pricing.
+          </p>
         </SectionCard>
 
         <SectionCard title="Danger zone" description="Irreversible actions for this workspace.">
-          <button className="text-sm font-medium px-3 py-2 rounded-md ring-1 ring-destructive/40 text-destructive hover:bg-destructive/10 transition-colors">
+          {/* Disabled rather than removed: deleting a workspace takes its leads,
+              integrations and agency links with it, and nothing implements that
+              yet. A button that silently does nothing is worse than none. */}
+          <button
+            type="button"
+            disabled
+            title="Not available yet — ask support to delete a workspace"
+            className="text-sm font-medium px-3 py-2 rounded-md ring-1 ring-border text-muted-foreground cursor-not-allowed opacity-60"
+          >
             Delete workspace
           </button>
+          <p className="text-xs text-muted-foreground mt-2">
+            Deleting a workspace removes its leads, integrations and agency links. Not available
+            from here yet.
+          </p>
         </SectionCard>
       </div>
     </>
