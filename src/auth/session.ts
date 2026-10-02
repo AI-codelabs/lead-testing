@@ -122,6 +122,32 @@ export async function createOrganization(
 }
 
 /**
+ * Renames a workspace.
+ *
+ * Better Auth owns the organization record, so the rename goes through it
+ * rather than our own tables — the same split as creating one.
+ */
+export async function renameOrganization(organizationId: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Enter a name for your workspace.");
+
+  const { error } = await authClient.organization.update({
+    organizationId,
+    data: { name: trimmed },
+  });
+  if (error) throw new Error(error.message ?? "Could not rename the workspace");
+}
+
+/** Changes the signed-in person's own display name. */
+export async function updateProfileName(name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Enter your name.");
+
+  const { error } = await authClient.updateUser({ name: trimmed });
+  if (error) throw new Error(error.message ?? "Could not save your name");
+}
+
+/**
  * Makes another of the user's organizations the active one.
  *
  * Does a full document navigation rather than a client-side route change:

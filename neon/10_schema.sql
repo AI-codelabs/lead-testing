@@ -226,6 +226,9 @@ CREATE TABLE public.organization_settings (
                      CHECK (account_type IN ('standard', 'agency')),
   ingest_key       text NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(24), 'hex'),
   default_currency text NOT NULL DEFAULT 'EUR',
+  -- IANA zone name. Displayed on the account page and stored per workspace;
+  -- nothing schedules against it yet.
+  timezone         text NOT NULL DEFAULT 'Europe/Amsterdam',
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_at       timestamptz NOT NULL DEFAULT now()
 );

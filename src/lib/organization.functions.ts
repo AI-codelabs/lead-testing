@@ -8,6 +8,7 @@ export type OrganizationContext = {
   accountType: "standard" | "agency";
   role: string;
   defaultCurrency: string;
+  timezone: string;
 };
 
 /**
@@ -27,7 +28,8 @@ export const listMyOrganizations = createServerFn({ method: "GET" })
               o.slug   AS slug,
               COALESCE(s.account_type, 'standard') AS "accountType",
               o.my_role AS role,
-              COALESCE(s.default_currency, 'EUR')  AS "defaultCurrency"
+              COALESCE(s.default_currency, 'EUR')  AS "defaultCurrency",
+              COALESCE(s.timezone, 'Europe/Amsterdam') AS "timezone"
          FROM app.organizations o
     LEFT JOIN public.organization_settings s ON s.organization_id = o.id
      ORDER BY o.created_at ASC`,
@@ -56,7 +58,8 @@ export const getOrganization = createServerFn({ method: "POST" })
               o.slug   AS slug,
               COALESCE(s.account_type, 'standard') AS "accountType",
               o.my_role AS role,
-              COALESCE(s.default_currency, 'EUR')  AS "defaultCurrency"
+              COALESCE(s.default_currency, 'EUR')  AS "defaultCurrency",
+              COALESCE(s.timezone, 'Europe/Amsterdam') AS "timezone"
          FROM app.organizations o
     LEFT JOIN public.organization_settings s ON s.organization_id = o.id
         WHERE o.id = $1`,
@@ -94,6 +97,56 @@ export const initializeOrganization = createServerFn({ method: "POST" })
     );
 
     return { organizationId };
+  });
+
+/** Currencies the product reports conversion values in. */
+export const CURRENCIES = ["EUR", "USD", "GBP", "CAD", "AUD", "CHF", "SEK", "NOK", "DKK"] as const;
+
+/**
+ * Workspace defaults.
+ *
+ * No SECURITY DEFINER needed: app_user holds UPDATE on organization_settings
+ * and the write policy already restricts it to owners and admins, so the
+ * database refuses a member who should not be changing this.
+ */
+export const updateWorkspaceSettings = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator(
+    (data: { organizationId: string; defaultCurrency?: string; timezone?: string }) => {
+      if (!data?.organizationId) throw new Error("organizationId is required");
+      const currency = String(data.defaultCurrency ?? "").trim().toUpperCase();
+      if (currency && !CURRENCIES.includes(currency as (typeof CURRENCIES)[number])) {
+        throw new Error("Unsupported currency");
+      }
+      const timezone = String(data.timezone ?? "").trim();
+      // Validated against the runtime's own zone database rather than a list we
+      // would have to maintain.
+      if (timezone) {
+        try {
+          new Intl.DateTimeFormat("en", { timeZone: timezone });
+        } catch {
+          throw new Error("Unknown timezone");
+        }
+      }
+      return { organizationId: data.organizationId, currency, timezone };
+    },
+  )
+  .handler(async ({ data, context }): Promise<{ ok: boolean }> => {
+    const organizationId = await requireOrganization(context.db, data.organizationId);
+
+    const rows = await context.db.sql<{ organization_id: string }>(
+      `UPDATE public.organization_settings
+          SET default_currency = COALESCE(NULLIF($2, ''), default_currency),
+              timezone         = COALESCE(NULLIF($3, ''), timezone)
+        WHERE organization_id = $1
+        RETURNING organization_id`,
+      [organizationId, data.currency, data.timezone],
+    );
+    // The policy, not the application, decides who may write here — so no rows
+    // back means refused rather than missing.
+    if (rows.length === 0) throw new Error("Only owners and admins can change workspace settings");
+
+    return { ok: true };
   });
 
 /** The tracker's ingest key. Owners and admins only, enforced by policy. */
