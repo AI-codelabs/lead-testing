@@ -6,7 +6,7 @@
  * - App-level OAuth credentials live in env (one set, shared across workspaces):
  *     GOOGLE_ADS_OAUTH_CLIENT_ID
  *     GOOGLE_ADS_OAUTH_CLIENT_SECRET
- *     GOOGLE_ADS_DEVELOPER_TOKEN
+ *     GOOGLE_ADS_DEVELOPER_TOKEN   (optional since 9 September 2026)
  * - Per-workspace refresh token is stored in `google_ads_settings.oauth_refresh_token`
  *   after the user clicks "Connect Google Ads" and completes Google's consent popup.
  * - We exchange the refresh token for a short-lived access token on every call.
@@ -15,7 +15,13 @@
 const API_VERSION = "v21";
 
 export type GoogleAdsAppCreds = {
-  developerToken: string;
+  /**
+   * Optional. Google sunset developer tokens on 9 September 2026: the header is
+   * accepted but ignored, and API access level now follows the Google Cloud
+   * project the OAuth client belongs to. Still sent when set, because an
+   * existing integration has no reason to stop.
+   */
+  developerToken?: string;
   clientId: string;
   clientSecret: string;
 };
@@ -46,7 +52,10 @@ export function readGoogleAdsAppCreds(): GoogleAdsAppCreds | null {
   const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
   const clientId = process.env.GOOGLE_ADS_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_ADS_OAUTH_CLIENT_SECRET;
-  if (!developerToken || !clientId || !clientSecret) return null;
+  // Requiring the developer token here used to make every upload skip with
+  // "not_connected" on a correctly connected account, and sent anyone setting
+  // this up hunting for a token new projects are no longer issued.
+  if (!clientId || !clientSecret) return null;
   return { developerToken, clientId, clientSecret };
 }
 
@@ -106,9 +115,9 @@ export function formatConversionDateTime(date: Date, tzOffsetMinutes = 0): strin
 function gaHeaders(creds: GoogleAdsCreds, accessToken: string, loginCustomerId?: string) {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${accessToken}`,
-    "developer-token": creds.developerToken,
     "Content-Type": "application/json",
   };
+  if (creds.developerToken) headers["developer-token"] = creds.developerToken;
   if (loginCustomerId) headers["login-customer-id"] = loginCustomerId.replace(/\D/g, "");
   return headers;
 }
