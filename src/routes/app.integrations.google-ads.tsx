@@ -10,6 +10,7 @@ import {
   disconnectGoogleAds,
   listGoogleAdsCustomers,
   listGoogleAdsConversionActions,
+  startGoogleAdsOAuth,
 } from "@/lib/integrations.functions";
 import { Check, AlertCircle, ExternalLink, Loader2, Plug, Unplug, RefreshCw } from "lucide-react";
 
@@ -50,6 +51,7 @@ function GoogleAdsPage() {
   const disconnect = useServerFn(disconnectGoogleAds);
   const listCustomers = useServerFn(listGoogleAdsCustomers);
   const listActions = useServerFn(listGoogleAdsConversionActions);
+  const startOAuth = useServerFn(startGoogleAdsOAuth);
 
   const [form, setForm] = useState<FormState>({
     enabled: true,
@@ -158,27 +160,40 @@ function GoogleAdsPage() {
       .finally(() => setLoadingActions(false));
   }, [connection.connected, organizationId, form.customer_id, form.login_customer_id, listActions]);
 
-  const onConnect = () => {
+  /**
+   * Starts the Google consent round-trip.
+   *
+   * Asks the server for the URL rather than building one here. The page used to
+   * open /api/public/oauth/google-ads/start?workspace_key=… directly — a route
+   * that was removed with the Supabase backend precisely because it took the
+   * workspace from the query string, so anyone could bind their own Google
+   * account to someone else's workspace. Nothing replaced the call, so the
+   * button has been opening a 404 ever since.
+   */
+  const onConnect = async () => {
     setError(null);
     try { sessionStorage.setItem("leadlogr.googleads.returnTo", window.location.pathname); } catch { /* ignore */ }
-    // Always run the OAuth round-trip against the PUBLISHED origin. The
-    // Lovable preview hosts (lovableproject.com / id-preview--*.lovable.app)
-    // sit behind an auth-bridge that intercepts every request — including
-    // /api/public/* — so the popup never reaches Google from inside the
-    // preview iframe. The published origin has no such interception and is
-    // the redirect_uri registered in Google Cloud Console.
-    const PUBLISHED_ORIGIN = "https://lead-testing.lovable.app";
-    const host = window.location.host;
-    const isPreview = host.endsWith(".lovableproject.com") || host.startsWith("id-preview--");
-    const base = isPreview ? PUBLISHED_ORIGIN : window.location.origin;
-    const url = `${base}/api/public/oauth/google-ads/start?workspace_key=${encodeURIComponent(organizationId)}`;
+
+    // Opened before the await: a popup opened after one is no longer tied to
+    // the click that asked for it, and browsers block it.
     const w = 520, h = 640;
     const left = window.screenX + (window.outerWidth - w) / 2;
     const top = window.screenY + (window.outerHeight - h) / 2;
-    const popup = window.open(url, "leadlogr-google-ads", `width=${w},height=${h},left=${left},top=${top}`);
-    if (!popup || popup.closed || typeof popup.closed === "undefined") {
-      // Popup blocked — fall back to a top-window redirect.
-      try { window.top!.location.href = url; } catch { window.location.href = url; }
+    const popup = window.open("about:blank", "leadlogr-google-ads", `width=${w},height=${h},left=${left},top=${top}`);
+
+    try {
+      const { url } = await startOAuth({
+        data: { organizationId, redirectOrigin: window.location.origin },
+      });
+      if (popup && !popup.closed) {
+        popup.location.href = url;
+      } else {
+        // Popup blocked — fall back to a top-window redirect.
+        try { window.top!.location.href = url; } catch { window.location.href = url; }
+      }
+    } catch (e) {
+      popup?.close();
+      setError(e instanceof Error ? e.message : "Could not start the Google connection");
     }
   };
 
