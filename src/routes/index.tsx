@@ -39,47 +39,60 @@ const steps = [
 function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <MarketingNav />
+      <MarketingNav overlay />
 
-      <section id="product" className="pt-24 pb-16">
+      <section id="product" className="relative isolate overflow-hidden min-h-[88svh] pt-40 pb-20">
+        {/*
+          The illustration, its legibility scrim and its fade into the page all
+          live in one box so they move together.
+
+          That box is only the top slice of the hero on phones. The section is
+          ~1400px tall there once the pipeline preview stacks, and covering all
+          of it with a 21:9 image would show about a tenth of its width —
+          an unreadable zoom, upscaled from the small source. Covering a
+          roughly square box instead keeps the composition recognisable.
+        */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[70svh] md:h-full overflow-hidden">
+          <img
+            src="/hero-offline-online-1600.webp"
+            srcSet="/hero-offline-online-900.webp 900w, /hero-offline-online-1600.webp 1600w, /hero-offline-online-2560.webp 2560w"
+            sizes="(min-width: 768px) 100vw, 800px"
+            alt=""
+            aria-hidden="true"
+            fetchPriority="high"
+            decoding="async"
+            className="size-full object-cover object-center select-none"
+          />
+          {/* Darkens the sky just enough for white copy to hold up over the clouds. */}
+          <div className="absolute inset-x-0 top-0 h-[72%] bg-gradient-to-b from-slate-950/65 via-slate-950/45 to-transparent" />
+          {/* Melts the bottom of the illustration into the page rather than cutting it off. */}
+          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-background via-background/70 to-transparent" />
+        </div>
+
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col items-center text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted ring-1 ring-black/5 mb-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 ring-1 ring-white/25 backdrop-blur-sm mb-8">
               <div className="size-1.5 rounded-full bg-brand-accent animate-pulse" />
-              <span className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground">
+              <span className="text-[11px] font-medium tracking-wide uppercase text-white/90">
                 Now integrated with Google CAPI
               </span>
             </div>
-            <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.05] text-balance max-w-[18ch] mb-6">
+            <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.05] text-balance max-w-[18ch] mb-6 text-white drop-shadow-[0_2px_12px_rgba(2,6,23,0.45)]">
               The infrastructure for agency attribution
             </h1>
-            <p className="text-muted-foreground text-base md:text-lg text-pretty max-w-[56ch] mb-10">
+            <p className="text-white/85 text-base md:text-lg text-pretty max-w-[56ch] mb-10 drop-shadow-[0_1px_8px_rgba(2,6,23,0.45)]">
               Bridge the gap between advertising spend and closed revenue. Leadlogr captures every lead, tracks every status change, and feeds conversion data back to ad platforms automatically.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3 mb-16">
-              <Link to="/signup" className="bg-primary text-primary-foreground text-sm font-medium px-5 py-2.5 rounded-md ring-1 ring-primary shadow-sm hover:opacity-90 transition-opacity">
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-20">
+              <Link to="/signup" className="bg-primary text-primary-foreground text-sm font-medium px-5 py-2.5 rounded-md ring-1 ring-primary shadow-lg hover:opacity-90 transition-opacity">
                 Start free
               </Link>
-              <a href="#loop" className="text-sm font-medium px-5 py-2.5 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors">
+              <a href="#loop" className="text-sm font-medium px-5 py-2.5 rounded-md ring-1 ring-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 transition-colors">
                 See how it works
               </a>
             </div>
 
-            <div className="w-full max-w-5xl mb-14">
-              <img
-                src="/hero-offline-online-1600.webp"
-                srcSet="/hero-offline-online-900.webp 900w, /hero-offline-online-1600.webp 1600w, /hero-offline-online-2560.webp 2560w"
-                sizes="(min-width: 1088px) 64rem, calc(100vw - 3rem)"
-                width={2560}
-                height={1086}
-                alt="A meadow of sunflowers and poppies in bloom, cut away at the soil line to show the glowing root network that connects them underground."
-                fetchPriority="high"
-                decoding="async"
-                className="w-full rounded-2xl ring-1 ring-border shadow-sm"
-              />
-            </div>
-
-            <div className="w-full max-w-5xl">
+            <div className="w-full max-w-5xl drop-shadow-2xl">
               <PipelinePreview />
             </div>
           </div>
