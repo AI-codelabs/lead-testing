@@ -20,7 +20,8 @@ import {
   SearchX,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { deleteLead } from "@/lib/leads.functions";
+import { toast } from "sonner";
+import { deleteLead, setLeadStage, updateLead } from "@/lib/leads.functions";
 import { TableEmptyState } from "@/components/leadlogr/empty-state";
 
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
@@ -130,11 +131,18 @@ function CrmPage() {
   const [seedLeads, setLeads] = useState<Lead[]>([]);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const deleteLeadFn = useServerFn(deleteLead);
+  const setStageFn = useServerFn(setLeadStage);
+  const updateLeadFn = useServerFn(updateLead);
+  /** Stage changes made here, shown while the server catches up. */
+  const [stageOverride, setStageOverride] = useState<Record<string, string>>({});
   const leads = useMemo(() => {
     const liveIds = new Set(liveLeads.map((l) => l.id));
-    const merged = [...liveLeads, ...seedLeads.filter((l) => !liveIds.has(l.id))];
+    const merged = [
+      ...liveLeads.map((l) => (stageOverride[l.id] ? { ...l, stage: stageOverride[l.id] } : l)),
+      ...seedLeads.filter((l) => !liveIds.has(l.id)),
+    ];
     return merged.filter((l) => !deletedIds.has(l.id));
-  }, [liveLeads, seedLeads, deletedIds]);
+  }, [liveLeads, seedLeads, deletedIds, stageOverride]);
   const [tab, setTab] = useState<Tab>("Open");
   const [search, setSearch] = useState("");
   const [sortAsc, setSortAsc] = useState(true);
@@ -210,19 +218,57 @@ function CrmPage() {
     });
   };
 
+  /**
+   * Moves a lead to another stage.
+   *
+   * This only ever updated React state, so a lead marked Qualified or Won here
+   * was not saved and no conversion was reported — the same action on the
+   * pipeline board did both. Now it takes the same path the board does.
+   */
   const setStage = (id: string, stage: string) => {
-    setLeads((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, stage, updatedAt: new Date().toISOString() } : l)),
-    );
+    const isLive = liveLeads.some((l) => l.id === id);
+    if (!isLive) {
+      setLeads((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, stage, updatedAt: new Date().toISOString() } : l)),
+      );
+      return;
+    }
+    setStageOverride((prev) => ({ ...prev, [id]: stage }));
+    setStageFn({ data: { leadId: id, stage } })
+      .then(() => toast.success(`Moved to ${stage}`))
+      .catch((err) => {
+        console.error("[crm] setLeadStage failed", err);
+        setStageOverride((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        toast.error("Couldn't update stage. Please try again.");
+      });
+  };
+
+  /** Persists an edit to a live lead, or updates the local copy of a new one. */
+  const persist = (
+    id: string,
+    patch: Parameters<typeof updateLead>[0] extends never ? never : Record<string, unknown>,
+    local: (l: Lead) => Lead,
+  ) => {
+    setLeads((prev) => prev.map((l) => (l.id === id ? local(l) : l)));
+    if (!liveLeads.some((l) => l.id === id)) return;
+    updateLeadFn({ data: { leadId: id, ...patch } as never })
+      .catch((err) => {
+        console.error("[crm] updateLead failed", err);
+        toast.error("Couldn't save that change.");
+      });
   };
 
   const setLabel = (id: string, label: LeadLabel) => {
-    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, label } : l)));
+    persist(id, { label }, (l) => ({ ...l, label }));
     setLabelMenuFor(null);
   };
 
   const setValue = (id: string, value: number) => {
-    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, value } : l)));
+    persist(id, { value }, (l) => ({ ...l, value }));
   };
 
   const handleExport = () => {
@@ -250,7 +296,22 @@ function CrmPage() {
   };
 
   const handleSave = (lead: Lead) => {
-    setLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
+    persist(
+      lead.id,
+      {
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        company: lead.company ?? "",
+        description: lead.description,
+        notes: lead.notes,
+        priority: lead.priority,
+        label: lead.label,
+        tags: lead.tags,
+        value: lead.value,
+      },
+      () => lead,
+    );
   };
 
   const toggleSelect = (id: string) => {

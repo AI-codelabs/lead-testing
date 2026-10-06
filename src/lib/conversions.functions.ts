@@ -157,6 +157,16 @@ async function uploadGoogleAds(leadId: string, stage: DbStage): Promise<UploadRe
   const creds = buildGoogleAdsCreds(settings.refresh_token);
   if (!creds) return { ok: false, skipped: true, reason: "not_connected" };
 
+  // Only leads that came from a Google click. The integrations page has always
+  // said so — "Direct/organic leads stay internal" — but nothing enforced it,
+  // and uploadClickConversions accepts a conversion carrying only hashed
+  // identifiers as an Enhanced Conversion for Lead. So a Direct, Meta or
+  // LinkedIn lead with consent and an email was reported to Google as a
+  // conversion, inflating the performance of campaigns that never produced it.
+  if (!lead.gclid && !lead.wbraid && !lead.gbraid) {
+    return { ok: false, skipped: true, reason: "no_google_click" };
+  }
+
   // Enhanced conversions carry hashed identifiers, and only with consent.
   const userIdentifiers: Array<{ hashedEmail: string } | { hashedPhoneNumber: string }> = [];
   if (lead.consent === "accepted") {
@@ -169,21 +179,36 @@ async function uploadGoogleAds(leadId: string, stage: DbStage): Promise<UploadRe
   const value = stage === "won" && lead.won_value != null ? Number(lead.won_value) : undefined;
   const currency = value != null ? (settings.default_currency || lead.currency || "EUR") : undefined;
 
-  const result = await uploadClickConversion(creds, {
-    customerId: settings.account_id,
-    loginCustomerId: settings.secondary_id ?? undefined,
-    conversionActionId: settings.action,
-    gclid: lead.gclid ?? undefined,
-    wbraid: !lead.gclid && lead.wbraid ? lead.wbraid : undefined,
-    gbraid: !lead.gclid && !lead.wbraid && lead.gbraid ? lead.gbraid : undefined,
-    conversionDateTime: formatConversionDateTime(
-      new Date(lead.stage_changed_at || lead.updated_at || lead.created_at),
-    ),
-    value,
-    currencyCode: currency,
-    orderId: `${lead.id}:${stage}`,
-    userIdentifiers: userIdentifiers.length ? userIdentifiers : undefined,
-  });
+  // Wrapped: a throw here (an expired refresh token raises invalid_grant from
+  // the token endpoint, not a response we can inspect) used to escape past
+  // recordUpload, so the attempt left no trace at all. A broken connection
+  // should be visible in the upload log, not silent.
+  let result: Awaited<ReturnType<typeof uploadClickConversion>>;
+  try {
+    result = await uploadClickConversion(creds, {
+      customerId: settings.account_id,
+      loginCustomerId: settings.secondary_id ?? undefined,
+      conversionActionId: settings.action,
+      gclid: lead.gclid ?? undefined,
+      wbraid: !lead.gclid && lead.wbraid ? lead.wbraid : undefined,
+      gbraid: !lead.gclid && !lead.wbraid && lead.gbraid ? lead.gbraid : undefined,
+      conversionDateTime: formatConversionDateTime(
+        new Date(lead.stage_changed_at || lead.updated_at || lead.created_at),
+      ),
+      value,
+      currencyCode: currency,
+      orderId: `${lead.id}:${stage}`,
+      userIdentifiers: userIdentifiers.length ? userIdentifiers : undefined,
+    });
+  } catch (err) {
+    result = {
+      ok: false,
+      status: 0,
+      request: null,
+      response: null,
+      error: err instanceof Error ? err.message : "upload_threw",
+    };
+  }
 
   await recordUpload({
     organizationId: lead.organization_id,
@@ -215,12 +240,22 @@ async function uploadMeta(leadId: string, stage: DbStage): Promise<UploadResult>
   }
   if (!settings.action) return { ok: false, skipped: true, reason: `no_event_for:${stage}` };
 
+  // The same rule on the other side: a lead reaches Meta only if it arrived
+  // from a Meta click. fbp is deliberately not enough — that cookie is set for
+  // anyone who has ever loaded the pixel, including people who came from
+  // Google, so treating it as provenance would report leads to the wrong
+  // network just as surely.
+  if (!lead.fbclid) return { ok: false, skipped: true, reason: "no_meta_click" };
+
   const value = stage === "won" && lead.won_value != null ? Number(lead.won_value) : undefined;
   const currency = value != null ? (settings.default_currency || lead.currency || "EUR") : undefined;
 
   const withConsent = lead.consent === "accepted";
 
-  const result = await sendMetaCapiEvent(
+  // Same reason as the Google path above: a throw must still be recorded.
+  let result: Awaited<ReturnType<typeof sendMetaCapiEvent>>;
+  try {
+    result = await sendMetaCapiEvent(
     {
       pixelId: settings.account_id,
       accessToken: settings.access_token,
@@ -243,8 +278,17 @@ async function uploadMeta(leadId: string, stage: DbStage): Promise<UploadResult>
       value,
       currency,
       orderId: `${lead.id}:${stage}`,
-    },
-  );
+      },
+    );
+  } catch (err) {
+    result = {
+      ok: false,
+      status: 0,
+      request: null,
+      response: null,
+      error: err instanceof Error ? err.message : "upload_threw",
+    };
+  }
 
   await recordUpload({
     organizationId: lead.organization_id,
