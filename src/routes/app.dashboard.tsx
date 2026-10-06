@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/leadlogr/page-header";
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { useAccount } from "@/lib/account-context";
 import { getIntegrationStatuses } from "@/lib/integrations.functions";
+import { syncAdSpend } from "@/lib/ad-spend.functions";
 import {
   getDashboardMetrics,
   type DashboardMetrics,
@@ -69,6 +70,7 @@ function DashboardPage() {
 
   const fetchStatuses = useServerFn(getIntegrationStatuses);
   const fetchMetrics = useServerFn(getDashboardMetrics);
+  const syncSpend = useServerFn(syncAdSpend);
 
   const { data: statuses } = useQuery({
     queryKey: ["integration-statuses", organizationId],
@@ -81,6 +83,31 @@ function DashboardPage() {
     queryFn: () => fetchMetrics({ data: { organizationId, range } }),
     staleTime: 15_000,
   });
+
+  /**
+   * Refreshes cached ad spend in the background.
+   *
+   * Deliberately not awaited before the figures render: the dashboard should
+   * not wait on Google. The sync returns immediately while the cache is fresh,
+   * and when it does fetch, the numbers appear on the next read.
+   */
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!organizationId) return;
+    let cancelled = false;
+    syncSpend({ data: { organizationId } })
+      .then((r) => {
+        if (!cancelled && r?.synced) {
+          void qc.invalidateQueries({ queryKey: ["dashboard-metrics", organizationId] });
+        }
+      })
+      .catch(() => {
+        /* spend is additive; the rest of the dashboard stands without it */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, syncSpend, qc]);
 
   const hasLeads = (metrics?.totals.total ?? 0) > 0;
   const adsConnected = !!statuses?.googleAdsConnected;

@@ -277,6 +277,22 @@ CREATE TABLE public.agency_client_invites (
 CREATE INDEX agency_client_invites_agency_idx ON public.agency_client_invites (agency_org_id, status);
 CREATE INDEX agency_client_invites_email_idx  ON public.agency_client_invites (lower(client_email), status);
 
+-- === ad spend ===============================================================
+-- Cached per day. The dashboard is opened constantly and yesterday's spend does
+-- not change, so querying Google on every load would be slow and pointless.
+CREATE TABLE public.ad_spend_daily (
+  organization_id uuid        NOT NULL REFERENCES neon_auth.organization(id) ON DELETE CASCADE,
+  network         ad_network  NOT NULL,
+  day             date        NOT NULL,
+  cost_micros     bigint      NOT NULL,
+  -- The ad account's own currency, which need not match the workspace default.
+  currency        text        NOT NULL,
+  synced_at       timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (organization_id, network, day)
+);
+
+CREATE INDEX ad_spend_daily_org_day_idx ON public.ad_spend_daily (organization_id, day DESC);
+
 -- === leads ==================================================================
 -- Attribution columns are nullable: absent and empty are now distinguishable.
 CREATE TABLE public.leads (
@@ -522,6 +538,7 @@ GRANT SELECT, INSERT, UPDATE ON public.agency_client_invites TO app_user;
 -- app_ingest may only add leads, never read them. Note this also rules out
 -- INSERT ... RETURNING, because Postgres applies a SELECT policy to the
 -- returned row — the collector generates the lead id itself instead.
+GRANT SELECT ON public.ad_spend_daily TO app_user;
 GRANT INSERT ON public.leads TO app_ingest;
 -- The created-activity trigger runs as the inserting role.
 GRANT INSERT ON public.lead_activity TO app_ingest;
@@ -537,6 +554,7 @@ ALTER TABLE public.ad_platform_credentials  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversion_uploads       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.oauth_states             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agency_clients           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ad_spend_daily           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agency_client_invites    ENABLE ROW LEVEL SECURITY;
 
 -- Members see and change their own organization's rows. Nothing else.
@@ -591,6 +609,17 @@ CREATE POLICY agency_clients_accept ON public.agency_clients FOR INSERT TO app_u
          AND lower(ci.client_email)
              = lower(COALESCE(current_setting('app.user_email', true), ''))
     )
+  );
+
+-- Spend is readable by the workspace and by an agency managing it, the same
+-- reach the dashboard figures already have.
+CREATE POLICY ad_spend_daily_read ON public.ad_spend_daily FOR SELECT TO app_user
+  USING (
+    app.is_member(organization_id)
+    OR EXISTS (
+         SELECT 1 FROM public.agency_clients ac
+          WHERE ac.client_org_id = ad_spend_daily.organization_id
+            AND app.is_member(ac.agency_org_id))
   );
 
 -- An agency's members can read their clients' leads. This is the one place

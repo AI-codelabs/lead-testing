@@ -280,6 +280,63 @@ export async function getCustomerInfo(
   };
 }
 
+export type DailySpendRow = { day: string; costMicros: number; currency: string };
+
+/**
+ * Daily cost for an account over a date range.
+ *
+ * Queried from the `customer` resource rather than `campaign`, because the
+ * dashboard reports what the account spent, not how it was divided. Cost comes
+ * back in micros of the account's own currency — which is not necessarily the
+ * workspace's, so the currency travels with every row.
+ */
+export async function fetchDailySpend(
+  creds: GoogleAdsCreds,
+  customerId: string,
+  from: string,
+  to: string,
+  loginCustomerId?: string,
+): Promise<DailySpendRow[]> {
+  const accessToken = await getAccessToken(creds);
+  const customer = customerId.replace(/\D/g, "");
+  const resp = await fetch(
+    `https://googleads.googleapis.com/${API_VERSION}/customers/${customer}/googleAds:search`,
+    {
+      method: "POST",
+      headers: gaHeaders(creds, accessToken, loginCustomerId),
+      body: JSON.stringify({
+        query: `
+          SELECT segments.date, metrics.cost_micros, customer.currency_code
+          FROM customer
+          WHERE segments.date BETWEEN '${from}' AND '${to}'
+          ORDER BY segments.date
+        `,
+        pageSize: 1000,
+      }),
+    },
+  );
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(googleAdsError("fetch_spend_failed", resp.status, text));
+  }
+  const json = (await resp.json()) as {
+    results?: Array<{
+      segments?: { date?: string };
+      metrics?: { costMicros?: string | number };
+      customer?: { currencyCode?: string };
+    }>;
+  };
+  return (json.results ?? []).flatMap((r) => {
+    const day = r.segments?.date;
+    if (!day) return [];
+    return [{
+      day,
+      costMicros: Number(r.metrics?.costMicros ?? 0),
+      currency: r.customer?.currencyCode ?? "EUR",
+    }];
+  });
+}
+
 export type ConversionActionRow = {
   id: string;
   name: string;

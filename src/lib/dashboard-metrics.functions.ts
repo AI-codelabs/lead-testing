@@ -20,6 +20,7 @@ export type DashboardMetrics = {
     won: number;
     expired: number;
     wonValue: number;
+    spend: number;
   };
   wonValue: number;
   spend: number;
@@ -70,7 +71,7 @@ export const getDashboardMetrics = createServerFn({ method: "POST" })
     const { range } = data;
     const buckets = range === 7 ? 7 : range === 30 ? 12 : 18;
 
-    const [totals, sources, chart] = await Promise.all([
+    const [totals, sources, chart, spendRows] = await Promise.all([
       context.db.sql<BucketRow>(
         `SELECT CASE WHEN created_at >= now() - ($2 || ' days')::interval
                      THEN 'curr' ELSE 'prev' END        AS period,
@@ -114,6 +115,20 @@ export const getDashboardMetrics = createServerFn({ method: "POST" })
        GROUP BY 1`,
         [organizationId, String(range), String(buckets)],
       ),
+      // Spend for the same window, and the one before it, from the cached day
+      // rows. Read here rather than queried from Google so opening the
+      // dashboard stays instant.
+      context.db.sql<{ period: string; cost_micros: string; currency: string }>(
+        `SELECT CASE WHEN day >= (current_date - ($2::int - 1))
+                     THEN 'curr' ELSE 'prev' END AS period,
+                sum(cost_micros)::text           AS cost_micros,
+                min(currency)                    AS currency
+           FROM public.ad_spend_daily
+          WHERE organization_id = $1
+            AND day >= (current_date - ($2::int * 2 - 1))
+       GROUP BY 1`,
+        [organizationId, range],
+      ),
     ]);
 
     const pick = (period: "curr" | "prev") => {
@@ -140,6 +155,15 @@ export const getDashboardMetrics = createServerFn({ method: "POST" })
       chartOut[idx].conv += Number(row.conv);
     }
 
+    // Micros are Google's unit: a millionth of the account currency.
+    const spendFor = (period: string) =>
+      Number(spendRows.find((r) => r.period === period)?.cost_micros ?? 0) / 1_000_000;
+    const currSpend = spendFor("curr");
+    const prevSpend = spendFor("prev");
+    // Zero spend is a real answer; no rows at all means nothing has synced yet,
+    // and the cards should keep saying so rather than claim a ROI of zero.
+    const hasSpend = spendRows.length > 0;
+
     return {
       range,
       totals: {
@@ -156,10 +180,11 @@ export const getDashboardMetrics = createServerFn({ method: "POST" })
         won: pctChange(c.won, p.won),
         expired: pctChange(c.expired, p.expired),
         wonValue: pctChange(c.wonValue, p.wonValue),
+        spend: pctChange(currSpend, prevSpend),
       },
       wonValue: c.wonValue,
-      spend: 0,
-      hasSpend: false,
+      spend: currSpend,
+      hasSpend,
       sources: sources.map((s) => ({
         name: s.name,
         leads: Number(s.leads),
