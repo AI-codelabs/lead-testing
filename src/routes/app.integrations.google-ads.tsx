@@ -11,6 +11,8 @@ import {
   listGoogleAdsCustomers,
   listGoogleAdsConversionActions,
   startGoogleAdsOAuth,
+  getGoogleAdsReadiness,
+  testGoogleAdsConnection,
 } from "@/lib/integrations.functions";
 import { Check, AlertCircle, ExternalLink, Loader2, Plug, Unplug, RefreshCw } from "lucide-react";
 
@@ -52,6 +54,14 @@ function GoogleAdsPage() {
   const listCustomers = useServerFn(listGoogleAdsCustomers);
   const listActions = useServerFn(listGoogleAdsConversionActions);
   const startOAuth = useServerFn(startGoogleAdsOAuth);
+  const readinessFn = useServerFn(getGoogleAdsReadiness);
+  const testFn = useServerFn(testGoogleAdsConnection);
+  const [readiness, setReadiness] = useState<{
+    connected: boolean; accountSelected: boolean; stagesMapped: number; stagesTotal: number;
+    ready: boolean; enabled: boolean;
+  } | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const [form, setForm] = useState<FormState>({
     enabled: true,
@@ -99,7 +109,24 @@ function GoogleAdsPage() {
       setConnection({ connected: false, email: null, connectedAt: null });
     }
     setUploads(u.uploads as never);
-  }, [organizationId, load, listUploads]);
+    try {
+      setReadiness(await readinessFn({ data: { organizationId } }));
+    } catch {
+      setReadiness(null);
+    }
+  }, [organizationId, load, listUploads, readinessFn]);
+
+  const runTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      setTestResult(await testFn({ data: { organizationId } }));
+    } catch (e) {
+      setTestResult({ ok: false, message: e instanceof Error ? e.message : "The test could not run." });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -244,6 +271,43 @@ function GoogleAdsPage() {
               )}
             </header>
 
+            {/* Every unfinished step used to produce the same outcome - nothing -
+                with no way to tell which one was missing. Each row is something
+                the customer can act on; our own Google onboarding is not one of
+                them and is not shown. */}
+            {readiness && !readiness.ready && (
+              <ol className="mb-4 space-y-2 text-sm">
+                <ReadyStep done={readiness.connected} label="Connect your Google account" />
+                <ReadyStep
+                  done={readiness.accountSelected}
+                  label="Pick the Google Ads account conversions go to"
+                />
+                <ReadyStep
+                  done={readiness.stagesMapped > 0}
+                  label={
+                    readiness.stagesMapped > 0
+                      ? `Conversion actions chosen (${readiness.stagesMapped} of ${readiness.stagesTotal} stages)`
+                      : "Choose a conversion action for at least one stage"
+                  }
+                />
+              </ol>
+            )}
+
+            {readiness?.ready && !readiness.enabled && (
+              <p className="mb-4 text-sm text-muted-foreground">
+                Everything is set up. Switch <span className="font-medium text-foreground">Sending on</span> below
+                to start reporting conversions.
+              </p>
+            )}
+
+            {testResult && (
+              <p
+                className={`mb-4 text-sm ${testResult.ok ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}
+              >
+                {testResult.message}
+              </p>
+            )}
+
             {connection.connected ? (
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <div className="text-muted-foreground">
@@ -261,6 +325,13 @@ function GoogleAdsPage() {
                   className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md ring-1 ring-border hover:bg-muted/40"
                 >
                   <RefreshCw className="size-3.5" /> Re-authenticate
+                </button>
+                <button
+                  onClick={runTest}
+                  disabled={testing}
+                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md ring-1 ring-border hover:bg-muted/40 disabled:opacity-50"
+                >
+                  {testing ? "Testing…" : "Send a test conversion"}
                 </button>
               </div>
             ) : (
@@ -452,5 +523,25 @@ function Field({ label, hint, children }: { label: string; hint: string; childre
       {children}
       <p className="text-[11px] text-muted-foreground mt-1">{hint}</p>
     </label>
+  );
+}
+
+/** One prerequisite, done or not. */
+function ReadyStep({ done, label }: { done: boolean; label: string }) {
+  return (
+    <li className="flex items-center gap-2.5">
+      <span
+        aria-hidden
+        className={`flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+          done
+            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+            : "bg-muted text-muted-foreground ring-1 ring-border"
+        }`}
+      >
+        {done ? "\u2713" : ""}
+      </span>
+      <span className={done ? "text-muted-foreground" : "font-medium"}>{label}</span>
+      <span className="sr-only">{done ? " — done" : " — still to do"}</span>
+    </li>
   );
 }

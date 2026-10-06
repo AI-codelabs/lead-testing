@@ -396,6 +396,26 @@ export const saveGoogleAdsSettings = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<{ ok: boolean }> => {
     const orgId = await requireOrganization(context.db, data.organizationId);
+    // "Sending on" used to save happily with no account and no conversion
+    // action, so the switch said conversions were flowing while every upload
+    // skipped. Refuse the combination rather than let the page claim it.
+    if (data.enabled) {
+      const current = await oneNetwork(context.db, orgId, "google_ads");
+      const accountId = data.customer_id ?? current?.accountId ?? "";
+      const actions = [
+        data.conversion_action_new ?? current?.actionNew,
+        data.conversion_action_qualified ?? current?.actionQualified,
+        data.conversion_action_won ?? current?.actionWon,
+        data.conversion_action_lost ?? current?.actionLost,
+      ].filter(Boolean);
+
+      if (!current?.connected) throw new Error("Connect Google Ads before switching sending on.");
+      if (!accountId) throw new Error("Pick the Google Ads account before switching sending on.");
+      if (actions.length === 0) {
+        throw new Error("Choose a conversion action for at least one stage before switching sending on.");
+      }
+    }
+
     return writeSettings(context.db, orgId, "google_ads", {
       enabled: data.enabled,
       accountId: data.customer_id,
@@ -627,6 +647,114 @@ export const listGoogleAdsConversionActions = createServerFn({ method: "POST" })
       return { actions, error: null as string | null };
     } catch (e) {
       return { actions: [], error: e instanceof Error ? e.message : "list_failed" };
+    }
+  });
+
+export type GoogleAdsReadiness = {
+  connected: boolean;
+  connectedEmail: string | null;
+  accountSelected: boolean;
+  /** Pipeline stages with a conversion action chosen, out of the four reported. */
+  stagesMapped: number;
+  stagesTotal: number;
+  /** True when every step the customer controls is done. */
+  ready: boolean;
+  enabled: boolean;
+};
+
+/**
+ * What still has to happen before conversions can reach Google.
+ *
+ * Built because every unfinished step produced the same outcome — nothing —
+ * and there was no way to tell which one was missing, or whether the silence
+ * was correct (a lead with no Google click) or a misconfiguration.
+ *
+ * Reports only the steps the customer owns. Whether Leadlogr's own Google Cloud
+ * project is approved for live accounts is our onboarding, not theirs, so it is
+ * not a row here; the calls that hit it return one neutral sentence instead.
+ */
+export const getGoogleAdsReadiness = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data: { organizationId: string }) => {
+    if (!data?.organizationId) throw new Error("organizationId is required");
+    return data;
+  })
+  .handler(async ({ data, context }): Promise<GoogleAdsReadiness> => {
+    const orgId = await requireOrganization(context.db, data.organizationId);
+    const row = await oneNetwork(context.db, orgId, "google_ads");
+
+    const stages = [row?.actionNew, row?.actionQualified, row?.actionWon, row?.actionLost];
+    const stagesMapped = stages.filter((a) => !!a).length;
+    const connected = !!row?.connected;
+    const accountSelected = !!row?.accountId;
+
+    return {
+      connected,
+      connectedEmail: row?.connectedEmail ?? null,
+      accountSelected,
+      stagesMapped,
+      stagesTotal: stages.length,
+      // One mapped stage is enough to send something; four is the full set.
+      ready: connected && accountSelected && stagesMapped > 0,
+      enabled: !!row?.enabled,
+    };
+  });
+
+/**
+ * Runs the real upload path against Google and reports what came back, without
+ * recording a conversion.
+ *
+ * The point is confidence: every other signal here is indirect. This exercises
+ * the credential, the account, the conversion action and the payload shape in
+ * one go, and Google's validateOnly means a successful test leaves nothing
+ * behind in the advertiser's account.
+ */
+export const testGoogleAdsConnection = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data: { organizationId: string }) => {
+    if (!data?.organizationId) throw new Error("organizationId is required");
+    return data;
+  })
+  .handler(async ({ data, context }): Promise<{ ok: boolean; message: string }> => {
+    const orgId = await requireOrganization(context.db, data.organizationId);
+    const row = await oneNetwork(context.db, orgId, "google_ads");
+
+    if (!row?.connected) return { ok: false, message: "Connect Google Ads first." };
+    if (!row.accountId) return { ok: false, message: "Pick the Google Ads account first." };
+    const action = row.actionWon ?? row.actionQualified ?? row.actionNew ?? row.actionLost;
+    if (!action) return { ok: false, message: "Choose a conversion action for at least one stage." };
+
+    const { buildGoogleAdsCreds, uploadClickConversion, formatConversionDateTime } =
+      await import("./google-ads.server");
+    const cred = await credentialFor(orgId, "google_ads");
+    const creds = buildGoogleAdsCreds(cred?.refresh_token);
+    if (!creds) return { ok: false, message: "Connect Google Ads first." };
+
+    try {
+      const result = await uploadClickConversion(creds, {
+        customerId: row.accountId,
+        loginCustomerId: row.secondaryId ?? undefined,
+        conversionActionId: action,
+        // A click id that cannot match a real click: Google still checks the
+        // account, the conversion action and the payload around it.
+        gclid: "LEADLOGR_CONNECTION_TEST",
+        conversionDateTime: formatConversionDateTime(new Date()),
+        orderId: `leadlogr-test:${Date.now()}`,
+        validateOnly: true,
+      });
+      if (result.ok) {
+        return { ok: true, message: "Google accepted a test conversion. Everything is wired up." };
+      }
+      return { ok: false, message: result.error ?? "Google rejected the test conversion." };
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "";
+      // The token endpoint throws rather than returning a response, so this
+      // never reaches the Ads API error classifier.
+      if (raw.includes("invalid_grant")) {
+        const { RECONNECT_NEEDED } = await import("./google-ads.server");
+        return { ok: false, message: RECONNECT_NEEDED };
+      }
+      return { ok: false, message: raw || "The test could not run." };
     }
   });
 

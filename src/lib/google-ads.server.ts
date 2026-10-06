@@ -49,6 +49,11 @@ export type ClickConversionInput = {
     | { hashedEmail: string }
     | { hashedPhoneNumber: string }
   >;
+  /**
+   * Runs the whole call — credentials, account, conversion action, payload —
+   * and reports what would have happened without recording a conversion.
+   */
+  validateOnly?: boolean;
 };
 
 /** App-level creds shared by all workspaces. Stored in env, set once by Leadlogr. */
@@ -126,12 +131,46 @@ function gaHeaders(creds: GoogleAdsCreds, accessToken: string, loginCustomerId?:
   return headers;
 }
 
+/**
+ * Failures caused by the Google Cloud project Leadlogr owns, not by anything
+ * the customer configured.
+ *
+ * Their message names the access tier the project sits in. That is our
+ * onboarding state, not theirs — they cannot act on it and should not be
+ * reading about it — so these are reported as one neutral sentence and the real
+ * text goes to the server log instead. When the project is approved these stop
+ * occurring on their own and nothing else changes.
+ */
+const PLATFORM_AUTHORIZATION_CODES = new Set([
+  "CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION",
+  "DEVELOPER_TOKEN_NOT_APPROVED",
+  "DEVELOPER_TOKEN_PROHIBITED",
+  "PROJECT_NOT_APPROVED_FOR_PRODUCTION",
+]);
+
+/**
+ * A refresh token stops working when it is revoked, or when the OAuth client it
+ * was issued by changes. Google says only "invalid_grant", which tells the
+ * reader nothing about what to do.
+ */
+export const RECONNECT_NEEDED =
+  "Google rejected the saved authorization. Disconnect and reconnect Google Ads.";
+
+export const PLATFORM_NOT_READY =
+  "Google is not accepting conversions for this workspace yet. We are completing " +
+  "verification with Google — nothing for you to do, and your settings are saved.";
+
 function googleAdsError(prefix: string, status: number, body: string): string {
   try {
     const parsed = JSON.parse(body) as {
       error?: { message?: string; details?: Array<{ errors?: Array<{ errorCode?: Record<string, string>; message?: string }> }> };
     };
     const detail = parsed.error?.details?.flatMap((d) => d.errors ?? [])?.[0];
+    const authzCode = detail?.errorCode?.authorizationError;
+    if (authzCode && PLATFORM_AUTHORIZATION_CODES.has(authzCode)) {
+      console.warn(`[google-ads] platform-side authorization: ${authzCode} — ${detail?.message ?? ""}`);
+      return PLATFORM_NOT_READY;
+    }
     const authCode = detail?.errorCode?.authenticationError;
     if (authCode === "NOT_ADS_USER") {
       return `${prefix}: The connected Google account is not associated with any Google Ads account. Re-authenticate and choose a Google user that has access to the Ads account, or add this user in Google Ads under Admin > Access and security.`;
@@ -167,7 +206,11 @@ export async function uploadClickConversion(
     conversion.userIdentifiers = input.userIdentifiers;
   }
 
-  const body = { conversions: [conversion], partialFailure: true, validateOnly: false };
+  const body = {
+    conversions: [conversion],
+    partialFailure: true,
+    validateOnly: input.validateOnly === true,
+  };
 
   const url = `https://googleads.googleapis.com/${API_VERSION}/customers/${customer}:uploadClickConversions`;
   const resp = await fetch(url, {
