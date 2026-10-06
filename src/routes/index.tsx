@@ -65,6 +65,20 @@ function LandingPage() {
               </a>
             </div>
 
+            <div className="w-full max-w-5xl mb-14">
+              <img
+                src="/hero-offline-online-1600.webp"
+                srcSet="/hero-offline-online-900.webp 900w, /hero-offline-online-1600.webp 1600w, /hero-offline-online-2560.webp 2560w"
+                sizes="(min-width: 1088px) 64rem, calc(100vw - 3rem)"
+                width={2560}
+                height={1086}
+                alt="A meadow of sunflowers and poppies in bloom, cut away at the soil line to show the glowing root network that connects them underground."
+                fetchPriority="high"
+                decoding="async"
+                className="w-full rounded-2xl ring-1 ring-border shadow-sm"
+              />
+            </div>
+
             <div className="w-full max-w-5xl">
               <PipelinePreview />
             </div>
