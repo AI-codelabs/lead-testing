@@ -13,7 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AgencyRouteImport } from './routes/agency'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TrackerDotv1DotjsRouteImport } from './routes/tracker[.]v1[.]js'
 import { Route as AgencyIndexRouteImport } from './routes/agency.index'
 import { Route as AgencyAccountRouteImport } from './routes/agency.account'
@@ -53,9 +55,19 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrackerDotv1DotjsRoute = TrackerDotv1DotjsRouteImport.update({
@@ -156,7 +168,9 @@ export interface FileRoutesByFullPath {
   '/agency': typeof AgencyRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
   '/agency/invites': typeof AgencyInvitesRoute
@@ -179,7 +193,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
   '/agency/invites': typeof AgencyInvitesRoute
@@ -205,7 +221,9 @@ export interface FileRoutesById {
   '/agency': typeof AgencyRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
   '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
   '/agency/invites': typeof AgencyInvitesRoute
@@ -232,7 +250,9 @@ export interface FileRouteTypes {
     | '/agency'
     | '/app'
     | '/login'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/tracker.v1.js'
     | '/agency/account'
     | '/agency/invites'
@@ -255,7 +275,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/tracker.v1.js'
     | '/agency/account'
     | '/agency/invites'
@@ -280,7 +302,9 @@ export interface FileRouteTypes {
     | '/agency'
     | '/app'
     | '/login'
+    | '/privacy'
     | '/signup'
+    | '/terms'
     | '/tracker.v1.js'
     | '/agency/account'
     | '/agency/invites'
@@ -306,7 +330,9 @@ export interface RootRouteChildren {
   AgencyRoute: typeof AgencyRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
+  TermsRoute: typeof TermsRoute
   TrackerDotv1DotjsRoute: typeof TrackerDotv1DotjsRoute
   AuthSplatRoute: typeof AuthSplatRoute
   TrackerV1DotjsRoute: typeof TrackerV1DotjsRoute
@@ -345,11 +371,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tracker.v1.js': {
@@ -537,7 +577,9 @@ const rootRouteChildren: RootRouteChildren = {
   AgencyRoute: AgencyRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,
+  TermsRoute: TermsRoute,
   TrackerDotv1DotjsRoute: TrackerDotv1DotjsRoute,
   AuthSplatRoute: AuthSplatRoute,
   TrackerV1DotjsRoute: TrackerV1DotjsRoute,

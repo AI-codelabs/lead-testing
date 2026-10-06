@@ -381,7 +381,15 @@ function SignupPage() {
                 : "Create workspace"}
         </button>
         <p className="text-xs text-muted-foreground">
-          By creating an account you agree to our Terms of Service and Privacy Policy.
+          By creating an account you agree to our{" "}
+          <Link to="/terms" className="text-foreground underline underline-offset-2">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="text-foreground underline underline-offset-2">
+            Privacy Policy
+          </Link>
+          .
         </p>
       </form>
     </AuthShell>
