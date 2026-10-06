@@ -12,7 +12,11 @@
  * - We exchange the refresh token for a short-lived access token on every call.
  */
 
-const API_VERSION = "v21";
+// Google supports roughly a year of versions and removes the rest; a retired
+// one 404s with an HTML page, so every call fails and the account picker simply
+// shows "0 accounts available" with nothing in the logs to explain it. v21 was
+// already gone. Checked live on 6 October 2026: v22-v25 respond, v26 does not.
+const API_VERSION = "v25";
 
 export type GoogleAdsAppCreds = {
   /**
