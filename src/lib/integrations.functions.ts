@@ -643,10 +643,18 @@ export const listGoogleAdsConversionActions = createServerFn({ method: "POST" })
     if (!creds) return { actions: [], error: "not_connected" as string | null };
 
     try {
-      const actions = await listConversionActions(creds, data.customerId, data.loginCustomerId);
-      return { actions, error: null as string | null };
+      const all = await listConversionActions(creds, data.customerId, data.loginCustomerId);
+      // Only the ones Google will actually accept an upload for. The count of
+      // the rest is returned so the page can tell "this account has none" from
+      // "this account has some, but not of the kind that can receive uploads" —
+      // two problems with completely different answers.
+      return {
+        actions: all.filter((a) => a.uploadable),
+        unusableCount: all.length - all.filter((a) => a.uploadable).length,
+        error: null as string | null,
+      };
     } catch (e) {
-      return { actions: [], error: e instanceof Error ? e.message : "list_failed" };
+      return { actions: [], unusableCount: 0, error: e instanceof Error ? e.message : "list_failed" };
     }
   });
 

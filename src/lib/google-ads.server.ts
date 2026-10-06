@@ -280,7 +280,15 @@ export async function getCustomerInfo(
   };
 }
 
-export type ConversionActionRow = { id: string; name: string; category: string; status: string };
+export type ConversionActionRow = {
+  id: string;
+  name: string;
+  category: string;
+  status: string;
+  type: string;
+  /** Whether uploadClickConversions will accept it. */
+  uploadable: boolean;
+};
 
 /** Lists conversion actions on a customer account via GAQL. */
 export async function listConversionActions(
@@ -297,7 +305,8 @@ export async function listConversionActions(
       headers: gaHeaders(creds, accessToken, loginCustomerId),
       body: JSON.stringify({
         query: `
-          SELECT conversion_action.id, conversion_action.name, conversion_action.category, conversion_action.status
+          SELECT conversion_action.id, conversion_action.name, conversion_action.category,
+                 conversion_action.status, conversion_action.type
           FROM conversion_action
           WHERE conversion_action.status != 'REMOVED'
           ORDER BY conversion_action.name
@@ -310,10 +319,25 @@ export async function listConversionActions(
     const text = await resp.text();
     throw new Error(googleAdsError("list_conversion_actions_failed", resp.status, text));
   }
-  const json = (await resp.json()) as { results?: Array<{ conversionAction?: { id?: string; name?: string; category?: string; status?: string } }> };
+  const json = (await resp.json()) as {
+    results?: Array<{
+      conversionAction?: { id?: string; name?: string; category?: string; status?: string; type?: string };
+    }>;
+  };
   return (json.results ?? []).flatMap((r) => {
     const ca = r.conversionAction;
     if (!ca?.id) return [];
-    return [{ id: String(ca.id), name: ca.name ?? "", category: ca.category ?? "", status: ca.status ?? "" }];
+    return [{
+      id: String(ca.id),
+      name: ca.name ?? "",
+      category: ca.category ?? "",
+      status: ca.status ?? "",
+      type: ca.type ?? "",
+      // uploadClickConversions accepts only actions created for imported click
+      // conversions. A website action listed beside them looks identical here
+      // and fails at upload with INVALID_CONVERSION_ACTION, long after the
+      // person who chose it has moved on.
+      uploadable: ca.type === "UPLOAD_CLICKS",
+    }];
   });
 }

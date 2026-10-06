@@ -80,6 +80,8 @@ function GoogleAdsPage() {
   });
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [actions, setActions] = useState<Action[]>([]);
+  /** Actions on the account that exist but cannot receive uploaded conversions. */
+  const [unusableActions, setUnusableActions] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [loadingActions, setLoadingActions] = useState(false);
@@ -183,7 +185,11 @@ function GoogleAdsPage() {
     if (!connection.connected || !form.customer_id) { setActions([]); return; }
     setLoadingActions(true);
     listActions({ data: { organizationId, customerId: form.customer_id, loginCustomerId: form.login_customer_id || undefined } })
-      .then((r) => { setActions(r.actions as Action[]); if (r.error) setError(r.error); })
+      .then((r) => {
+        setActions(r.actions as Action[]);
+        setUnusableActions(r.unusableCount ?? 0);
+        if (r.error) setError(r.error);
+      })
       .finally(() => setLoadingActions(false));
   }, [connection.connected, organizationId, form.customer_id, form.login_customer_id, listActions]);
 
@@ -410,7 +416,13 @@ function GoogleAdsPage() {
             <header className="mb-4">
               <h2 className="text-base font-semibold">Conversion actions per stage</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {loadingActions ? "Loading conversion actions…" : `Pick which conversion action to fire at each stage. ${actions.length} available on this account.`}
+                {loadingActions
+                  ? "Loading conversion actions…"
+                  : actions.length > 0
+                    ? `Pick which conversion action to fire at each stage. ${actions.length} available on this account.`
+                    : unusableActions > 0
+                      ? `This account has ${unusableActions} conversion action${unusableActions === 1 ? "" : "s"}, but none of them can receive conversions sent from outside Google. Create one in Google Ads under Goals → Conversions → New conversion action → Import → Other data sources or CRM → Track conversions from clicks.`
+                      : "This account has no conversion actions yet. Create one in Google Ads under Goals → Conversions → New conversion action → Import → Other data sources or CRM → Track conversions from clicks."}
               </p>
             </header>
             <div className="space-y-3">
