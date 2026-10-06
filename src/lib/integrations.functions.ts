@@ -70,12 +70,10 @@ const SETTINGS_SELECT = `
   s.network, s.enabled, s.account_id, s.secondary_id, s.test_event_code,
   s.default_currency, s.action_new, s.action_qualified, s.action_won, s.action_lost,
   s.connected_email, s.connected_at,
-  EXISTS (
-    SELECT 1 FROM public.ad_platform_credentials c
-     WHERE c.organization_id = s.organization_id
-       AND c.network = s.network
-       AND c.refresh_token IS NOT NULL
-  ) AS connected
+  -- Not an EXISTS against ad_platform_credentials: app_user has no grant on
+  -- that table, so the subquery made this whole SELECT fail with "permission
+  -- denied" and every workspace read as not connected.
+  app.ad_platform_connected(s.organization_id, s.network) AS connected
 `;
 
 export const listAdPlatformSettings = createServerFn({ method: "POST" })
@@ -195,13 +193,11 @@ export const getIntegrationStatuses = createServerFn({ method: "POST" })
         [organizationId],
       ),
       context.db.sql<{ network: AdNetwork; connected: boolean }>(
+        // Same reason as SETTINGS_SELECT: the EXISTS here read a table app_user
+        // cannot see, so this whole statement failed and the integrations page
+        // reported every network as disconnected.
         `SELECT s.network,
-                EXISTS (
-                  SELECT 1 FROM public.ad_platform_credentials c
-                   WHERE c.organization_id = s.organization_id
-                     AND c.network = s.network
-                     AND c.refresh_token IS NOT NULL
-                ) AS connected
+                app.ad_platform_connected(s.organization_id, s.network) AS connected
            FROM public.ad_platform_settings s
           WHERE s.organization_id = $1`,
         [organizationId],

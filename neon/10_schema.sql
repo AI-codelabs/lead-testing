@@ -675,9 +675,25 @@ BEGIN
   RETURN FOUND;
 END $$;
 
+-- Whether a workspace has a usable ad-platform credential. SECURITY DEFINER
+-- because app_user has no grant on ad_platform_credentials and must not get
+-- one: this returns the boolean, never the token.
+CREATE OR REPLACE FUNCTION app.ad_platform_connected(org uuid, net ad_network)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public, pg_catalog AS $$
+  SELECT app.is_member(org)
+     AND EXISTS (
+           SELECT 1 FROM public.ad_platform_credentials c
+            WHERE c.organization_id = org
+              AND c.network = net
+              AND c.refresh_token IS NOT NULL)
+$$;
+
 REVOKE ALL ON FUNCTION app.organization_name(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION app.org_owner(uuid)         FROM PUBLIC;
 REVOKE ALL ON FUNCTION app.claim_client_workspace(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION app.ad_platform_connected(uuid, ad_network) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION app.organization_name(uuid) TO app_user;
+GRANT EXECUTE ON FUNCTION app.ad_platform_connected(uuid, ad_network) TO app_user;
 GRANT EXECUTE ON FUNCTION app.claim_client_workspace(uuid) TO app_user;
 GRANT EXECUTE ON FUNCTION app.org_owner(uuid)         TO app_user;
