@@ -21,8 +21,13 @@ export const COMPANY = {
   address: "[TO FILL IN — registered address]",
   country: "Netherlands",
   /** Must be a mailbox that is actually monitored. */
-  contactEmail: "[TO FILL IN — contact email]",
-  privacyEmail: "[TO FILL IN — privacy contact email]",
+  contactEmail: "hello@leadlogr.com",
+  /**
+   * The same mailbox for now. Split it out only when someone is ready to watch
+   * a second one — a privacy request bouncing is worse than it arriving beside
+   * the sales mail.
+   */
+  privacyEmail: "hello@leadlogr.com",
   site: "leadlogr.com",
 } as const;
 

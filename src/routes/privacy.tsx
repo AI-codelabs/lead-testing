@@ -190,8 +190,8 @@ function PrivacyPage() {
 
       <Section heading="Contact">
         <p>
-          {COMPANY.legalName}, {COMPANY.address}, {COMPANY.country}. Privacy enquiries:{" "}
-          {COMPANY.privacyEmail}. General enquiries: {COMPANY.contactEmail}.
+          {COMPANY.legalName}, {COMPANY.address}, {COMPANY.country}. For anything in this policy,
+          including a request about your own data, write to {COMPANY.privacyEmail}.
         </p>
       </Section>
     </LegalPage>
