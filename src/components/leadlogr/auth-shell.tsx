@@ -30,22 +30,43 @@ export function AuthShell({
         </div>
       </div>
 
-      <div className="hidden md:flex bg-muted/50 border-l border-border items-center justify-center p-12">
+      {/*
+        The product illustration, shared with the dashboard. Full strength
+        behind a flat scrim rather than faded: nothing here has to be read
+        through it except this one quote, and white copy over a dark scrim
+        measures better than dark copy over a washed-out picture.
+
+        The scrim is 55%, set by the smallest line rather than the quote —
+        the attribution is 12px, so it needs 4.5:1, not the 3:1 that the
+        24px quote would allow. Measured worst case over the crop is 5.7:1.
+      */}
+      <div className="relative isolate hidden md:flex items-center justify-center overflow-hidden p-12">
+        <img
+          src="/dashboard-bg-1920.webp"
+          srcSet="/dashboard-bg-1280.webp 1280w, /dashboard-bg-1920.webp 1920w"
+          sizes="50vw"
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+          className="absolute inset-0 -z-20 size-full object-cover object-center select-none"
+        />
+        <div className="absolute inset-0 -z-10 bg-slate-950/55" />
+
         <div className="max-w-md">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-card ring-1 ring-border mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 ring-1 ring-white/25 backdrop-blur-sm mb-6">
             <div className="size-1.5 rounded-full bg-brand-accent animate-pulse" />
-            <span className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground">
+            <span className="text-[11px] font-medium tracking-wide uppercase text-white/90">
               Closed-loop attribution
             </span>
           </div>
-          <p className="text-2xl font-medium tracking-tight leading-tight text-balance">
+          <p className="text-2xl font-medium tracking-tight leading-tight text-balance text-white">
             "We finally have a system that proves our ads generate revenue, not just clicks."
           </p>
           <div className="flex items-center gap-3 mt-6">
-            <div className="size-9 bg-card ring-1 ring-border rounded-full" />
+            <div className="size-9 bg-white/15 ring-1 ring-white/30 rounded-full" />
             <div>
-              <div className="text-sm font-semibold">Marcus Chen</div>
-              <div className="text-xs text-muted-foreground">Director of Growth, Altria Media</div>
+              <div className="text-sm font-semibold text-white">Marcus Chen</div>
+              <div className="text-xs text-white/75">Director of Growth, Altria Media</div>
             </div>
           </div>
         </div>
