@@ -36,6 +36,22 @@ export const Route = createFileRoute("/app/dashboard")({
   component: DashboardPage,
 });
 
+/**
+ * Holds the illustration back across the page header, then lets it come up to
+ * full strength below it.
+ *
+ * The header is the only text on this page not sitting on an opaque card, and
+ * `text-muted-foreground` starts with just 5.3:1 against the background — so
+ * behind those three lines the artwork can be worth at most about a tenth.
+ * A plain top-down fade cannot do both jobs: slow enough to protect the
+ * description leaves the picture invisible everywhere. So it is held flat to
+ * 240px (0.08 effective), then ramps to full by 440px, which is below the
+ * header and behind the first row of cards. Measured worst case for the
+ * header is 4.6:1 against the 4.5:1 AA floor.
+ */
+const BACKDROP_MASK =
+  "linear-gradient(to bottom, rgba(0,0,0,0.30) 0px, rgba(0,0,0,0.30) 240px, rgba(0,0,0,1) 440px)";
+
 const nf = new Intl.NumberFormat("en-US");
 const cf = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -75,22 +91,21 @@ function buildStages(m: DashboardMetrics): Stage[] {
  * off the sidebar entirely instead of fought with z-index. It sits at z-0 and
  * the page content is lifted to z-10, because the shell's own background would
  * otherwise paint straight over a negative z-index layer.
- *
- * The opacity is a contrast ceiling, not a taste setting. Muted grey text only
- * has 5.3:1 on the bare background, so the illustration can take very little
- * of it: sampling the image under the content column gives 4.33:1 at 0.10 and
- * 4.51:1 at 0.08, against the 4.5:1 AA floor. 0.07 leaves an actual margin.
  */
 function DashboardBackdrop() {
   return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-y-0 left-60 right-0 z-0 overflow-hidden">
+    <div
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-y-0 left-60 right-0 z-0 overflow-hidden"
+      style={{ maskImage: BACKDROP_MASK, WebkitMaskImage: BACKDROP_MASK }}
+    >
       <img
         src="/dashboard-bg-1920.webp"
         srcSet="/dashboard-bg-1280.webp 1280w, /dashboard-bg-1920.webp 1920w"
         sizes="calc(100vw - 15rem)"
         alt=""
         decoding="async"
-        className="size-full object-cover object-center select-none opacity-[0.07] dark:opacity-[0.05]"
+        className="size-full object-cover object-center select-none opacity-[0.26] dark:opacity-[0.16]"
       />
     </div>
   );
