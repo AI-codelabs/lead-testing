@@ -63,6 +63,39 @@ function buildStages(m: DashboardMetrics): Stage[] {
   ];
 }
 
+/**
+ * The dashboard's background illustration.
+ *
+ * Deliberately only on this screen, so it reads as the overview's character
+ * rather than app-wide wallpaper.
+ *
+ * Positioned from the left edge of the content area rather than the viewport:
+ * a fixed element inside <main> paints above the sticky sidebar (both sit at
+ * the same stack level, and this one comes later in the DOM), so it is kept
+ * off the sidebar entirely instead of fought with z-index. It sits at z-0 and
+ * the page content is lifted to z-10, because the shell's own background would
+ * otherwise paint straight over a negative z-index layer.
+ *
+ * The opacity is a contrast ceiling, not a taste setting. Muted grey text only
+ * has 5.3:1 on the bare background, so the illustration can take very little
+ * of it: sampling the image under the content column gives 4.33:1 at 0.10 and
+ * 4.51:1 at 0.08, against the 4.5:1 AA floor. 0.07 leaves an actual margin.
+ */
+function DashboardBackdrop() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-y-0 left-60 right-0 z-0 overflow-hidden">
+      <img
+        src="/dashboard-bg-1920.webp"
+        srcSet="/dashboard-bg-1280.webp 1280w, /dashboard-bg-1920.webp 1920w"
+        sizes="calc(100vw - 15rem)"
+        alt=""
+        decoding="async"
+        className="size-full object-cover object-center select-none opacity-[0.07] dark:opacity-[0.05]"
+      />
+    </div>
+  );
+}
+
 function DashboardPage() {
   const [range, setRange] = useState<DashboardRange>(30);
   const { activeWorkspace } = useAccount();
@@ -125,94 +158,97 @@ function DashboardPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Overview"
-        title="Dashboard"
-        description="Real-time view of leads, conversions, and what's flowing back to your ad platforms."
-        actions={
-          <div className="flex items-center gap-1 rounded-md ring-1 ring-border bg-card p-1">
-            {([7, 30, 90] as DashboardRange[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
-                className={`text-sm font-medium px-3 py-1.5 rounded-sm transition-colors ${
-                  range === r
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted text-muted-foreground"
-                }`}
-              >
-                {rangeLabel[r]}
-              </button>
-            ))}
-          </div>
-        }
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-8">
-        <FunnelCard stages={stages} hasData={hasLeads} />
-        <PerformanceCard
-          wonValue={metrics?.wonValue ?? 0}
-          wonDelta={metrics?.deltas.wonValue ?? 0}
-          spend={metrics?.spend ?? 0}
-          hasSpend={hasSpend}
-          hasLeads={hasLeads}
-          adsConnected={adsConnected}
-        />
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-xl bg-card shadow-xs ring-1 ring-border p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-semibold">Conversion volume</h3>
-              <p className="text-xs text-muted-foreground">
-                Qualified and won leads over the selected period.
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className="size-1.5 rounded-full bg-foreground" /> Won
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="size-1.5 rounded-full bg-brand-accent" /> Qualified
-              </span>
-            </div>
-          </div>
-          {hasLeads && metrics ? (
-            <Chart data={metrics.chart} range={range} />
-          ) : (
-            <EmptyState
-              className="h-48"
-              message="Start a campaign to see conversions flow in"
-            />
-          )}
-        </div>
-
-        <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-6">
-          <h3 className="font-semibold mb-1">Top sources</h3>
-          <p className="text-xs text-muted-foreground mb-4">By leads received.</p>
-          {metrics && metrics.sources.length > 0 ? (
-            <div className="space-y-3">
-              {metrics.sources.map((s) => (
-                <div key={s.name} className="flex items-center justify-between text-sm">
-                  <div>
-                    <div className="font-medium">{s.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {s.leads} leads · {s.conv} conv
-                    </div>
-                  </div>
-                  <div className="text-sm font-mono text-foreground">
-                    {s.wonValue > 0 ? cf.format(s.wonValue) : "—"}
-                  </div>
-                </div>
+      <DashboardBackdrop />
+      <div className="relative z-10">
+        <PageHeader
+          eyebrow="Overview"
+          title="Dashboard"
+          description="Real-time view of leads, conversions, and what's flowing back to your ad platforms."
+          actions={
+            <div className="flex items-center gap-1 rounded-md ring-1 ring-border bg-card p-1">
+              {([7, 30, 90] as DashboardRange[]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r)}
+                  className={`text-sm font-medium px-3 py-1.5 rounded-sm transition-colors ${
+                    range === r
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {rangeLabel[r]}
+                </button>
               ))}
             </div>
-          ) : (
-            <EmptyState
-              className="h-32"
-              message="Connect an integration to rank your top sources"
-            />
-          )}
+          }
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-8">
+          <FunnelCard stages={stages} hasData={hasLeads} />
+          <PerformanceCard
+            wonValue={metrics?.wonValue ?? 0}
+            wonDelta={metrics?.deltas.wonValue ?? 0}
+            spend={metrics?.spend ?? 0}
+            hasSpend={hasSpend}
+            hasLeads={hasLeads}
+            adsConnected={adsConnected}
+          />
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 rounded-xl bg-card shadow-xs ring-1 ring-border p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="font-semibold">Conversion volume</h3>
+                <p className="text-xs text-muted-foreground">
+                  Qualified and won leads over the selected period.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-foreground" /> Won
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-brand-accent" /> Qualified
+                </span>
+              </div>
+            </div>
+            {hasLeads && metrics ? (
+              <Chart data={metrics.chart} range={range} />
+            ) : (
+              <EmptyState
+                className="h-48"
+                message="Start a campaign to see conversions flow in"
+              />
+            )}
+          </div>
+
+          <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-6">
+            <h3 className="font-semibold mb-1">Top sources</h3>
+            <p className="text-xs text-muted-foreground mb-4">By leads received.</p>
+            {metrics && metrics.sources.length > 0 ? (
+              <div className="space-y-3">
+                {metrics.sources.map((s) => (
+                  <div key={s.name} className="flex items-center justify-between text-sm">
+                    <div>
+                      <div className="font-medium">{s.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {s.leads} leads · {s.conv} conv
+                      </div>
+                    </div>
+                    <div className="text-sm font-mono text-foreground">
+                      {s.wonValue > 0 ? cf.format(s.wonValue) : "—"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                className="h-32"
+                message="Connect an integration to rank your top sources"
+              />
+            )}
+          </div>
         </div>
       </div>
     </>

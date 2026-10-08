@@ -1,7 +1,6 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AppSidebar } from "@/components/leadlogr/app-sidebar";
-import { AmbientBackdrop } from "@/components/leadlogr/ambient-backdrop";
 import { useAccount } from "@/lib/account-context";
 import { PageContainer } from "@/components/leadlogr/page-container";
 import { usePageWidth } from "@/lib/page-width";
@@ -44,8 +43,7 @@ function AppLayout() {
     : ownWorkspace.name;
 
   return (
-    <div className="relative flex min-h-screen bg-background text-foreground">
-      <AmbientBackdrop />
+    <div className="flex min-h-screen bg-background text-foreground">
       <AppSidebar />
       <main className="flex-1 min-w-0">
         <div className="h-16 border-b border-border bg-background/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-8">
