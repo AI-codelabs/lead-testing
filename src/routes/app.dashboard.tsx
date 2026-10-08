@@ -36,22 +36,6 @@ export const Route = createFileRoute("/app/dashboard")({
   component: DashboardPage,
 });
 
-/**
- * Holds the illustration back across the page header, then lets it come up to
- * full strength below it.
- *
- * The header is the only text on this page not sitting on an opaque card, and
- * `text-muted-foreground` starts with just 5.3:1 against the background — so
- * behind those three lines the artwork can be worth at most about a tenth.
- * A plain top-down fade cannot do both jobs: slow enough to protect the
- * description leaves the picture invisible everywhere. So it is held flat to
- * 240px (0.08 effective), then ramps to full by 440px, which is below the
- * header and behind the first row of cards. Measured worst case for the
- * header is 4.6:1 against the 4.5:1 AA floor.
- */
-const BACKDROP_MASK =
-  "linear-gradient(to bottom, rgba(0,0,0,0.30) 0px, rgba(0,0,0,0.30) 240px, rgba(0,0,0,1) 440px)";
-
 const nf = new Intl.NumberFormat("en-US");
 const cf = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -91,13 +75,19 @@ function buildStages(m: DashboardMetrics): Stage[] {
  * off the sidebar entirely instead of fought with z-index. It sits at z-0 and
  * the page content is lifted to z-10, because the shell's own background would
  * otherwise paint straight over a negative z-index layer.
+ *
+ * It runs at one strength the whole way down. It used to be held back across
+ * the page header, because the only text on this page not sitting on an
+ * opaque card is those three lines, and `text-muted-foreground` had just
+ * 5.3:1 to give. The header now uses the `strong` tone instead, which carries
+ * 5.0:1 even under the illustration at full strength — so the picture no
+ * longer has to get out of its own way.
  */
 function DashboardBackdrop() {
   return (
     <div
       aria-hidden="true"
       className="pointer-events-none fixed inset-y-0 left-60 right-0 z-0 overflow-hidden"
-      style={{ maskImage: BACKDROP_MASK, WebkitMaskImage: BACKDROP_MASK }}
     >
       <img
         src="/dashboard-bg-1920.webp"
@@ -105,7 +95,7 @@ function DashboardBackdrop() {
         sizes="calc(100vw - 15rem)"
         alt=""
         decoding="async"
-        className="size-full object-cover object-center select-none opacity-[0.26] dark:opacity-[0.16]"
+        className="size-full object-cover object-center select-none opacity-[0.32] dark:opacity-[0.22]"
       />
     </div>
   );
@@ -176,6 +166,7 @@ function DashboardPage() {
       <DashboardBackdrop />
       <div className="relative z-10">
         <PageHeader
+          tone="strong"
           eyebrow="Overview"
           title="Dashboard"
           description="Real-time view of leads, conversions, and what's flowing back to your ad platforms."
