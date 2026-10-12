@@ -180,7 +180,16 @@ function googleAdsError(prefix: string, status: number, body: string): string {
     }
     const message = detail?.message || parsed.error?.message;
     if (message) return `${prefix}: ${message}`;
-  } catch { /* keep raw fallback */ }
+  } catch { /* fall through to the non-JSON handling below */ }
+
+  // Google answers with an HTML error page, not JSON, when the URL itself is
+  // not a route it serves — which in practice means the API version in
+  // API_VERSION has been retired. That is a yearly event, and the last time it
+  // happened the only signal was a wall of markup pasted out of the UI, so say
+  // it plainly instead of showing the markup.
+  if (/^\s*<(!doctype|html)/i.test(body)) {
+    return `${prefix}: Google returned a page instead of an API response for ${API_VERSION} (HTTP ${status}). That version has almost certainly been retired — API_VERSION in google-ads.server.ts needs raising to one Google still serves.`;
+  }
   return `${prefix}: ${status} ${body.slice(0, 300)}`;
 }
 
