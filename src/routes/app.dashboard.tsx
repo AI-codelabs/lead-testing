@@ -3,12 +3,16 @@ import { PageHeader } from "@/components/leadlogr/page-header";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Minus, Download } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
+import { toast } from "sonner";
 import { useAccount } from "@/lib/account-context";
 import { getIntegrationStatuses } from "@/lib/integrations.functions";
 import { syncAdSpend } from "@/lib/ad-spend.functions";
 import {
   getDashboardMetrics,
+  getPerformanceBreakdown,
   type DashboardMetrics,
   type DashboardRange,
 } from "@/lib/dashboard-metrics.functions";
@@ -83,6 +87,86 @@ function buildStages(m: DashboardMetrics): Stage[] {
  * 5.0:1 even under the illustration at full strength — so the picture no
  * longer has to get out of its own way.
  */
+/**
+ * Exports the performance figures by week or by month.
+ *
+ * A CSV rather than a prettier format because the point is discussing it: the
+ * rows land in whatever spreadsheet the meeting already has open, and every
+ * period in the window gets a row even when it is empty, so a quiet week reads
+ * as a quiet week rather than as missing data.
+ */
+function ExportMenu({ organizationId }: { organizationId: string | null }) {
+  const fetchBreakdown = useServerFn(getPerformanceBreakdown);
+  const [busy, setBusy] = useState<"week" | "month" | null>(null);
+
+  const run = async (period: "week" | "month") => {
+    if (!organizationId || busy) return;
+    setBusy(period);
+    try {
+      const rows = await fetchBreakdown({ data: { organizationId, period, periods: 12 } });
+      if (rows.length === 0) {
+        toast.message("Nothing to export yet");
+        return;
+      }
+      downloadCsv(
+        `leadlogr-performance-${period}ly-${timestamp()}.csv`,
+        toCsv(
+          rows.map((r) => ({
+            period: r.label,
+            starting: r.start,
+            leads: r.leads,
+            qualified: r.qualified,
+            won: r.won,
+            won_value: r.wonValue.toFixed(2),
+            spend: r.spend.toFixed(2),
+            currency: r.currency,
+            // Spelled out rather than left to the reader: these are the two
+            // numbers the meeting is actually about.
+            cost_per_lead: r.leads > 0 ? (r.spend / r.leads).toFixed(2) : "",
+            return_on_ad_spend: r.spend > 0 ? (r.wonValue / r.spend).toFixed(2) : "",
+          })),
+        ),
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          disabled={!organizationId}
+          className="text-sm font-medium px-3 py-2 rounded-md bg-card text-foreground ring-1 ring-border flex items-center gap-1.5 hover:bg-muted transition-colors disabled:opacity-40"
+        >
+          <Download className="size-3.5" />
+          Export
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-56 p-1">
+        <button
+          onClick={() => run("week")}
+          disabled={busy !== null}
+          className="w-full text-left rounded px-2.5 py-2 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
+        >
+          <div className="font-medium">{busy === "week" ? "Preparing…" : "Weekly overview"}</div>
+          <div className="text-xs text-muted-foreground">Last 12 weeks</div>
+        </button>
+        <button
+          onClick={() => run("month")}
+          disabled={busy !== null}
+          className="w-full text-left rounded px-2.5 py-2 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
+        >
+          <div className="font-medium">{busy === "month" ? "Preparing…" : "Monthly overview"}</div>
+          <div className="text-xs text-muted-foreground">Last 12 months</div>
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function DashboardBackdrop() {
   return (
     <div
@@ -171,6 +255,8 @@ function DashboardPage() {
           title="Dashboard"
           description="Real-time view of leads, conversions, and what's flowing back to your ad platforms."
           actions={
+            <div className="flex items-center gap-2">
+            <ExportMenu organizationId={organizationId} />
             <div className="flex items-center gap-1 rounded-md ring-1 ring-border bg-card p-1">
               {([7, 30, 90] as DashboardRange[]).map((r) => (
                 <button
@@ -185,6 +271,7 @@ function DashboardPage() {
                   {rangeLabel[r]}
                 </button>
               ))}
+            </div>
             </div>
           }
         />

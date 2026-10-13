@@ -194,3 +194,115 @@ export const getDashboardMetrics = createServerFn({ method: "POST" })
       chart: chartOut,
     };
   });
+
+/** One week or month of performance, for the export. */
+export type PerformancePeriod = {
+  /** ISO date of the first day in the period. */
+  start: string;
+  /** How it should read in the file: "2026-W41" or "2026-10". */
+  label: string;
+  leads: number;
+  qualified: number;
+  won: number;
+  wonValue: number;
+  spend: number;
+  currency: string;
+};
+
+/**
+ * Performance broken down by week or month, for the dashboard export.
+ *
+ * Built as its own query rather than reshaped from getDashboardMetrics: that
+ * one answers "how are we doing now" against a rolling window and keeps no
+ * dates, which is the wrong shape for a table someone reads down in a meeting.
+ *
+ * Leads and spend are aggregated separately and joined on the period, because
+ * a week can have spend with no leads and leads with no spend, and both of
+ * those are worth seeing rather than silently dropping.
+ */
+export const getPerformanceBreakdown = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data: { organizationId: string; period: "week" | "month"; periods?: number }) => {
+    if (!data?.organizationId) throw new Error("organizationId is required");
+    if (data.period !== "week" && data.period !== "month") throw new Error("Invalid period");
+    return {
+      organizationId: data.organizationId,
+      period: data.period,
+      periods: Math.min(Math.max(data.periods ?? (data.period === "week" ? 12 : 12), 1), 52),
+    };
+  })
+  .handler(async ({ data, context }): Promise<PerformancePeriod[]> => {
+    const organizationId = await requireOrganization(context.db, data.organizationId);
+    const unit = data.period; // 'week' | 'month', both valid date_trunc units
+    const back = `${data.periods} ${unit}s`;
+
+    const [leadRows, spendRows] = await Promise.all([
+      context.db.sql<{ start: string; leads: string; qualified: string; won: string; won_value: string }>(
+        `SELECT date_trunc($2, created_at)::date::text              AS start,
+                count(*)                                            AS leads,
+                count(*) FILTER (WHERE stage IN ('qualified','won')) AS qualified,
+                count(*) FILTER (WHERE stage = 'won')               AS won,
+                COALESCE(sum(won_value) FILTER (WHERE stage = 'won'), 0) AS won_value
+           FROM public.leads
+          WHERE organization_id = $1
+            AND created_at >= date_trunc($2, now()) - $3::interval
+       GROUP BY 1`,
+        [organizationId, unit, back],
+      ),
+      context.db.sql<{ start: string; cost_micros: string; currency: string }>(
+        `SELECT date_trunc($2, day)::date::text AS start,
+                COALESCE(sum(cost_micros), 0)   AS cost_micros,
+                COALESCE(max(currency), 'EUR')  AS currency
+           FROM public.ad_spend_daily
+          WHERE organization_id = $1
+            AND day >= (date_trunc($2, now()) - $3::interval)::date
+       GROUP BY 1`,
+        [organizationId, unit, back],
+      ),
+    ]);
+
+    const spendBy = new Map(spendRows.map((r) => [r.start, r]));
+    const leadsBy = new Map(leadRows.map((r) => [r.start, r]));
+
+    // Every period in the window gets a row, including the empty ones: a gap
+    // in a report reads as missing data, where a zero reads as a quiet week.
+    const out: PerformancePeriod[] = [];
+    const now = new Date();
+    for (let i = data.periods - 1; i >= 0; i--) {
+      const d = new Date(now);
+      if (unit === "week") {
+        const day = (d.getUTCDay() + 6) % 7; // Monday-based
+        d.setUTCDate(d.getUTCDate() - day - i * 7);
+      } else {
+        d.setUTCDate(1);
+        d.setUTCMonth(d.getUTCMonth() - i);
+      }
+      d.setUTCHours(0, 0, 0, 0);
+      const start = d.toISOString().slice(0, 10);
+      const l = leadsBy.get(start);
+      const sp = spendBy.get(start);
+      out.push({
+        start,
+        label: unit === "week" ? `${d.getUTCFullYear()}-W${isoWeek(d)}` : start.slice(0, 7),
+        leads: Number(l?.leads ?? 0),
+        qualified: Number(l?.qualified ?? 0),
+        won: Number(l?.won ?? 0),
+        wonValue: Number(l?.won_value ?? 0),
+        spend: Number(sp?.cost_micros ?? 0) / 1_000_000,
+        currency: sp?.currency ?? "EUR",
+      });
+    }
+    return out;
+  });
+
+/** ISO-8601 week number, zero padded. */
+function isoWeek(date: Date): string {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - day + 3);
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const fday = (firstThursday.getUTCDay() + 6) % 7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - fday + 3);
+  const week = 1 + Math.round((d.getTime() - firstThursday.getTime()) / (7 * 86_400_000));
+  return String(week).padStart(2, "0");
+}
