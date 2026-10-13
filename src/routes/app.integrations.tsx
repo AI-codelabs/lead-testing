@@ -36,21 +36,21 @@ const incoming: IntegrationItem[] = [
     name: "WordPress",
     setupTo: "/app/tracking",
     description:
-      "Capture leads directly from your WordPress site by installing our official plugin for effortless data synchronization.",
+      "Capture leads from any WordPress site, including Contact Form 7, WPForms and Gravity Forms, by pasting one snippet into your theme. No plugin to install.",
   },
   {
     id: "api",
     name: "REST API",
     setupTo: "/app/tracking",
     description:
-      "Integrate Leadlogr directly into your custom application or backend using our flexible and powerful REST API.",
+      "Post leads straight to Leadlogr from your own backend or form handler. One endpoint, one key, JSON in.",
   },
   {
     id: "zapier",
     name: "Zapier",
     setupTo: "/app/tracking",
     description:
-      "Create multi-step workflows to automatically sync, update, and route lead data between Leadlogr and 5,000+ other apps.",
+      "Send leads in from anything Zapier connects to, using a Webhooks POST step. No Leadlogr Zapier app needed.",
   },
 ];
 

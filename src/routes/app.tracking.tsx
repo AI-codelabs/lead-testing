@@ -191,6 +191,19 @@ function TrackingPage() {
 ></script>`;
 
 
+  const restSnippet = `curl -X POST ${JSON.stringify(effectiveEndpoint)} \\
+  -H 'Content-Type: application/json' \\
+  -d '{
+    "ingest_key": ${JSON.stringify(ingestKey)},
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "phone": "+31612345678",
+    "company": "Example BV",
+    "message": "Please get in touch",
+    "source": "Google",
+    "gclid": "<click id, when you have one>"
+  }'`;
+
   const spaSnippet = `// Single-page apps: fire after a successful submit.
 window.Leadlogr.submitForm({
   name:    "Jane Doe",
@@ -256,6 +269,7 @@ window.Leadlogr.submitForm({
               <TabsTrigger value="gtm">Google Tag Manager</TabsTrigger>
               <TabsTrigger value="html">Direct HTML</TabsTrigger>
               <TabsTrigger value="spa">SPA / manual</TabsTrigger>
+              <TabsTrigger value="rest">REST / Zapier</TabsTrigger>
             </TabsList>
 
             <TabsContent value="gtm" className="mt-4 space-y-4">
@@ -287,6 +301,41 @@ window.Leadlogr.submitForm({
               <p className="text-sm text-muted-foreground">
                 Use this only when your framework intercepts form submits (React Hook Form, custom fetchers, etc.). The auto-detector handles standard <code className="text-xs bg-muted px-1 rounded">&lt;form&gt;</code> submissions on its own.
               </p>
+            </TabsContent>
+
+            <TabsContent value="rest" className="mt-4 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Any system that can send an HTTP request can create a lead — a backend, a form
+                service, or a Zapier <span className="font-medium text-foreground">Webhooks by Zapier → POST</span> step.
+                No script required.
+              </p>
+              <CodeBlock code={restSnippet} />
+              <div className="rounded-lg ring-1 ring-border bg-muted/30 p-4 space-y-2">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  What it accepts
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  <code className="text-xs bg-muted px-1 rounded">ingest_key</code> is required and
+                  identifies the workspace. Everything else is optional:{" "}
+                  <code className="text-xs bg-muted px-1 rounded">name</code>,{" "}
+                  <code className="text-xs bg-muted px-1 rounded">email</code>,{" "}
+                  <code className="text-xs bg-muted px-1 rounded">phone</code>,{" "}
+                  <code className="text-xs bg-muted px-1 rounded">company</code>,{" "}
+                  <code className="text-xs bg-muted px-1 rounded">message</code>,{" "}
+                  <code className="text-xs bg-muted px-1 rounded">source</code>, the{" "}
+                  <code className="text-xs bg-muted px-1 rounded">utm_*</code> parameters, and the
+                  click identifiers{" "}
+                  <code className="text-xs bg-muted px-1 rounded">gclid</code>,{" "}
+                  <code className="text-xs bg-muted px-1 rounded">fbclid</code>,{" "}
+                  <code className="text-xs bg-muted px-1 rounded">msclkid</code> and{" "}
+                  <code className="text-xs bg-muted px-1 rounded">li_fat_id</code>.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Anything else you send is kept verbatim against the lead, so your own form fields
+                  survive without having to be declared here first. Send a click identifier wherever
+                  you have one — it is what lets the outcome be reported back to the ad platform.
+                </p>
+              </div>
             </TabsContent>
           </Tabs>
 
