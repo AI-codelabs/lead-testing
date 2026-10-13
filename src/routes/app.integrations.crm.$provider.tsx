@@ -19,6 +19,7 @@ import {
   isCrmProvider,
   type CrmProvider,
 } from "@/lib/crm-sync.server";
+import type { CrmStatus } from "@/lib/crm-sync.functions";
 
 export const Route = createFileRoute("/app/integrations/crm/$provider")({
   staticData: { width: "narrow" },
@@ -82,6 +83,57 @@ function CopyRow({ value }: { value: string }) {
         {copied ? "Copied" : "Copy"}
       </button>
     </div>
+  );
+}
+
+/**
+ * The connection's real state, not the existence of a database row.
+ *
+ * "Waiting" is the honest answer until the provider has actually delivered
+ * something, because that is the only evidence the URL was ever pasted.
+ */
+function StatusBadge({ status, name }: { status: CrmStatus; name: string }) {
+  const map = {
+    awaiting_events: {
+      tone: "bg-muted text-muted-foreground ring-border",
+      dot: "bg-muted-foreground",
+      label: `Waiting for ${name}`,
+    },
+    needs_mapping: {
+      tone: "bg-stage-amber-soft text-stage-amber-ink ring-stage-amber-line",
+      dot: "bg-stage-amber-ink",
+      label: "Receiving — no stages mapped",
+    },
+    active: {
+      tone: "bg-stage-green-soft text-stage-green-ink ring-stage-green-line",
+      dot: "bg-stage-green-ink",
+      label: "Connected",
+    },
+  }[status];
+  return (
+    <span
+      className={`shrink-0 inline-flex items-center gap-1.5 text-xs ring-1 px-2 py-0.5 rounded-full ${map.tone}`}
+    >
+      <span className={`size-1.5 rounded-full ${map.dot}`} /> {map.label}
+    </span>
+  );
+}
+
+/** One line of the setup checklist. */
+function Step({ done, children }: { done: boolean; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2 text-sm">
+      <span
+        className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full ring-1 ${
+          done
+            ? "bg-stage-green-soft text-stage-green-ink ring-stage-green-line"
+            : "bg-muted text-muted-foreground ring-border"
+        }`}
+      >
+        {done ? <Check className="size-2.5" /> : null}
+      </span>
+      <span className={done ? "text-muted-foreground" : ""}>{children}</span>
+    </li>
   );
 }
 
@@ -181,9 +233,10 @@ function CrmSetupPage() {
 
       {!connection ? (
         <div className="rounded-xl bg-card ring-1 ring-border p-6">
-          <h2 className="text-base font-semibold">Connect {name}</h2>
+          <h2 className="text-base font-semibold">Start {name} setup</h2>
           <p className="text-sm text-muted-foreground mt-1.5 max-w-prose">
-            This creates a webhook URL for this workspace. You paste it into {name}; nothing is
+            This issues a webhook URL for this workspace. You then paste it into {name} and map your
+            stages — it is not connected until {name} has actually sent something. Nothing is
             installed and no permissions are granted to us.
           </p>
           <button
@@ -191,20 +244,38 @@ function CrmSetupPage() {
             disabled={!organizationId}
             className="mt-4 text-sm font-medium px-4 py-2 rounded-md bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 transition-opacity disabled:opacity-40"
           >
-            Connect {name}
+            Create webhook URL
           </button>
         </div>
       ) : (
         <div className="space-y-6">
+          {connection.status !== "active" && (
+            <div className="rounded-xl ring-1 ring-inset bg-stage-amber-soft text-stage-amber-ink ring-stage-amber-line p-5">
+              <p className="text-sm font-semibold">Not finished yet</p>
+              <p className="text-sm mt-1 opacity-90">
+                {connection.status === "awaiting_events"
+                  ? `A URL exists, but ${name} has never sent anything to it. Nothing will sync until the webhook is saved on their side.`
+                  : `${name} is reaching us, but no stage is mapped — so every delivery is being recorded and ignored.`}
+              </p>
+              <ul className="mt-3 space-y-1.5">
+                <Step done>Webhook URL created</Step>
+                <Step done={connection.lastEventAt !== null}>
+                  Paste it into {name} and move a deal, so we receive one delivery
+                </Step>
+                <Step done={Object.keys(connection.stageMap).length > 0}>
+                  Map at least one of their stages to yours
+                </Step>
+              </ul>
+            </div>
+          )}
+
           <div className="rounded-xl bg-card ring-1 ring-border p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h2 className="text-base font-semibold">1. Paste this into {name}</h2>
                 <p className="text-sm text-muted-foreground mt-1.5">{where.path}</p>
               </div>
-              <span className="shrink-0 inline-flex items-center gap-1.5 text-xs text-stage-green-ink bg-stage-green-soft ring-1 ring-stage-green-line px-2 py-0.5 rounded-full">
-                <span className="size-1.5 rounded-full bg-stage-green-ink" /> Connected
-              </span>
+              <StatusBadge status={connection.status} name={name} />
             </div>
             <div className="mt-4">
               <CopyRow value={connection.webhookUrl} />

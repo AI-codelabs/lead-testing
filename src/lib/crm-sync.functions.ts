@@ -2,8 +2,24 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth, requireOrganization } from "@/auth/middleware";
 import { CRM_PROVIDERS, MAPPABLE_STAGES, isCrmProvider, type CrmProvider } from "./crm-sync.server";
 
+/**
+ * How far along the setup actually is.
+ *
+ * Creating the connection only issues a URL. It proves nothing: the customer
+ * still has to paste it into their CRM, and until a delivery arrives we have
+ * no evidence they did. Calling that "connected" is the kind of green tick
+ * people trust right up until they wonder why nothing syncs.
+ *
+ *   awaiting_events — URL issued, nothing has ever been received
+ *   needs_mapping   — deliveries are arriving but no stage is mapped, so every
+ *                     one of them is being ignored
+ *   active          — receiving, and at least one stage means something
+ */
+export type CrmStatus = "awaiting_events" | "needs_mapping" | "active";
+
 export type CrmConnection = {
   provider: CrmProvider;
+  status: CrmStatus;
   /** The URL the customer pastes into their CRM. */
   webhookUrl: string;
   stageMap: Record<string, string>;
@@ -55,6 +71,12 @@ function cleanStageMap(input: unknown): Record<string, string> {
   return out;
 }
 
+function statusOf(lastEventAt: string | null, stageMap: Record<string, string> | null): CrmStatus {
+  if (!lastEventAt) return "awaiting_events";
+  if (!stageMap || Object.keys(stageMap).length === 0) return "needs_mapping";
+  return "active";
+}
+
 export const listCrmConnections = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((data: { organizationId: string }) => {
@@ -76,6 +98,7 @@ export const listCrmConnections = createServerFn({ method: "POST" })
     );
     return rows.map((r) => ({
       provider: r.provider,
+      status: statusOf(r.last_event_at, r.stage_map),
       webhookUrl: webhookUrl(r.webhook_key),
       stageMap: r.stage_map ?? {},
       enabled: r.enabled,
@@ -113,6 +136,7 @@ export const connectCrm = createServerFn({ method: "POST" })
     if (existing) {
       return {
         provider: data.provider,
+        status: statusOf(existing.last_event_at, existing.stage_map),
         webhookUrl: webhookUrl(existing.webhook_key),
         stageMap: existing.stage_map ?? {},
         enabled: existing.enabled,
@@ -134,6 +158,7 @@ export const connectCrm = createServerFn({ method: "POST" })
     );
     return {
       provider: data.provider,
+      status: "awaiting_events",
       webhookUrl: webhookUrl(row?.webhook_key ?? key),
       stageMap: {},
       enabled: true,

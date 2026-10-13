@@ -198,7 +198,15 @@ function ConnectedBadge({ label = "Connected" }: { label?: string }) {
   );
 }
 
-function IntegrationCard({ item, connected }: { item: IntegrationItem; connected?: boolean }) {
+function IntegrationCard({
+  item,
+  connected,
+  inProgress,
+}: {
+  item: IntegrationItem;
+  connected?: boolean;
+  inProgress?: boolean;
+}) {
   return (
     <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-5 flex flex-col">
       <div className="flex items-start justify-between mb-4">
@@ -222,11 +230,13 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
           className={`mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors ring-1 cursor-pointer text-center flex items-center justify-center gap-1.5 ${
             connected
               ? "bg-stage-green-soft text-stage-green-ink ring-stage-green-line hover:opacity-90"
-              : "bg-primary text-primary-foreground ring-primary hover:opacity-90"
+              : inProgress
+                ? "bg-stage-amber-soft text-stage-amber-ink ring-stage-amber-line hover:opacity-90"
+                : "bg-primary text-primary-foreground ring-primary hover:opacity-90"
           }`}
         >
           {connected && <Check className="size-4" />}
-          {connected ? "Connected" : "Connect"}
+          {connected ? "Connected" : inProgress ? "Finish setup" : "Connect"}
         </Link>
       ) : item.setupTo && !item.comingSoon ? (
         connected ? (
@@ -278,11 +288,24 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
   );
 }
 
-function Grid({ items, connectedIds }: { items: IntegrationItem[]; connectedIds: Set<string> }) {
+function Grid({
+  items,
+  connectedIds,
+  inProgressIds,
+}: {
+  items: IntegrationItem[];
+  connectedIds: Set<string>;
+  inProgressIds?: Set<string>;
+}) {
   return (
     <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
       {items.map((item) => (
-        <IntegrationCard key={item.id} item={item} connected={connectedIds.has(item.id)} />
+        <IntegrationCard
+          key={item.id}
+          item={item}
+          connected={connectedIds.has(item.id)}
+          inProgress={inProgressIds?.has(item.id)}
+        />
       ))}
     </div>
   );
@@ -308,9 +331,18 @@ function IntegrationsPage() {
     enabled: !!organizationId,
   });
 
+  // Started but not working yet: a URL exists and nothing is flowing. Shown as
+  // "Finish setup" rather than "Connect", so the half-done ones are not
+  // indistinguishable from the untouched ones.
+  const inProgressIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of crmConnections ?? []) if (c.status !== "active") ids.add(c.provider);
+    return ids;
+  }, [crmConnections]);
+
   const connectedIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const c of crmConnections ?? []) ids.add(c.provider);
+    for (const c of crmConnections ?? []) if (c.status === "active") ids.add(c.provider);
     if (statuses?.incomingConnectedIds) {
       for (const id of statuses.incomingConnectedIds) ids.add(id);
     }
@@ -351,7 +383,7 @@ function IntegrationsPage() {
             Sync lead status changes back into Leadlogr from your CRM or project management tool, so
             lead lifecycle data stays accurate everywhere.
           </p>
-          <Grid items={updating} connectedIds={connectedIds} />
+          <Grid items={updating} connectedIds={connectedIds} inProgressIds={inProgressIds} />
         </TabsContent>
       </Tabs>
     </>
