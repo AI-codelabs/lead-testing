@@ -35,6 +35,9 @@ type LeadForUpload = {
   email: string | null;
   phone: string | null;
   consent: string;
+  name: string | null;
+  company: string | null;
+  li_fat_id: string | null;
   gclid: string | null;
   wbraid: string | null;
   gbraid: string | null;
@@ -58,13 +61,17 @@ type SettingsForUpload = {
   access_token: string | null;
 };
 
-async function loadContext(leadId: string, network: "google_ads" | "meta_ads", stage: DbStage) {
+/** Networks a conversion can be reported to. Mirrors the ad_network enum. */
+type AdUploadNetwork = "google_ads" | "meta_ads" | "linkedin_ads";
+
+async function loadContext(leadId: string, network: AdUploadNetwork, stage: DbStage) {
   const actionColumn = STAGE_TO_ACTION_COLUMN[stage];
   if (!actionColumn) return null;
 
   return withOwner(async (db) => {
     const lead = await db.one<LeadForUpload>(
       `SELECT id, organization_id, stage, email, phone, consent::text AS consent,
+              name, company, li_fat_id,
               gclid, wbraid, gbraid, fbclid, fbp, won_value, currency,
               stage_changed_at, updated_at, created_at
          FROM public.leads WHERE id = $1`,
@@ -90,7 +97,7 @@ async function loadContext(leadId: string, network: "google_ads" | "meta_ads", s
 async function recordUpload(row: {
   organizationId: string;
   leadId: string;
-  network: "google_ads" | "meta_ads";
+  network: AdUploadNetwork;
   stage: DbStage;
   status: "sent" | "failed" | "skipped";
   conversionAction: string | null;
@@ -325,6 +332,78 @@ async function uploadMeta(leadId: string, stage: DbStage): Promise<UploadResult>
   return { ok: result.ok, error: result.error ?? undefined };
 }
 
+async function uploadLinkedIn(leadId: string, stage: DbStage): Promise<UploadResult> {
+  const ctx = await loadContext(leadId, "linkedin_ads", stage);
+  if (!ctx) return { ok: false, skipped: true, reason: "stage_not_reported" };
+
+  const { lead, settings } = ctx;
+  if (!settings?.enabled) return { ok: false, skipped: true, reason: "not_configured" };
+  if (!settings.access_token) return { ok: false, skipped: true, reason: "not_connected" };
+  // For LinkedIn the per-stage action is the conversion rule URN itself.
+  if (!settings.action) return { ok: false, skipped: true, reason: `no_conversion_rule_for:${stage}` };
+
+  // Same provenance rule as the other two networks: only report a lead to the
+  // network that produced it.
+  if (!lead.li_fat_id) return { ok: false, skipped: true, reason: "no_linkedin_click" };
+
+  const value = stage === "won" && lead.won_value != null ? Number(lead.won_value) : undefined;
+  const currency = value != null ? (settings.default_currency || lead.currency || "EUR") : undefined;
+
+  // The click id alone is a valid identifier, so a lead with no permission to
+  // share an email is still reportable — unlike Meta, nothing is lost but the
+  // match on email.
+  const hashedEmail =
+    mayShareIdentifiers(lead) && lead.email ? await sha256Hex(lead.email) : undefined;
+
+  // The name is split only because LinkedIn takes the two halves separately;
+  // a single-word name becomes a first name with no surname rather than being
+  // dropped.
+  const parts = (lead.name ?? "").trim().split(/\s+/).filter(Boolean);
+  const firstName = parts[0];
+  const lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
+
+  let result: Awaited<ReturnType<typeof sendLinkedInConversion>>;
+  try {
+    const { sendLinkedInConversion: send } = await import("./linkedin-ads.server");
+    result = await send(
+      { conversionUrn: settings.action, accessToken: settings.access_token },
+      {
+        conversionHappenedAt: new Date(
+          lead.stage_changed_at || lead.updated_at || lead.created_at,
+        ).getTime(),
+        eventId: `${lead.id}:${stage}`,
+        value,
+        currency,
+        hashedEmail,
+        liFatId: lead.li_fat_id,
+        firstName,
+        lastName,
+        companyName: lead.company ?? undefined,
+      },
+    );
+  } catch (err) {
+    result = { ok: false, error: err instanceof Error ? err.message : "upload_threw" };
+  }
+
+  await recordUpload({
+    organizationId: lead.organization_id,
+    leadId: lead.id,
+    network: "linkedin_ads",
+    stage,
+    status: result.ok ? "sent" : "failed",
+    conversionAction: settings.action,
+    value: value ?? null,
+    currency: currency ?? null,
+    clickId: lead.li_fat_id,
+    clickIdType: "li_fat_id",
+    request: null,
+    response: null,
+    error: result.error ?? null,
+  });
+
+  return { ok: result.ok, error: result.error ?? undefined };
+}
+
 /**
  * Reports one stage change to every configured network.
  *
@@ -338,13 +417,14 @@ export const queueConversion = createServerFn({ method: "POST" })
     return { leadId: data.leadId, stage: data.stage as DbStage };
   })
   .handler(async ({ data }) => {
-    const [google, meta] = await Promise.allSettled([
+    const [google, meta, linkedin] = await Promise.allSettled([
       uploadGoogleAds(data.leadId, data.stage),
       uploadMeta(data.leadId, data.stage),
+      uploadLinkedIn(data.leadId, data.stage),
     ]);
 
-    return {
-      google: google.status === "fulfilled" ? google.value : { ok: false, error: String(google.reason) },
-      meta: meta.status === "fulfilled" ? meta.value : { ok: false, error: String(meta.reason) },
-    };
+    const settled = (r: PromiseSettledResult<UploadResult>): UploadResult =>
+      r.status === "fulfilled" ? r.value : { ok: false, error: String(r.reason) };
+
+    return { google: settled(google), meta: settled(meta), linkedin: settled(linkedin) };
   });

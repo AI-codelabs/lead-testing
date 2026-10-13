@@ -13,7 +13,7 @@ import { requireAuth, requireOrganization } from "@/auth/middleware";
  * public.ad_platform_credentials, which app_user has no grant on at all.
  */
 
-export type AdNetwork = "google_ads" | "meta_ads";
+export type AdNetwork = "google_ads" | "meta_ads" | "linkedin_ads";
 
 export type AdPlatformSettings = {
   network: AdNetwork;
@@ -111,7 +111,7 @@ export const saveAdPlatformSettings = createServerFn({ method: "POST" })
       actionLost?: string | null;
     }) => {
       if (!data?.organizationId) throw new Error("organizationId is required");
-      if (data.network !== "google_ads" && data.network !== "meta_ads") {
+      if (!["google_ads", "meta_ads", "linkedin_ads"].includes(data.network)) {
         throw new Error("Unknown network");
       }
       // Google customer ids are 6-12 digits; Meta pixel ids are numeric too.
