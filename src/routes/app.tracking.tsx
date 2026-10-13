@@ -1,7 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/leadlogr/page-header";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAccount } from "@/lib/account-context";
 import { ConsentNotice } from "@/components/leadlogr/consent-notice";
 import { getIngestKey } from "@/lib/organization.functions";
@@ -119,6 +118,9 @@ function TrackingPage() {
   const workspaceReady = isAuthenticated && INGEST_KEY_RE.test(ingestKey);
   const integrationId = ["gtm", "wordpress", "api", "zapier"].includes(search.integration) ? search.integration : "gtm";
   const integrationName = INTEGRATION_NAMES[integrationId] ?? "Google Tag Manager";
+  // GTM and WordPress install a script in the browser; REST and Zapier send
+  // the lead server to server and never load one.
+  const isScriptInstall = integrationId === "gtm" || integrationId === "wordpress";
 
   // Backend (ingest + tracker script) is always served from Lovable, even when
   // the dashboard frontend is hosted elsewhere (e.g. Vercel on leadlogr.com).
@@ -218,7 +220,11 @@ window.Leadlogr.submitForm({
       <PageHeader
         eyebrow="Integrations › Tracking"
         title={`${integrationName} setup`}
-        description="One snippet. Auto-detects forms, captures UTMs and click IDs, respects consent. Paste it once — no code changes per form."
+        description={
+          isScriptInstall
+            ? "One snippet. Auto-detects forms, captures UTMs and click IDs, respects consent. Paste it once — no code changes per form."
+            : "One endpoint. Send a lead as JSON from anything that can make an HTTP request — no snippet on the site at all."
+        }
       />
 
       {/* Highlights */}
@@ -240,7 +246,7 @@ window.Leadlogr.submitForm({
         {/* Snippets */}
         <div className="min-w-0">
           <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-lg font-semibold">Your install snippet</h2>
+            <h2 className="text-lg font-semibold">{isScriptInstall ? "Your install snippet" : "Your endpoint"}</h2>
             {workspaceReady ? (
               <span className="inline-flex items-center gap-1.5 text-xs text-stage-green-ink bg-stage-green-soft ring-1 ring-stage-green-line px-2 py-0.5 rounded-full">
                 <span className="size-1.5 rounded-full bg-stage-green-ink" /> Ready
@@ -252,9 +258,11 @@ window.Leadlogr.submitForm({
             )}
           </div>
 
-          <div className="mb-4">
-            <ConsentNotice />
-          </div>
+          {isScriptInstall && (
+            <div className="mb-4">
+              <ConsentNotice />
+            </div>
+          )}
 
           {!workspaceReady && (
             <div className="mb-4 rounded-md ring-1 ring-amber-300/40 bg-amber-50/60 dark:bg-amber-950/20 p-3 text-xs text-amber-900 dark:text-amber-200">
@@ -264,50 +272,60 @@ window.Leadlogr.submitForm({
             </div>
           )}
 
-          <Tabs defaultValue="gtm">
-            <TabsList>
-              <TabsTrigger value="gtm">Google Tag Manager</TabsTrigger>
-              <TabsTrigger value="html">Direct HTML</TabsTrigger>
-              <TabsTrigger value="spa">SPA / manual</TabsTrigger>
-              <TabsTrigger value="rest">REST / Zapier</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="gtm" className="mt-4 space-y-4">
-              <CodeBlock code={gtmSnippet} />
-              <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal pl-5">
-                <li>In GTM open your container → <b className="text-foreground">Tags → New → Custom HTML</b>.</li>
-                <li>Paste the snippet above. Set the trigger to <b className="text-foreground">All Pages</b>.</li>
-                <li>Hit <b className="text-foreground">Submit</b> in GTM to publish the container. Done.</li>
-              </ol>
-              <a
-                href="https://tagmanager.google.com"
-                target="_blank"
-                rel="noopener"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-              >
-                Open Tag Manager <ExternalLink className="size-3.5" />
-              </a>
-            </TabsContent>
-
-            <TabsContent value="html" className="mt-4 space-y-4">
-              <CodeBlock code={directHtmlSnippet} />
+          {/*
+            Only the method that belongs to the integration you arrived from.
+            This page is shared by all four incoming integrations, and it used
+            to render every method with Google Tag Manager preselected — so
+            "Zapier setup" opened on a GTM tag, which reads as the wrong page
+            rather than as a choice.
+          */}
+          {isScriptInstall ? (
+            <div className="space-y-4">
+              <CodeBlock code={integrationId === "gtm" ? gtmSnippet : directHtmlSnippet} />
               <p className="text-sm text-muted-foreground">
-                For sites without GTM. Paste once into your site template right before <code className="text-xs bg-muted px-1 rounded">&lt;/body&gt;</code>.
+                {integrationId === "gtm" ? (
+                  <>
+                    Paste into GTM › Tags › New › Custom HTML, and trigger it on All Pages.
+                  </>
+                ) : (
+                  <>
+                    Paste once into your theme, right before{" "}
+                    <code className="text-xs bg-muted px-1 rounded">&lt;/body&gt;</code>, so it
+                    loads on every page. Works with Contact Form 7, WPForms and Gravity Forms
+                    without any per-form setup.
+                  </>
+                )}
               </p>
-            </TabsContent>
 
-            <TabsContent value="spa" className="mt-4 space-y-4">
-              <CodeBlock code={spaSnippet} />
+              <details className="rounded-lg ring-1 ring-border bg-muted/20 p-4">
+                <summary className="text-sm font-medium cursor-pointer">
+                  My framework intercepts form submits
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    The detector handles standard <code className="text-xs bg-muted px-1 rounded">&lt;form&gt;</code>{" "}
+                    submissions on its own. Call it yourself only when something swallows the
+                    submit event — React Hook Form, a custom fetcher, a headless widget.
+                  </p>
+                  <CodeBlock code={spaSnippet} />
+                </div>
+              </details>
+            </div>
+          ) : (
+            <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Use this only when your framework intercepts form submits (React Hook Form, custom fetchers, etc.). The auto-detector handles standard <code className="text-xs bg-muted px-1 rounded">&lt;form&gt;</code> submissions on its own.
-              </p>
-            </TabsContent>
-
-            <TabsContent value="rest" className="mt-4 space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Any system that can send an HTTP request can create a lead — a backend, a form
-                service, or a Zapier <span className="font-medium text-foreground">Webhooks by Zapier → POST</span> step.
-                No script required.
+                {integrationId === "zapier" ? (
+                  <>
+                    No snippet and no Leadlogr Zapier app. Add a{" "}
+                    <span className="font-medium text-foreground">Webhooks by Zapier → POST</span>{" "}
+                    step to any Zap and point it here. Set the payload type to JSON.
+                  </>
+                ) : (
+                  <>
+                    Post leads straight from your own backend or form handler. One endpoint, one
+                    key, JSON in.
+                  </>
+                )}
               </p>
               <CodeBlock code={restSnippet} />
               <div className="rounded-lg ring-1 ring-border bg-muted/30 p-4 space-y-2">
@@ -331,13 +349,21 @@ window.Leadlogr.submitForm({
                   <code className="text-xs bg-muted px-1 rounded">li_fat_id</code>.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Anything else you send is kept verbatim against the lead, so your own form fields
-                  survive without having to be declared here first. Send a click identifier wherever
-                  you have one — it is what lets the outcome be reported back to the ad platform.
+                  Anything else you send is kept verbatim against the lead, so your own fields
+                  survive without being declared here first. Send a click identifier wherever you
+                  have one — it is what lets the outcome be reported back to the ad platform.
                 </p>
               </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
+
+          <p className="mt-4 text-sm text-muted-foreground">
+            Installing a different way?{" "}
+            <Link to="/app/integrations" className="font-medium text-primary hover:underline">
+              Pick another source
+            </Link>{" "}
+            — the workspace key is the same whichever you use.
+          </p>
 
           {/* Verify */}
           <div className="mt-8 rounded-lg ring-1 ring-border bg-card p-5">
@@ -348,7 +374,9 @@ window.Leadlogr.submitForm({
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold">Verify your install</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Once the snippet is live, submit a test form on your site. We'll show the event here within seconds.
+                  {isScriptInstall
+                    ? "Once the snippet is live, submit a test form on your site. We'll show the event here within seconds."
+                    : "Send one request with the example above. We'll show the lead here within seconds."}
                 </p>
                 <div className="mt-3 flex items-center gap-2 text-xs">
                   {hasEvents ? (
@@ -439,25 +467,27 @@ window.Leadlogr.submitForm({
             </p>
           </div>
 
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Feature flags
+          {isScriptInstall && (
+                    <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Feature flags
+              </div>
+              <div className="space-y-2">
+                <FlagToggle
+                  label="Dynamic forms"
+                  hint="Watch the DOM for forms added after page load (SPAs, modals)."
+                  checked={flags.allowDynamicForms}
+                  onChange={(v) => setFlags((f) => ({ ...f, allowDynamicForms: v }))}
+                />
+                <FlagToggle
+                  label="Debug mode"
+                  hint="Verbose console logs. Turn off before going live."
+                  checked={flags.debug}
+                  onChange={(v) => setFlags((f) => ({ ...f, debug: v }))}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <FlagToggle
-                label="Dynamic forms"
-                hint="Watch the DOM for forms added after page load (SPAs, modals)."
-                checked={flags.allowDynamicForms}
-                onChange={(v) => setFlags((f) => ({ ...f, allowDynamicForms: v }))}
-              />
-              <FlagToggle
-                label="Debug mode"
-                hint="Verbose console logs. Turn off before going live."
-                checked={flags.debug}
-                onChange={(v) => setFlags((f) => ({ ...f, debug: v }))}
-              />
-            </div>
-          </div>
+          )}
         </aside>
       </div>
     </>
