@@ -63,12 +63,6 @@ const outgoing: IntegrationItem[] = [
       "Send conversion data to Google Ads to optimize campaigns and improve ROI. Track leads, purchases, and custom conversion events.",
   },
   {
-    id: "ga4",
-    name: "Google Analytics 4",
-    description:
-      "Send enhanced conversion data to Google Analytics 4 to improve attribution and measurement accuracy across your marketing channels.",
-  },
-  {
     id: "meta-ads",
     name: "Meta Ads",
     setupTo: "/app/integrations/meta-ads",
@@ -80,24 +74,35 @@ const outgoing: IntegrationItem[] = [
     name: "Microsoft Ads",
     description:
       "Track conversions in Microsoft Advertising (Bing Ads) to optimize your search campaigns and improve performance on the Microsoft network.",
+    comingSoon: true,
   },
   {
     id: "linkedin-ads",
     name: "LinkedIn Ads",
     description:
       "Feed lead conversion data back to LinkedIn to build more effective B2B audiences and optimize your ad spend.",
+    comingSoon: true,
+  },
+  {
+    id: "ga4",
+    name: "Google Analytics 4",
+    description:
+      "Send enhanced conversion data to Google Analytics 4 to improve attribution and measurement accuracy across your marketing channels.",
+    comingSoon: true,
   },
   {
     id: "bigquery",
     name: "Google BigQuery",
     description:
       "Securely warehouse your lead data in Google BigQuery for advanced analytics and custom reporting.",
+    comingSoon: true,
   },
   {
     id: "gtm-server",
     name: "GTM Server Container",
     description:
       "Leverage server-side tracking to securely route lead data from Leadlogr to all your connected marketing platforms via GTM.",
+    comingSoon: true,
   },
   {
     id: "tiktok-ads",
@@ -135,42 +140,49 @@ const updating: IntegrationItem[] = [
     name: "Pipedrive",
     description:
       "Automatically track lead conversion success by importing deal updates and activity tags from your Pipedrive sales pipeline.",
+    comingSoon: true,
   },
   {
     id: "zoho",
     name: "Zoho CRM",
     description:
       "Maintain accurate lead lifecycle data by updating Leadlogr statuses based on your Zoho CRM deal stages and pipeline movements.",
+    comingSoon: true,
   },
   {
     id: "odoo",
     name: "Odoo CRM",
     description:
       "Sync Odoo CRM opportunity stage changes back to Leadlogr using webhook-based stage ID mapping.",
+    comingSoon: true,
   },
   {
     id: "monday",
     name: "Monday.com",
     description:
       "Bridge your project management and lead tracking by syncing board updates and column statuses from Monday.com back to Leadlogr.",
+    comingSoon: true,
   },
   {
     id: "clickup",
     name: "ClickUp",
     description:
       "Sync lead progression by mapping your ClickUp task statuses and tags to automatically update lead qualification in Leadlogr.",
+    comingSoon: true,
   },
   {
     id: "teamleader",
     name: "Teamleader",
     description:
       "Ensure your marketing data stays current by syncing customer status changes and milestone updates directly from Teamleader.",
+    comingSoon: true,
   },
   {
     id: "recruitee",
     name: "Recruitee",
     description:
       "Keep your lead statuses in sync by automatically importing hiring stages and candidate tags directly from Recruitee.",
+    comingSoon: true,
   },
 ];
 
