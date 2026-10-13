@@ -32,11 +32,11 @@ const incoming: IntegrationItem[] = [
       "Manage and deploy marketing tags without modifying code. Track conversions, site analytics, and remarketing with ease.",
   },
   {
-    id: "wordpress",
-    name: "WordPress",
+    id: "website",
+    name: "Website snippet",
     setupTo: "/app/tracking",
     description:
-      "Capture leads from any WordPress site, including Contact Form 7, WPForms and Gravity Forms, by pasting one snippet into your theme. No plugin to install.",
+      "One script tag for any site you can edit the HTML of — WordPress, Framer, Webflow, Squarespace, Shopify or hand-written. Finds the forms itself; nothing to configure per form.",
   },
   {
     id: "api",

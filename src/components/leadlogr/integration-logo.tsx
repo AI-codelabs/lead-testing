@@ -3,7 +3,6 @@ import {
   siGoogleads,
   siGoogleanalytics,
   siGooglebigquery,
-  siWordpress,
   siZapier,
   siMeta,
   siTiktok,
@@ -15,16 +14,7 @@ import {
   siClickup,
 } from "simple-icons";
 
-import {
-  Linkedin,
-  Monitor,
-  Server,
-  Webhook,
-  Target,
-  LayoutGrid,
-  Users,
-  UserPlus,
-} from "lucide-react";
+import { Code2, LayoutGrid, Linkedin, Monitor, Server, Target, UserPlus, Users, Webhook } from "lucide-react";
 
 function SimpleIcon({ icon }: { icon: { path: string; hex: string } }) {
   const fill = icon.hex === "000000" ? "currentColor" : `#${icon.hex}`;
@@ -40,8 +30,9 @@ export function IntegrationLogo({ id }: { id: string }) {
     case "gtm":
     case "gtm-server":
       return <SimpleIcon icon={siGoogletagmanager} />;
+    case "website":
     case "wordpress":
-      return <SimpleIcon icon={siWordpress} />;
+      return <Code2 className="size-5" />;
     case "api":
       return <Webhook className="size-5" />;
     case "zapier":

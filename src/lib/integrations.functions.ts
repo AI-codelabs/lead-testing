@@ -204,12 +204,13 @@ export const getIntegrationStatuses = createServerFn({ method: "POST" })
       ),
     ]);
 
-    const KNOWN = ["gtm", "wordpress", "api", "zapier"];
+    // "wordpress" is the old id for "website"; both are still accepted.
+    const KNOWN = ["gtm", "website", "wordpress", "api", "zapier"];
     const isConnected = (n: AdNetwork) => connected.some((r) => r.network === n && r.connected);
 
     return {
       incomingConnectedIds: incoming
-        .map((r) => r.integration_id)
+        .map((r) => (r.integration_id === "wordpress" ? "website" : r.integration_id))
         .filter((id) => KNOWN.includes(id)),
       googleAdsConnected: isConnected("google_ads"),
       metaAdsConnected: isConnected("meta_ads"),

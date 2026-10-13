@@ -33,7 +33,7 @@ type Flags = {
 
 const INTEGRATION_NAMES: Record<string, string> = {
   gtm: "Google Tag Manager",
-  wordpress: "WordPress",
+  website: "Website snippet",
   api: "REST API",
   zapier: "Zapier",
 };
@@ -116,11 +116,16 @@ function TrackingPage() {
 
   const ingestKey = ingestData?.ingestKey ?? "";
   const workspaceReady = isAuthenticated && INGEST_KEY_RE.test(ingestKey);
-  const integrationId = ["gtm", "wordpress", "api", "zapier"].includes(search.integration) ? search.integration : "gtm";
+  // "wordpress" was the old id for what is really just a script tag, which
+  // works on Framer, Webflow, Squarespace or anything else you can edit. A
+  // snippet pasted before the rename still stamps the old value, so it is
+  // accepted and folded into the new one rather than falling back to GTM.
+  const requested = search.integration === "wordpress" ? "website" : search.integration;
+  const integrationId = ["gtm", "website", "api", "zapier"].includes(requested) ? requested : "gtm";
   const integrationName = INTEGRATION_NAMES[integrationId] ?? "Google Tag Manager";
-  // GTM and WordPress install a script in the browser; REST and Zapier send
-  // the lead server to server and never load one.
-  const isScriptInstall = integrationId === "gtm" || integrationId === "wordpress";
+  // GTM and the website snippet load a script in the browser; REST and Zapier
+  // send the lead server to server and never load one.
+  const isScriptInstall = integrationId === "gtm" || integrationId === "website";
 
   // Backend (ingest + tracker script) is always served from Lovable, even when
   // the dashboard frontend is hosted elsewhere (e.g. Vercel on leadlogr.com).
@@ -146,7 +151,11 @@ function TrackingPage() {
   // Live ingestion status
   const liveLeads = useLiveLeads(activeOrganizationId);
   const integrationLeads = useMemo(
-    () => liveLeads.filter((lead) => (lead.integrationId || "gtm") === integrationId),
+    () =>
+      liveLeads.filter((lead) => {
+        const stamped = lead.integrationId || "gtm";
+        return (stamped === "wordpress" ? "website" : stamped) === integrationId;
+      }),
     [liveLeads, integrationId],
   );
   const hasEvents = integrationLeads.length > 0;
@@ -289,10 +298,12 @@ window.Leadlogr.submitForm({
                   </>
                 ) : (
                   <>
-                    Paste once into your theme, right before{" "}
-                    <code className="text-xs bg-muted px-1 rounded">&lt;/body&gt;</code>, so it
-                    loads on every page. Works with Contact Form 7, WPForms and Gravity Forms
-                    without any per-form setup.
+                    Paste once wherever your site lets you add HTML to every page — a theme
+                    footer, a custom-code block, a site-wide embed. In WordPress that is the
+                    theme before{" "}
+                    <code className="text-xs bg-muted px-1 rounded">&lt;/body&gt;</code>; in
+                    Framer, Webflow or Squarespace it is the site settings' custom code panel.
+                    It finds the forms itself, so there is nothing to set up per form.
                   </>
                 )}
               </p>
