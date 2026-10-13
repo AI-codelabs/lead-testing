@@ -362,7 +362,7 @@ async function uploadLinkedIn(leadId: string, stage: DbStage): Promise<UploadRes
   const firstName = parts[0];
   const lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
 
-  let result: Awaited<ReturnType<typeof sendLinkedInConversion>>;
+  let result: { ok: boolean; error?: string };
   try {
     const { sendLinkedInConversion: send } = await import("./linkedin-ads.server");
     result = await send(

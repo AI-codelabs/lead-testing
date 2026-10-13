@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { siGoogleads, siMeta } from "simple-icons";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import {
@@ -27,6 +28,7 @@ import { TableEmptyState } from "@/components/leadlogr/empty-state";
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
 import {
+  DEFAULT_STAGES,
   LABEL_STYLES,
   LEAD_LABELS,
   type Lead,
@@ -105,6 +107,37 @@ function ChannelIcon({ source }: { source: Source }) {
   );
 }
 
+/**
+ * Preferred ordering for the filter lists. Not the list itself: a workspace can
+ * add its own stages, so the options are taken from the leads actually present
+ * and merely sorted into this order, with anything unrecognised appended. A
+ * hardcoded list would quietly offer no way to filter on a custom stage, and
+ * would offer stages a workspace has never used.
+ */
+const ORDER: Record<string, readonly string[]> = {
+  Source: ["Google", "Meta", "LinkedIn", "Microsoft", "Direct"],
+  Stage: DEFAULT_STAGES.map((s) => s.name),
+  Label: ["Hot Lead", "Quotation Sent", "Spam Lead", "No label"],
+  Priority: ["High", "Medium", "Low"],
+};
+
+function optionsFrom(leads: Lead[], pick: (l: Lead) => string, order: readonly string[]): string[] {
+  const present = new Set(leads.map(pick).filter(Boolean));
+  const known = order.filter((o) => present.has(o));
+  const extra = [...present].filter((v) => !order.includes(v)).sort();
+  return [...known, ...extra];
+}
+
+/** Adds or removes one value from a filter set, without mutating it. */
+const toggler =
+  (set: React.Dispatch<React.SetStateAction<Set<string>>>) => (value: string) =>
+    set((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+
 function matchesTab(lead: Lead, tab: Tab): boolean {
   if (tab === "All") return true;
   if (tab === "Qualified") return lead.qualification === "Qualified" || lead.stage === "Qualified";
@@ -146,6 +179,26 @@ function CrmPage() {
   const [tab, setTab] = useState<Tab>("Open");
   const [search, setSearch] = useState("");
   const [sortAsc, setSortAsc] = useState(true);
+  // Empty set means "do not restrict on this field", which is why these are
+  // sets rather than a single value each: the useful question is usually
+  // "Google and LinkedIn", not "one source at a time".
+  const [fSource, setFSource] = useState<Set<string>>(new Set());
+  const [fStage, setFStage] = useState<Set<string>>(new Set());
+  const [fLabel, setFLabel] = useState<Set<string>>(new Set());
+  const [fPriority, setFPriority] = useState<Set<string>>(new Set());
+  const opts = useMemo(
+    () => ({
+      Source: optionsFrom(leads, (l) => l.source, ORDER.Source),
+      Stage: optionsFrom(leads, (l) => l.stage, ORDER.Stage),
+      Label: optionsFrom(leads, (l) => l.label, ORDER.Label),
+      Priority: optionsFrom(leads, (l) => l.priority, ORDER.Priority),
+    }),
+    [leads],
+  );
+  const activeFilters = fSource.size + fStage.size + fLabel.size + fPriority.size;
+  const clearFilters = () => {
+    setFSource(new Set()); setFStage(new Set()); setFLabel(new Set()); setFPriority(new Set());
+  };
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -185,13 +238,17 @@ function CrmPage() {
           (l.company ?? "").toLowerCase().includes(q),
       );
     }
+    if (fSource.size) list = list.filter((l) => fSource.has(l.source));
+    if (fStage.size) list = list.filter((l) => fStage.has(l.stage));
+    if (fLabel.size) list = list.filter((l) => fLabel.has(l.label));
+    if (fPriority.size) list = list.filter((l) => fPriority.has(l.priority));
     list = [...list].sort((a, b) => {
       const ax = new Date(a.expiresAt).getTime();
       const bx = new Date(b.expiresAt).getTime();
       return sortAsc ? ax - bx : bx - ax;
     });
     return list;
-  }, [leads, tab, search, sortAsc]);
+  }, [leads, tab, search, sortAsc, fSource, fStage, fLabel, fPriority]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const safePage = Math.min(page, totalPages - 1);
@@ -414,7 +471,45 @@ function CrmPage() {
               className="bg-card ring-1 ring-border rounded-md text-sm pl-8 pr-3 py-2 w-56 focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
-          <ToolbarButton icon={<Filter className="size-3.5" />} label="Filter" />
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className={`text-sm font-medium px-3 py-2 rounded-md ring-1 flex items-center gap-1.5 transition-colors ${
+                  activeFilters > 0
+                    ? "bg-foreground text-background ring-foreground"
+                    : "bg-card text-foreground ring-border hover:bg-muted"
+                }`}
+              >
+                <Filter className="size-3.5" />
+                Filter
+                {activeFilters > 0 && (
+                  <span className="ml-0.5 rounded-full bg-background/20 px-1.5 text-xs font-semibold">
+                    {activeFilters}
+                  </span>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 p-0">
+              <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Filter
+                </span>
+                <button
+                  onClick={clearFilters}
+                  disabled={activeFilters === 0}
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Clear all
+                </button>
+              </div>
+              <div className="max-h-96 overflow-y-auto">
+                <FilterGroup title="Source" options={opts.Source} selected={fSource} onToggle={toggler(setFSource)} />
+                <FilterGroup title="Stage" options={opts.Stage} selected={fStage} onToggle={toggler(setFStage)} />
+                <FilterGroup title="Label" options={opts.Label} selected={fLabel} onToggle={toggler(setFLabel)} />
+                <FilterGroup title="Priority" options={opts.Priority} selected={fPriority} onToggle={toggler(setFPriority)} />
+              </div>
+            </PopoverContent>
+          </Popover>
           <button
             onClick={() => setSortAsc((v) => !v)}
             className="text-sm font-medium px-3 py-2 rounded-md bg-card text-foreground ring-1 ring-border flex items-center gap-1.5 hover:bg-muted transition-colors"
@@ -700,12 +795,40 @@ function TabDot({ tab }: { tab: Tab }) {
   return <span className={`size-1.5 rounded-full ${map[tab]}`} />;
 }
 
-function ToolbarButton({ icon, label }: { icon: React.ReactNode; label: string }) {
+/** One titled block of checkboxes in the filter popover. */
+function FilterGroup({
+  title,
+  options,
+  selected,
+  onToggle,
+}: {
+  title: string;
+  options: readonly string[];
+  selected: Set<string>;
+  onToggle: (value: string) => void;
+}) {
   return (
-    <button className="text-sm font-medium px-3 py-2 rounded-md bg-card text-foreground ring-1 ring-border flex items-center gap-1.5 hover:bg-muted transition-colors">
-      {icon}
-      {label}
-    </button>
+    <div className="border-b border-border last:border-0 px-3 py-2">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+        {title}
+      </div>
+      <div className="space-y-0.5">
+        {options.map((o) => (
+          <label
+            key={o}
+            className="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted cursor-pointer"
+          >
+            <input
+              type="checkbox"
+              checked={selected.has(o)}
+              onChange={() => onToggle(o)}
+              className="size-3.5 accent-foreground"
+            />
+            <span className="truncate">{o}</span>
+          </label>
+        ))}
+      </div>
+    </div>
   );
 }
 
