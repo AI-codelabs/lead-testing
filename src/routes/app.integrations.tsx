@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import { listCrmConnections } from "@/lib/crm-sync.functions";
 import { useMemo } from "react";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { IntegrationLogo } from "@/components/leadlogr/integration-logo";
@@ -20,6 +21,8 @@ type IntegrationItem = {
   name: string;
   description: string;
   setupTo?: "/app/tracking" | "/app/integrations/google-ads" | "/app/integrations/meta-ads";
+  /** CRM providers all share one setup route, parameterised by provider. */
+  crmProvider?: string;
   comingSoon?: boolean;
 };
 
@@ -140,42 +143,42 @@ const updating: IntegrationItem[] = [
     name: "Pipedrive",
     description:
       "Automatically track lead conversion success by importing deal updates and activity tags from your Pipedrive sales pipeline.",
-    comingSoon: true,
+    crmProvider: "pipedrive",
   },
   {
     id: "zoho",
     name: "Zoho CRM",
     description:
       "Maintain accurate lead lifecycle data by updating Leadlogr statuses based on your Zoho CRM deal stages and pipeline movements.",
-    comingSoon: true,
+    crmProvider: "zoho",
   },
   {
     id: "odoo",
     name: "Odoo CRM",
     description:
       "Sync Odoo CRM opportunity stage changes back to Leadlogr using webhook-based stage ID mapping.",
-    comingSoon: true,
+    crmProvider: "odoo",
   },
   {
     id: "monday",
     name: "Monday.com",
     description:
       "Bridge your project management and lead tracking by syncing board updates and column statuses from Monday.com back to Leadlogr.",
-    comingSoon: true,
+    crmProvider: "monday",
   },
   {
     id: "clickup",
     name: "ClickUp",
     description:
       "Sync lead progression by mapping your ClickUp task statuses and tags to automatically update lead qualification in Leadlogr.",
-    comingSoon: true,
+    crmProvider: "clickup",
   },
   {
     id: "teamleader",
     name: "Teamleader",
     description:
       "Ensure your marketing data stays current by syncing customer status changes and milestone updates directly from Teamleader.",
-    comingSoon: true,
+    crmProvider: "teamleader",
   },
   {
     id: "recruitee",
@@ -212,7 +215,20 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
         <h3 className="text-base font-semibold">{item.name}</h3>
         <p className="text-sm text-muted-foreground mt-1.5">{item.description}</p>
       </div>
-      {item.setupTo && !item.comingSoon ? (
+      {item.crmProvider ? (
+        <Link
+          to="/app/integrations/crm/$provider"
+          params={{ provider: item.crmProvider }}
+          className={`mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors ring-1 cursor-pointer text-center flex items-center justify-center gap-1.5 ${
+            connected
+              ? "bg-stage-green-soft text-stage-green-ink ring-stage-green-line hover:opacity-90"
+              : "bg-primary text-primary-foreground ring-primary hover:opacity-90"
+          }`}
+        >
+          {connected && <Check className="size-4" />}
+          {connected ? "Connected" : "Connect"}
+        </Link>
+      ) : item.setupTo && !item.comingSoon ? (
         connected ? (
           item.setupTo === "/app/tracking" ? (
             <Link
@@ -232,23 +248,21 @@ function IntegrationCard({ item, connected }: { item: IntegrationItem; connected
               Connected
             </Link>
           )
+        ) : item.setupTo === "/app/tracking" ? (
+          <Link
+            to="/app/tracking"
+            search={{ integration: item.id }}
+            className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
+          >
+            Set up
+          </Link>
         ) : (
-          item.setupTo === "/app/tracking" ? (
-            <Link
-              to="/app/tracking"
-              search={{ integration: item.id }}
-              className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
-            >
-              Set up
-            </Link>
-          ) : (
-            <Link
-              to={item.setupTo}
-              className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
-            >
-              Connect
-            </Link>
-          )
+          <Link
+            to={item.setupTo}
+            className="mt-5 text-sm font-medium px-3 py-2 rounded-md transition-colors bg-primary text-primary-foreground ring-1 ring-primary hover:opacity-90 cursor-pointer text-center"
+          >
+            Connect
+          </Link>
         )
       ) : connected ? (
         <ConnectedBadge />
@@ -285,15 +299,25 @@ function IntegrationsPage() {
     enabled: !!organizationId,
   });
 
+  // CRM connections live in their own table, so the card's connected state
+  // comes from there rather than from the ad-platform statuses.
+  const listCrm = useServerFn(listCrmConnections);
+  const { data: crmConnections } = useQuery({
+    queryKey: ["crm-connections", organizationId],
+    queryFn: () => listCrm({ data: { organizationId: organizationId! } }),
+    enabled: !!organizationId,
+  });
+
   const connectedIds = useMemo(() => {
     const ids = new Set<string>();
+    for (const c of crmConnections ?? []) ids.add(c.provider);
     if (statuses?.incomingConnectedIds) {
       for (const id of statuses.incomingConnectedIds) ids.add(id);
     }
     if (statuses?.googleAdsConnected) ids.add("google-ads");
     if (statuses?.metaAdsConnected) ids.add("meta-ads");
     return ids;
-  }, [statuses]);
+  }, [statuses, crmConnections]);
 
   if (location.pathname.replace(/\/$/, "") !== "/app/integrations") {
     return <Outlet />;
@@ -324,7 +348,8 @@ function IntegrationsPage() {
 
         <TabsContent value="updating" className="mt-6">
           <p className="text-sm text-muted-foreground mb-4 max-w-2xl">
-            Sync lead status changes back into Leadlogr from your CRM or project management tool, so lead lifecycle data stays accurate everywhere.
+            Sync lead status changes back into Leadlogr from your CRM or project management tool, so
+            lead lifecycle data stays accurate everywhere.
           </p>
           <Grid items={updating} connectedIds={connectedIds} />
         </TabsContent>

@@ -31,8 +31,10 @@ import { Route as AuthSplatRouteImport } from './routes/auth/$'
 import { Route as TrackerV1DotjsRouteImport } from './routes/tracker.v1[.]js'
 import { Route as AppIntegrationsGoogleAdsRouteImport } from './routes/app.integrations.google-ads'
 import { Route as AppIntegrationsMetaAdsRouteImport } from './routes/app.integrations.meta-ads'
+import { Route as ApiPublicCrmKeyRouteImport } from './routes/api/public/crm/$key'
 import { Route as ApiPublicLeadsCollectRouteImport } from './routes/api/public/leads/collect'
 import { Route as ApiPublicTrackerV1RouteImport } from './routes/api/public/tracker.v1'
+import { Route as AppIntegrationsCrmProviderRouteImport } from './routes/app.integrations.crm.$provider'
 import { Route as ApiPublicOauthGoogleAdsCallbackRouteImport } from './routes/api/public/oauth/google-ads/callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -146,6 +148,11 @@ const AppIntegrationsMetaAdsRoute = AppIntegrationsMetaAdsRouteImport.update({
   path: '/meta-ads',
   getParentRoute: () => AppIntegrationsRoute,
 } as any)
+const ApiPublicCrmKeyRoute = ApiPublicCrmKeyRouteImport.update({
+  id: '/api/public/crm/$key',
+  path: '/api/public/crm/$key',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicLeadsCollectRoute = ApiPublicLeadsCollectRouteImport.update({
   id: '/api/public/leads/collect',
   path: '/api/public/leads/collect',
@@ -156,6 +163,12 @@ const ApiPublicTrackerV1Route = ApiPublicTrackerV1RouteImport.update({
   path: '/api/public/tracker/v1',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppIntegrationsCrmProviderRoute =
+  AppIntegrationsCrmProviderRouteImport.update({
+    id: '/crm/$provider',
+    path: '/crm/$provider',
+    getParentRoute: () => AppIntegrationsRoute,
+  } as any)
 const ApiPublicOauthGoogleAdsCallbackRoute =
   ApiPublicOauthGoogleAdsCallbackRouteImport.update({
     id: '/api/public/oauth/google-ads/callback',
@@ -186,8 +199,10 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/app/integrations/meta-ads': typeof AppIntegrationsMetaAdsRoute
+  '/api/public/crm/$key': typeof ApiPublicCrmKeyRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
+  '/app/integrations/crm/$provider': typeof AppIntegrationsCrmProviderRoute
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -211,8 +226,10 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/app/integrations/meta-ads': typeof AppIntegrationsMetaAdsRoute
+  '/api/public/crm/$key': typeof ApiPublicCrmKeyRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
+  '/app/integrations/crm/$provider': typeof AppIntegrationsCrmProviderRoute
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
 }
 export interface FileRoutesById {
@@ -239,8 +256,10 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/app/integrations/google-ads': typeof AppIntegrationsGoogleAdsRoute
   '/app/integrations/meta-ads': typeof AppIntegrationsMetaAdsRoute
+  '/api/public/crm/$key': typeof ApiPublicCrmKeyRoute
   '/api/public/leads/collect': typeof ApiPublicLeadsCollectRoute
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
+  '/app/integrations/crm/$provider': typeof AppIntegrationsCrmProviderRoute
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
 }
 export interface FileRouteTypes {
@@ -268,8 +287,10 @@ export interface FileRouteTypes {
     | '/app/'
     | '/app/integrations/google-ads'
     | '/app/integrations/meta-ads'
+    | '/api/public/crm/$key'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
+    | '/app/integrations/crm/$provider'
     | '/api/public/oauth/google-ads/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -293,8 +314,10 @@ export interface FileRouteTypes {
     | '/app'
     | '/app/integrations/google-ads'
     | '/app/integrations/meta-ads'
+    | '/api/public/crm/$key'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
+    | '/app/integrations/crm/$provider'
     | '/api/public/oauth/google-ads/callback'
   id:
     | '__root__'
@@ -320,8 +343,10 @@ export interface FileRouteTypes {
     | '/app/'
     | '/app/integrations/google-ads'
     | '/app/integrations/meta-ads'
+    | '/api/public/crm/$key'
     | '/api/public/leads/collect'
     | '/api/public/tracker/v1'
+    | '/app/integrations/crm/$provider'
     | '/api/public/oauth/google-ads/callback'
   fileRoutesById: FileRoutesById
 }
@@ -336,6 +361,7 @@ export interface RootRouteChildren {
   TrackerDotv1DotjsRoute: typeof TrackerDotv1DotjsRoute
   AuthSplatRoute: typeof AuthSplatRoute
   TrackerV1DotjsRoute: typeof TrackerV1DotjsRoute
+  ApiPublicCrmKeyRoute: typeof ApiPublicCrmKeyRoute
   ApiPublicLeadsCollectRoute: typeof ApiPublicLeadsCollectRoute
   ApiPublicTrackerV1Route: typeof ApiPublicTrackerV1Route
   ApiPublicOauthGoogleAdsCallbackRoute: typeof ApiPublicOauthGoogleAdsCallbackRoute
@@ -497,6 +523,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIntegrationsMetaAdsRouteImport
       parentRoute: typeof AppIntegrationsRoute
     }
+    '/api/public/crm/$key': {
+      id: '/api/public/crm/$key'
+      path: '/api/public/crm/$key'
+      fullPath: '/api/public/crm/$key'
+      preLoaderRoute: typeof ApiPublicCrmKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/leads/collect': {
       id: '/api/public/leads/collect'
       path: '/api/public/leads/collect'
@@ -510,6 +543,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/tracker/v1'
       preLoaderRoute: typeof ApiPublicTrackerV1RouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/app/integrations/crm/$provider': {
+      id: '/app/integrations/crm/$provider'
+      path: '/crm/$provider'
+      fullPath: '/app/integrations/crm/$provider'
+      preLoaderRoute: typeof AppIntegrationsCrmProviderRouteImport
+      parentRoute: typeof AppIntegrationsRoute
     }
     '/api/public/oauth/google-ads/callback': {
       id: '/api/public/oauth/google-ads/callback'
@@ -539,11 +579,13 @@ const AgencyRouteWithChildren =
 interface AppIntegrationsRouteChildren {
   AppIntegrationsGoogleAdsRoute: typeof AppIntegrationsGoogleAdsRoute
   AppIntegrationsMetaAdsRoute: typeof AppIntegrationsMetaAdsRoute
+  AppIntegrationsCrmProviderRoute: typeof AppIntegrationsCrmProviderRoute
 }
 
 const AppIntegrationsRouteChildren: AppIntegrationsRouteChildren = {
   AppIntegrationsGoogleAdsRoute: AppIntegrationsGoogleAdsRoute,
   AppIntegrationsMetaAdsRoute: AppIntegrationsMetaAdsRoute,
+  AppIntegrationsCrmProviderRoute: AppIntegrationsCrmProviderRoute,
 }
 
 const AppIntegrationsRouteWithChildren = AppIntegrationsRoute._addFileChildren(
@@ -583,6 +625,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrackerDotv1DotjsRoute: TrackerDotv1DotjsRoute,
   AuthSplatRoute: AuthSplatRoute,
   TrackerV1DotjsRoute: TrackerV1DotjsRoute,
+  ApiPublicCrmKeyRoute: ApiPublicCrmKeyRoute,
   ApiPublicLeadsCollectRoute: ApiPublicLeadsCollectRoute,
   ApiPublicTrackerV1Route: ApiPublicTrackerV1Route,
   ApiPublicOauthGoogleAdsCallbackRoute: ApiPublicOauthGoogleAdsCallbackRoute,
