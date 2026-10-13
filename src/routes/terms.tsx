@@ -66,8 +66,10 @@ function TermsPage() {
             </>,
             <>
               You must operate a working consent mechanism on any site using our tracking script
-              where the law requires one. Our script reads the consent state it finds; it is not a
-              substitute for obtaining consent.
+              where the law requires one. Our script reads the consent state it finds and reports
+              it; it does not obtain consent on your behalf. Where consent was not given we
+              withhold the lead's email and telephone number from everything sent to advertising
+              platforms, but that is a safeguard, not a substitute for your own compliance.
             </>,
             <>
               You must not use Leadlogr to collect special categories of personal data — health,

@@ -1,4 +1,4 @@
-export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, defers/anonymises when no consent */
+export const TRACKER = `/* Leadlogr tracker v2.0 — records every submission; detects consent for ad-platform reporting */
 (function () {
   if (window.__LEADLOGR_RUNNING__) return;
   window.__LEADLOGR_RUNNING__ = true;
@@ -44,20 +44,19 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
     return;
   }
   var FLAGS = CFG.featureFlags || {};
-  // Defaults:
-  //   allowConsentFallback: true   -> when consent is denied/unknown, send an
-  //                                   ANONYMISED event (no name/email/phone/etc)
-  //                                   so attribution still works.
-  //   strictNoCmp:          true   -> when no CMP is detected at all, treat as
-  //                                   "denied" (GDPR-safe). Set false only if
-  //                                   the customer has explicit legal basis.
-  if (FLAGS.allowConsentFallback === undefined) FLAGS.allowConsentFallback = true;
-  if (FLAGS.strictNoCmp === undefined) FLAGS.strictNoCmp = true;
+  // A form submission is the visitor handing their details to the business on
+  // purpose. Recording it is the business's own processing of its own enquiry
+  // — the same as the mailbox the form would otherwise land in — so the
+  // tracker no longer withholds, anonymises or drops anything on consent.
+  //
+  // Consent is still detected and reported, because it still decides whether
+  // personal identifiers may be passed on to Google and Meta. That decision is
+  // made on the server, where it can be audited; this script's job is to state
+  // what it saw, not to censor the enquiry.
 
   var lastSubmittedForm = null;
   var lastFormInteractionAt = 0;
   var recentSends = [];
-  var pendingSends = []; // queued until consent is decided
   var log = function () {
     if (CFG.debug) try { console.log.apply(console, ['[leadlogr]'].concat([].slice.call(arguments))); } catch (e) {}
   };
@@ -234,9 +233,11 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
   function consentLabel(detected) {
     if (detected.state === 'granted') return 'Accepted';
     if (detected.state === 'denied') return 'Declined';
-    if (detected.state === 'pending') return 'Unknown';
-    // no CMP at all — strictNoCmp treats as Declined (GDPR-safe default)
-    return FLAGS.strictNoCmp ? 'Declined' : 'Unknown';
+    // Pending, or no consent platform on the page at all. Previously both were
+    // reported as a refusal, which is a guess, not an observation. 'Unknown'
+    // is what was actually established, and the server treats it as "no
+    // permission to pass identifiers on" either way.
+    return 'Unknown';
   }
 
   function clientContext() {
@@ -298,13 +299,6 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
     return false;
   }
 
-  function stripPII(p) {
-    p.name = ''; p.email = ''; p.phone = ''; p.company = ''; p.message = '';
-    if (p.custom_fields) p.custom_fields = {};
-    p.anonymized = true;
-    return p;
-  }
-
   function transport(payload) {
     if (shouldSkip(payload)) { log('duplicate skipped', payload); return; }
     log('sending', payload);
@@ -326,78 +320,13 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
     var payload = basePayload();
     if (extra) for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) payload[k] = extra[k];
 
-    var label = payload.consent;
-    // Pending: queue and retry when consent resolves
-    if (label === 'Unknown' && payload.consent_state === 'pending') {
-      log('consent pending — queueing', payload);
-      pendingSends.push(extra || {});
-      // safety net: flush after 15s with whatever consent state we have
-      setTimeout(flushPending, 15000);
-      return;
-    }
-    // Declined (real CMP "no") or no-CMP with strictNoCmp
-    if (label === 'Declined') {
-      if (FLAGS.allowConsentFallback) {
-        transport(stripPII(payload));
-      } else {
-        log('consent denied — drop', payload);
-      }
-      return;
-    }
-    // Accepted
+    // Every submission goes, with everything the visitor filled in, whatever
+    // the consent state says. It used to be queued for up to 15 seconds
+    // waiting for a banner to resolve, then stripped or dropped — which lost
+    // real enquiries the business was entitled to have.
     transport(payload);
   }
 
-  function flushPending() {
-    if (!pendingSends.length) return;
-    var copy = pendingSends.slice(); pendingSends.length = 0;
-    copy.forEach(function (extra) { send(extra); });
-  }
-
-  /* Listen for late consent decisions and re-evaluate. */
-  function bindConsentListeners() {
-    var fire = function () { setTimeout(flushPending, 0); };
-    try { window.addEventListener('CookiebotOnAccept', fire); } catch (e) {}
-    try { window.addEventListener('CookiebotOnDecline', fire); } catch (e) {}
-    try { window.addEventListener('cookieyes_consent_update', fire); } catch (e) {}
-    try { window.addEventListener('cmplz_status_change', fire); } catch (e) {}
-    try { window.addEventListener('consent.onetrust', fire); } catch (e) {}
-    try {
-      if (window.OneTrust && typeof window.OneTrust.OnConsentChanged === 'function') {
-        window.OneTrust.OnConsentChanged(fire);
-      }
-    } catch (e) {}
-    try {
-      if (typeof window.__tcfapi === 'function') {
-        window.__tcfapi('addEventListener', 2, function (data, success) {
-          if (success && data && (data.eventStatus === 'tcloaded' || data.eventStatus === 'useractioncomplete')) fire();
-        });
-      }
-    } catch (e) {}
-    try {
-      window.didomiOnReady = window.didomiOnReady || [];
-      window.didomiOnReady.push(function () {
-        try { window.Didomi.on && window.Didomi.on('consent.changed', fire); } catch (e) {}
-        fire();
-      });
-    } catch (e) {}
-    // Generic dataLayer consent push
-    try {
-      var dl = window.dataLayer = window.dataLayer || [];
-      var origPush = dl.push.bind(dl);
-      dl.push = function () {
-        var args = [].slice.call(arguments);
-        try {
-          for (var i = 0; i < args.length; i++) {
-            var a = args[i];
-            if (a && (a[0] === 'consent' || a.event === 'consent_update' || a.event === 'cookie_consent_update')) fire();
-          }
-        } catch (e) {}
-        return origPush.apply(null, args);
-      };
-    } catch (e) {}
-  }
-  bindConsentListeners();
 
   function readableName(el) {
     return (el.name || el.id || el.getAttribute('aria-label') || el.getAttribute('placeholder') || '').toLowerCase();
@@ -607,9 +536,8 @@ export const TRACKER = `/* Leadlogr tracker v1.1 — GDPR-aware: detects CMP, de
   window.Leadlogr = {
     submitForm: function (fields) { send(fields || {}); },
     getConsent: detectConsent,
-    flushPending: flushPending,
     config: CFG,
-    version: '1.1.1',
+    version: '2.0.0',
   };
 
   log('ready', { endpoint: CFG.endpoint, consent: detectConsent() });

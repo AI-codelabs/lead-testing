@@ -1,96 +1,32 @@
-import { ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 /**
- * Explains what the tracker will do about consent, before the customer
- * installs it.
+ * Sets expectations about consent before the customer installs the tracker.
  *
- * Without this the default behaviour reads as data loss: with no consent
- * platform on the site, the tracker treats visitors as having declined and
- * strips every personal field, so leads arrive with a page and a click id but
- * no name or email. That is correct under GDPR and deliberate — but a customer
- * discovering it from empty rows will file a bug, not a legal question.
+ * It used to warn that leads would arrive stripped of name and email when no
+ * consent platform was found. That is no longer what happens: a form
+ * submission is the visitor handing over their details to be contacted, so the
+ * enquiry is recorded in full the same way it would be if it had gone to the
+ * inbox. Consent now decides one thing only — whether those details may be
+ * passed on to Google and Meta — so that is what this explains.
  */
-
-const CMPS = [
-  "Google Consent Mode v2",
-  "IAB TCF v2",
-  "Cookiebot",
-  "OneTrust",
-  "CookieYes",
-  "Complianz",
-];
-
-export function ConsentNotice({
-  allowConsentFallback,
-  strictNoCmp = true,
-}: {
-  allowConsentFallback: boolean;
-  /** Treat "no consent platform detected" as a refusal. On by default. */
-  strictNoCmp?: boolean;
-}) {
-  // Three genuinely different outcomes, so the copy has to change with them.
-  const mode = !strictNoCmp
-    ? "permissive"
-    : allowConsentFallback
-      ? "anonymised"
-      : "dropped";
-
-  const COPY = {
-    anonymised: {
-      icon: ShieldAlert,
-      tone: "bg-stage-amber-soft text-stage-amber-ink ring-stage-amber-line",
-      title: "Leads arrive anonymised until a consent platform grants permission",
-      body: (
-        <>
-          No consent platform is assumed to be present, so visitors are treated as having
-          declined. Attribution still works — source, campaign, click IDs and landing page
-          are all recorded — but <strong>name, email, phone, company, message and form
-          answers are stripped</strong> before sending.
-        </>
-      ),
-    },
-    dropped: {
-      icon: ShieldX,
-      tone: "bg-stage-red-soft text-stage-red-ink ring-stage-red-line",
-      title: "Leads are discarded entirely without consent",
-      body: (
-        <>
-          With <em>Allow consent fallback</em> off, a visitor who has not granted consent is
-          not recorded at all — not even anonymously. Strictest option, and the one that
-          loses the most data.
-        </>
-      ),
-    },
-    permissive: {
-      icon: ShieldCheck,
-      tone: "bg-stage-green-soft text-stage-green-ink ring-stage-green-line",
-      title: "Full details captured even with no consent platform present",
-      body: (
-        <>
-          Personal details are sent whether or not a consent platform is detected. Only use
-          this where you have a documented lawful basis — under GDPR, an absent consent
-          banner is not consent.
-        </>
-      ),
-    },
-  }[mode];
-
-  const Icon = COPY.icon;
-
+export function ConsentNotice() {
   return (
-    <div className={`rounded-lg p-3 ring-1 ring-inset ${COPY.tone}`}>
+    <div className="rounded-lg p-3 ring-1 ring-inset bg-stage-green-soft text-stage-green-ink ring-stage-green-line">
       <div className="flex gap-2.5">
-        <Icon className="mt-0.5 size-4 shrink-0" />
+        <ShieldCheck className="mt-0.5 size-4 shrink-0" />
         <div className="min-w-0 space-y-1.5">
-          <p className="text-xs font-semibold">{COPY.title}</p>
-          <p className="text-xs leading-relaxed opacity-90">{COPY.body}</p>
-
-          {mode !== "permissive" && (
-            <p className="text-xs leading-relaxed opacity-80">
-              Full details are captured as soon as one of these grants permission:{" "}
-              {CMPS.join(", ")}.
-            </p>
-          )}
+          <p className="text-xs font-semibold">Every submission is recorded in full</p>
+          <p className="text-xs leading-relaxed opacity-90">
+            Name, email, phone, message and form answers are captured whether or not a
+            consent platform is present. Someone filling in your form is giving you their
+            details to be contacted, and this is a record of that enquiry.
+          </p>
+          <p className="text-xs leading-relaxed opacity-80">
+            Consent still governs <strong>what leaves Leadlogr</strong>. Where it was not
+            granted, conversions are still reported to your ad platforms, but the email
+            address and phone number are not included in them.
+          </p>
         </div>
       </div>
     </div>

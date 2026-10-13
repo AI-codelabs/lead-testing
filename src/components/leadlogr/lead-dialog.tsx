@@ -263,7 +263,9 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
                 </Select>
               </Field>
               <p className="text-xs text-muted-foreground border-l-2 border-border pl-3">
-                Ensures compliance with privacy regulations and proper consent tracking for advertising and analytics usage.
+                What the consent platform on the page reported when this form was submitted. The
+                enquiry is recorded either way; this decides whether the email address and phone
+                number may be included in what is reported back to your ad platforms.
               </p>
             </TabsContent>
           </div>

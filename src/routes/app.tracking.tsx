@@ -28,8 +28,6 @@ export const Route = createFileRoute("/app/tracking")({
 
 
 type Flags = {
-  showConsentPopup: boolean;
-  allowConsentFallback: boolean;
   allowDynamicForms: boolean;
   debug: boolean;
 };
@@ -139,8 +137,6 @@ function TrackingPage() {
   const [endpoint, setEndpoint] = useState<string>("");
   const effectiveEndpoint = endpoint || defaultEndpoint;
   const [flags, setFlags] = useState<Flags>({
-    showConsentPopup: true,
-    allowConsentFallback: true,
     allowDynamicForms: true,
     debug: true,
   });
@@ -156,8 +152,6 @@ function TrackingPage() {
 
   const flagsJson = JSON.stringify(
     {
-      showConsentPopup: flags.showConsentPopup,
-      allowConsentFallback: flags.allowConsentFallback,
       allowDynamicForms: flags.allowDynamicForms,
     },
     null,
@@ -218,7 +212,7 @@ window.Leadlogr.submitForm({
       <div className="mt-6 grid sm:grid-cols-3 gap-3">
         {[
           { icon: Zap, title: "Zero per-form work", body: "Listens in the capture phase. Every <form> on every page is tracked automatically." },
-          { icon: ShieldCheck, title: "Consent-aware", body: "Google Consent Mode v2 + cookie fallbacks. PII is stripped when denied." },
+          { icon: ShieldCheck, title: "Consent-aware", body: "Reads Consent Mode v2 and the major CMPs. Every enquiry is recorded; consent decides what reaches your ad platforms." },
           { icon: Sparkles, title: "Full attribution", body: "UTM, gclid, fbclid, msclkid, li_fat_id, referrer, landing page — all on every lead." },
         ].map(({ icon: Icon, title, body }) => (
           <div key={title} className="rounded-lg ring-1 ring-border bg-card p-4">
@@ -246,7 +240,7 @@ window.Leadlogr.submitForm({
           </div>
 
           <div className="mb-4">
-            <ConsentNotice allowConsentFallback={flags.allowConsentFallback} />
+            <ConsentNotice />
           </div>
 
           {!workspaceReady && (
@@ -401,18 +395,6 @@ window.Leadlogr.submitForm({
               Feature flags
             </div>
             <div className="space-y-2">
-              <FlagToggle
-                label="Show consent popup"
-                hint="Display Leadlogr's built-in consent banner if no CMP is detected."
-                checked={flags.showConsentPopup}
-                onChange={(v) => setFlags((f) => ({ ...f, showConsentPopup: v }))}
-              />
-              <FlagToggle
-                label="Consent fallback"
-                hint="Track basic events without PII when consent is denied."
-                checked={flags.allowConsentFallback}
-                onChange={(v) => setFlags((f) => ({ ...f, allowConsentFallback: v }))}
-              />
               <FlagToggle
                 label="Dynamic forms"
                 hint="Watch the DOM for forms added after page load (SPAs, modals)."

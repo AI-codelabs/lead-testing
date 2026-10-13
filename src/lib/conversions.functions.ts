@@ -145,6 +145,24 @@ async function recordUpload(row: {
 
 type UploadResult = { ok: boolean; skipped?: boolean; reason?: string; error?: string };
 
+/**
+ * Whether a lead's own email and phone may be passed on to an ad platform.
+ *
+ * Recording the submission needs no consent: the visitor filled in a form to
+ * reach the business, and the record is that enquiry. Handing those details to
+ * Google or Meta to improve ad matching is a separate act with a separate
+ * basis, and Google's EU User Consent Policy puts the duty to hold consent on
+ * the advertiser — so this stays gated while the Ads API application is under
+ * review.
+ *
+ * This is the only place consent still changes what happens. Lifting it later
+ * means returning true here; nothing else needs touching. The conversion
+ * itself uploads either way — only the identifiers are withheld.
+ */
+function mayShareIdentifiers(lead: { consent: string }): boolean {
+  return lead.consent === "accepted";
+}
+
 async function uploadGoogleAds(leadId: string, stage: DbStage): Promise<UploadResult> {
   const ctx = await loadContext(leadId, "google_ads", stage);
   if (!ctx) return { ok: false, skipped: true, reason: "stage_not_reported" };
@@ -167,9 +185,8 @@ async function uploadGoogleAds(leadId: string, stage: DbStage): Promise<UploadRe
     return { ok: false, skipped: true, reason: "no_google_click" };
   }
 
-  // Enhanced conversions carry hashed identifiers, and only with consent.
   const userIdentifiers: Array<{ hashedEmail: string } | { hashedPhoneNumber: string }> = [];
-  if (lead.consent === "accepted") {
+  if (mayShareIdentifiers(lead)) {
     if (lead.email) userIdentifiers.push({ hashedEmail: await sha256Hex(lead.email) });
     if (lead.phone) {
       userIdentifiers.push({ hashedPhoneNumber: await sha256Hex(lead.phone.replace(/[^\d+]/g, "")) });
@@ -250,7 +267,7 @@ async function uploadMeta(leadId: string, stage: DbStage): Promise<UploadResult>
   const value = stage === "won" && lead.won_value != null ? Number(lead.won_value) : undefined;
   const currency = value != null ? (settings.default_currency || lead.currency || "EUR") : undefined;
 
-  const withConsent = lead.consent === "accepted";
+  const withConsent = mayShareIdentifiers(lead);
 
   // Same reason as the Google path above: a throw must still be recorded.
   let result: Awaited<ReturnType<typeof sendMetaCapiEvent>>;
@@ -269,7 +286,6 @@ async function uploadMeta(leadId: string, stage: DbStage): Promise<UploadResult>
       ),
       actionSource: "system_generated",
       userData: {
-        // Personal identifiers are only sent when the lead consented.
         email: withConsent ? lead.email ?? undefined : undefined,
         phone: withConsent ? lead.phone ?? undefined : undefined,
         fbc: lead.fbclid ? buildFbc(lead.fbclid) : undefined,

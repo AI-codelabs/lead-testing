@@ -87,14 +87,22 @@ function PrivacyPage() {
 
       <Section heading="Consent, and what reaches advertising platforms">
         <p>
-          Our tracking script detects the consent management platform on the page and records
-          whether the visitor consented. Where no consent platform can be found at all, we treat
-          that as consent not given.
+          A form submission is recorded in full. Someone who fills in a contact form is giving
+          that business their details in order to be contacted, and the record we keep is that
+          enquiry — the same information the business would hold if the form had arrived as an
+          email. Recording it does not depend on a cookie banner, and the absence of one does
+          not reduce what the business receives.
+        </p>
+        <p>
+          Passing those details to an advertising platform is a different matter, and consent
+          governs it. Our tracking script detects the consent management platform on the page
+          and records what it found at the moment of submission. Where nothing can be found, we
+          treat that as permission not given.
         </p>
         <p>
           <strong>Personal identifiers are only sent to an advertising platform when consent was
-          given.</strong> When it was not, a lead is still recorded for our customer, but the
-          email address and telephone number are not included in anything we send onward.
+          given.</strong> When it was not, the conversion is still reported, but the email
+          address and telephone number are not included in anything we send onward.
         </p>
         <p>
           Where personal identifiers are sent, they are hashed before transmission, and a lead is
