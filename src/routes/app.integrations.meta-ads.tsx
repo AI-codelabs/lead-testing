@@ -32,10 +32,30 @@ type FormState = {
 };
 
 const STAGES: Array<{ key: keyof FormState; label: string; hint: string; placeholder: string }> = [
-  { key: "event_name_new", label: "New lead", hint: "Fires the moment a form submit lands. Standard: 'Lead'.", placeholder: "Lead" },
-  { key: "event_name_qualified", label: "Qualified", hint: "Custom event when sales marks the lead qualified.", placeholder: "QualifiedLead" },
-  { key: "event_name_won", label: "Won", hint: "Sends won_value as 'value'. Standard: 'Purchase'.", placeholder: "Purchase" },
-  { key: "event_name_lost", label: "Lost / Disqualified", hint: "Optional negative signal. Leave blank to skip.", placeholder: "" },
+  {
+    key: "event_name_new",
+    label: "New lead",
+    hint: "Fires the moment a form submit lands. Standard: 'Lead'.",
+    placeholder: "Lead",
+  },
+  {
+    key: "event_name_qualified",
+    label: "Qualified",
+    hint: "Custom event when sales marks the lead qualified.",
+    placeholder: "QualifiedLead",
+  },
+  {
+    key: "event_name_won",
+    label: "Won",
+    hint: "Sends won_value as 'value'. Standard: 'Purchase'.",
+    placeholder: "Purchase",
+  },
+  {
+    key: "event_name_lost",
+    label: "Lost / Disqualified",
+    hint: "Optional negative signal. Leave blank to skip.",
+    placeholder: "",
+  },
 ];
 
 function MetaAdsPage() {
@@ -58,14 +78,29 @@ function MetaAdsPage() {
     event_name_won: "Purchase",
     event_name_lost: "",
   });
-  const [connection, setConnection] = useState<{ connected: boolean; connectedAt: string | null }>({ connected: false, connectedAt: null });
+  const [connection, setConnection] = useState<{ connected: boolean; connectedAt: string | null }>({
+    connected: false,
+    connectedAt: null,
+  });
+  const mappedEvents = STAGES.filter((st) => String(form[st.key] ?? "").trim()).length;
+  const metaReady = !!form.pixel_id.trim() && mappedEvents > 0 && form.enabled;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
-  const [uploads, setUploads] = useState<Array<{ id: string; stage: string; status: string; value: number | null; currency: string | null; error: string | null; attempted_at: string }>>([]);
+  const [uploads, setUploads] = useState<
+    Array<{
+      id: string;
+      stage: string;
+      status: string;
+      value: number | null;
+      currency: string | null;
+      error: string | null;
+      attempted_at: string;
+    }>
+  >([]);
 
   const refresh = useCallback(async () => {
     const [s, u] = await Promise.all([
@@ -95,9 +130,15 @@ function MetaAdsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try { await refresh(); } finally { if (!cancelled) setLoading(false); }
+      try {
+        await refresh();
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [refresh]);
 
   const onSave = async () => {
@@ -162,7 +203,8 @@ function MetaAdsPage() {
               <div>
                 <h2 className="text-base font-semibold">Connection</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Paste your Meta Pixel ID and a long-lived System User access token from Meta Business Settings.
+                  Paste your Meta Pixel ID and a long-lived System User access token from Meta
+                  Business Settings.
                 </p>
               </div>
               {connection.connected ? (
@@ -176,16 +218,43 @@ function MetaAdsPage() {
               )}
             </header>
 
+            {/*
+              A saved token is not a working integration. Without a pixel, an
+              event name on at least one stage, or the toggle on, nothing will
+              ever be uploaded — and the badge above would still read
+              Connected. Google's page already spells this out; this is the
+              same list.
+            */}
+            {connection.connected && !metaReady && (
+              <div className="mb-4 rounded-lg ring-1 ring-inset bg-stage-amber-soft text-stage-amber-ink ring-stage-amber-line p-3">
+                <p className="text-xs font-semibold">Connected, but nothing will be sent yet</p>
+                <ul className="mt-1.5 space-y-1 text-xs opacity-90">
+                  {!form.pixel_id.trim() && <li>· Add your Pixel ID</li>}
+                  {mappedEvents === 0 && <li>· Name the event for at least one stage</li>}
+                  {!form.enabled && <li>· Switch the integration on</li>}
+                </ul>
+              </div>
+            )}
+
             <div className="grid sm:grid-cols-2 gap-3">
               <Field label="Pixel ID" hint="Found in Events Manager → Data Sources → your pixel.">
                 <input
                   value={form.pixel_id}
-                  onChange={(e) => setForm((f) => ({ ...f, pixel_id: e.target.value.replace(/\D/g, "") }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, pixel_id: e.target.value.replace(/\D/g, "") }))
+                  }
                   placeholder="e.g. 1234567890123456"
                   className="w-full text-sm font-mono px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </Field>
-              <Field label="Access token" hint={connection.connected ? "A token is saved. Paste a new one to replace it." : "System User token with ads_management on the pixel."}>
+              <Field
+                label="Access token"
+                hint={
+                  connection.connected
+                    ? "A token is saved. Paste a new one to replace it."
+                    : "System User token with ads_management on the pixel."
+                }
+              >
                 <input
                   type="password"
                   value={form.access_token}
@@ -194,7 +263,10 @@ function MetaAdsPage() {
                   className="w-full text-sm font-mono px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </Field>
-              <Field label="Test event code (optional)" hint="Set during testing to see events in Events Manager → Test Events.">
+              <Field
+                label="Test event code (optional)"
+                hint="Set during testing to see events in Events Manager → Test Events."
+              >
                 <input
                   value={form.test_event_code}
                   onChange={(e) => setForm((f) => ({ ...f, test_event_code: e.target.value }))}
@@ -205,7 +277,12 @@ function MetaAdsPage() {
               <Field label="Default currency" hint="Used on 'Purchase' events for Won deals.">
                 <input
                   value={form.default_currency}
-                  onChange={(e) => setForm((f) => ({ ...f, default_currency: e.target.value.toUpperCase().slice(0, 3) }))}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      default_currency: e.target.value.toUpperCase().slice(0, 3),
+                    }))
+                  }
                   placeholder="EUR"
                   className="w-full text-sm font-mono px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
                 />
@@ -214,15 +291,32 @@ function MetaAdsPage() {
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <label className="inline-flex items-center gap-2 text-xs">
-                <input type="checkbox" className="size-4 accent-primary" checked={form.enabled} onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))} />
+                <input
+                  type="checkbox"
+                  className="size-4 accent-primary"
+                  checked={form.enabled}
+                  onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))}
+                />
                 Sending {form.enabled ? "on" : "off"}
               </label>
               {connection.connected ? (
                 <>
-                  <button onClick={onTest} disabled={testing} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md ring-1 ring-border hover:bg-muted/40">
-                    {testing ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />} Send test event
+                  <button
+                    onClick={onTest}
+                    disabled={testing}
+                    className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md ring-1 ring-border hover:bg-muted/40"
+                  >
+                    {testing ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="size-3.5" />
+                    )}{" "}
+                    Send test event
                   </button>
-                  <button onClick={onDisconnect} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md ring-1 ring-border hover:bg-muted/40">
+                  <button
+                    onClick={onDisconnect}
+                    className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md ring-1 ring-border hover:bg-muted/40"
+                  >
                     <Unplug className="size-3.5" /> Disconnect
                   </button>
                 </>
@@ -230,9 +324,17 @@ function MetaAdsPage() {
             </div>
 
             {testResult ? (
-              <div className={`mt-3 text-xs flex items-center gap-1.5 ${testResult.ok ? "text-stage-green-ink" : "text-stage-red-ink"}`}>
-                {testResult.ok ? <Check className="size-3.5" /> : <AlertCircle className="size-3.5" />}
-                {testResult.ok ? "Meta accepted the test event." : `Failed: ${testResult.error || "unknown error"}`}
+              <div
+                className={`mt-3 text-xs flex items-center gap-1.5 ${testResult.ok ? "text-stage-green-ink" : "text-stage-red-ink"}`}
+              >
+                {testResult.ok ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <AlertCircle className="size-3.5" />
+                )}
+                {testResult.ok
+                  ? "Meta accepted the test event."
+                  : `Failed: ${testResult.error || "unknown error"}`}
               </div>
             ) : null}
 
@@ -248,7 +350,8 @@ function MetaAdsPage() {
             <header className="mb-4">
               <h2 className="text-base font-semibold">Events per stage</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Map each pipeline stage to a Meta event name. Standard events (Lead, Purchase, CompleteRegistration, etc.) optimize better than custom names.
+                Map each pipeline stage to a Meta event name. Standard events (Lead, Purchase,
+                CompleteRegistration, etc.) optimize better than custom names.
               </p>
             </header>
             <div className="space-y-3">
@@ -269,7 +372,13 @@ function MetaAdsPage() {
                 disabled={saving || loading}
                 className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
-                {saving ? <Loader2 className="size-3.5 animate-spin" /> : saved ? <Check className="size-3.5" /> : <Plug className="size-3.5" />}
+                {saving ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : saved ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <Plug className="size-3.5" />
+                )}
                 {saved ? "Saved" : connection.connected ? "Save settings" : "Connect Meta"}
               </button>
               <a
@@ -287,7 +396,9 @@ function MetaAdsPage() {
           <section className="rounded-lg ring-1 ring-border bg-card p-5">
             <header className="mb-3">
               <h2 className="text-base font-semibold">Recent events</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">The last 25 Meta CAPI events sent for this workspace.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                The last 25 Meta CAPI events sent for this workspace.
+              </p>
             </header>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -302,16 +413,28 @@ function MetaAdsPage() {
                 </thead>
                 <tbody>
                   {uploads.length === 0 ? (
-                    <tr><td colSpan={5} className="py-3 text-muted-foreground">No events yet.</td></tr>
-                  ) : uploads.map((u) => (
-                    <tr key={u.id} className="border-t border-border/60">
-                      <td className="py-2 pr-4">{new Date(u.attempted_at).toLocaleString()}</td>
-                      <td className="py-2 pr-4">{u.stage}</td>
-                      <td className={`py-2 pr-4 font-medium ${u.status === "success" ? "text-stage-green-ink" : "text-stage-red-ink"}`}>{u.status}</td>
-                      <td className="py-2 pr-4">{u.value != null ? `${u.value} ${u.currency ?? ""}` : "—"}</td>
-                      <td className="py-2 pr-4 text-muted-foreground">{u.error ?? ""}</td>
+                    <tr>
+                      <td colSpan={5} className="py-3 text-muted-foreground">
+                        No events yet.
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    uploads.map((u) => (
+                      <tr key={u.id} className="border-t border-border/60">
+                        <td className="py-2 pr-4">{new Date(u.attempted_at).toLocaleString()}</td>
+                        <td className="py-2 pr-4">{u.stage}</td>
+                        <td
+                          className={`py-2 pr-4 font-medium ${u.status === "success" ? "text-stage-green-ink" : "text-stage-red-ink"}`}
+                        >
+                          {u.status}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {u.value != null ? `${u.value} ${u.currency ?? ""}` : "—"}
+                        </td>
+                        <td className="py-2 pr-4 text-muted-foreground">{u.error ?? ""}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -323,16 +446,40 @@ function MetaAdsPage() {
           <div className="rounded-lg ring-1 ring-border bg-card p-5 text-sm">
             <h3 className="font-semibold mb-2">How to get a token</h3>
             <ol className="list-decimal pl-4 space-y-1.5 text-muted-foreground">
-              <li>Open <a className="text-primary hover:underline" target="_blank" rel="noopener" href="https://business.facebook.com/settings/system-users">Business Settings → System Users</a>.</li>
-              <li>Create a System User and assign it to the pixel asset with <span className="font-medium">Full control</span>.</li>
-              <li>Click <span className="font-medium">Generate New Token</span>. Pick the app, then select scopes <code className="text-xs">ads_management</code> and <code className="text-xs">business_management</code>.</li>
-              <li>Set expiration to <span className="font-medium">Never</span>. Copy the token and paste it above.</li>
+              <li>
+                Open{" "}
+                <a
+                  className="text-primary hover:underline"
+                  target="_blank"
+                  rel="noopener"
+                  href="https://business.facebook.com/settings/system-users"
+                >
+                  Business Settings → System Users
+                </a>
+                .
+              </li>
+              <li>
+                Create a System User and assign it to the pixel asset with{" "}
+                <span className="font-medium">Full control</span>.
+              </li>
+              <li>
+                Click <span className="font-medium">Generate New Token</span>. Pick the app, then
+                select scopes <code className="text-xs">ads_management</code> and{" "}
+                <code className="text-xs">business_management</code>.
+              </li>
+              <li>
+                Set expiration to <span className="font-medium">Never</span>. Copy the token and
+                paste it above.
+              </li>
             </ol>
           </div>
           <div className="rounded-lg ring-1 ring-border bg-card p-5 text-sm">
             <h3 className="font-semibold mb-2">Matching quality</h3>
             <p className="text-muted-foreground">
-              We hash email and phone (SHA-256) before sending — only when the lead has consent=accepted. <span className="font-medium">fbp</span> and <span className="font-medium">fbclid</span> are sent server-side for click attribution.
+              We hash email and phone (SHA-256) before sending — only when the lead has
+              consent=accepted. <span className="font-medium">fbp</span> and{" "}
+              <span className="font-medium">fbclid</span> are sent server-side for click
+              attribution.
             </p>
           </div>
         </aside>
@@ -341,7 +488,15 @@ function MetaAdsPage() {
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
       <span className="block text-xs font-medium text-foreground mb-1">{label}</span>

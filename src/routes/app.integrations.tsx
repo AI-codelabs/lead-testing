@@ -337,8 +337,10 @@ function IntegrationsPage() {
   const inProgressIds = useMemo(() => {
     const ids = new Set<string>();
     for (const c of crmConnections ?? []) if (c.status !== "active") ids.add(c.provider);
+    if (statuses?.googleAds === "needs_config") ids.add("google-ads");
+    if (statuses?.metaAds === "needs_config") ids.add("meta-ads");
     return ids;
-  }, [crmConnections]);
+  }, [crmConnections, statuses]);
 
   const connectedIds = useMemo(() => {
     const ids = new Set<string>();
@@ -346,8 +348,8 @@ function IntegrationsPage() {
     if (statuses?.incomingConnectedIds) {
       for (const id of statuses.incomingConnectedIds) ids.add(id);
     }
-    if (statuses?.googleAdsConnected) ids.add("google-ads");
-    if (statuses?.metaAdsConnected) ids.add("meta-ads");
+    if (statuses?.googleAds === "active") ids.add("google-ads");
+    if (statuses?.metaAds === "active") ids.add("meta-ads");
     return ids;
   }, [statuses, crmConnections]);
 
@@ -375,7 +377,7 @@ function IntegrationsPage() {
         </TabsContent>
 
         <TabsContent value="outgoing" className="mt-6">
-          <Grid items={outgoing} connectedIds={connectedIds} />
+          <Grid items={outgoing} connectedIds={connectedIds} inProgressIds={inProgressIds} />
         </TabsContent>
 
         <TabsContent value="updating" className="mt-6">

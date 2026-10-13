@@ -164,9 +164,24 @@ export const saveAdPlatformSettings = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * How far along an ad platform actually is.
+ *
+ *   not_connected — no credential has been stored
+ *   needs_config  — credential held, but no account chosen, no stage mapped to
+ *                   a conversion action, or the integration switched off, so
+ *                   nothing can ever be uploaded
+ *   active        — credential, account, at least one mapped stage, enabled
+ */
+export type AdNetworkStatus = "not_connected" | "needs_config" | "active";
+
 export type IntegrationStatuses = {
   incomingConnectedIds: string[];
+  googleAds: AdNetworkStatus;
+  metaAds: AdNetworkStatus;
+  /** @deprecated True for anything past not_connected; prefer the status. */
   googleAdsConnected: boolean;
+  /** @deprecated True for anything past not_connected; prefer the status. */
   metaAdsConnected: boolean;
 };
 
@@ -192,12 +207,24 @@ export const getIntegrationStatuses = createServerFn({ method: "POST" })
           WHERE organization_id = $1`,
         [organizationId],
       ),
-      context.db.sql<{ network: AdNetwork; connected: boolean }>(
+      context.db.sql<{
+        network: AdNetwork;
+        connected: boolean;
+        enabled: boolean;
+        has_account: boolean;
+        actions: number;
+      }>(
         // Same reason as SETTINGS_SELECT: the EXISTS here read a table app_user
         // cannot see, so this whole statement failed and the integrations page
         // reported every network as disconnected.
         `SELECT s.network,
-                app.ad_platform_connected(s.organization_id, s.network) AS connected
+                app.ad_platform_connected(s.organization_id, s.network) AS connected,
+                s.enabled,
+                s.account_id IS NOT NULL AND s.account_id <> '' AS has_account,
+                (CASE WHEN COALESCE(s.action_new, '')       <> '' THEN 1 ELSE 0 END
+               + CASE WHEN COALESCE(s.action_qualified, '') <> '' THEN 1 ELSE 0 END
+               + CASE WHEN COALESCE(s.action_won, '')       <> '' THEN 1 ELSE 0 END
+               + CASE WHEN COALESCE(s.action_lost, '')      <> '' THEN 1 ELSE 0 END) AS actions
            FROM public.ad_platform_settings s
           WHERE s.organization_id = $1`,
         [organizationId],
@@ -206,14 +233,32 @@ export const getIntegrationStatuses = createServerFn({ method: "POST" })
 
     // "wordpress" is the old id for "website"; both are still accepted.
     const KNOWN = ["gtm", "website", "wordpress", "api", "zapier"];
-    const isConnected = (n: AdNetwork) => connected.some((r) => r.network === n && r.connected);
+    /**
+     * Holding a credential is not the same as being set up.
+     *
+     * A workspace can finish the OAuth round trip, or paste a token, and still
+     * have no account selected, no stage mapped to a conversion action, or the
+     * whole thing switched off — in which case nothing will ever be uploaded.
+     * Reporting that as "Connected" is the tick people trust right up until
+     * they ask why the ad platform shows nothing.
+     */
+    const statusOf = (n: AdNetwork): AdNetworkStatus => {
+      const r = connected.find((x) => x.network === n);
+      if (!r || !r.connected) return "not_connected";
+      if (!r.has_account || Number(r.actions) === 0 || !r.enabled) return "needs_config";
+      return "active";
+    };
 
     return {
       incomingConnectedIds: incoming
         .map((r) => (r.integration_id === "wordpress" ? "website" : r.integration_id))
         .filter((id) => KNOWN.includes(id)),
-      googleAdsConnected: isConnected("google_ads"),
-      metaAdsConnected: isConnected("meta_ads"),
+      googleAds: statusOf("google_ads"),
+      metaAds: statusOf("meta_ads"),
+      // Kept so nothing that only asks "is there a credential" breaks; the
+      // status above is what the integrations page should use.
+      googleAdsConnected: statusOf("google_ads") !== "not_connected",
+      metaAdsConnected: statusOf("meta_ads") !== "not_connected",
     };
   });
 
@@ -245,8 +290,7 @@ export const startGoogleAdsOAuth = createServerFn({ method: "POST" })
     const clientId = process.env.GOOGLE_ADS_OAUTH_CLIENT_ID;
     if (!clientId) throw new Error("Google Ads OAuth is not configured on this server");
 
-    const state =
-      crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    const state = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
 
     const { withOwner } = await import("@/db");
     await withOwner((db) =>
@@ -259,7 +303,10 @@ export const startGoogleAdsOAuth = createServerFn({ method: "POST" })
 
     const auth = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     auth.searchParams.set("client_id", clientId);
-    auth.searchParams.set("redirect_uri", `${data.redirectOrigin}/api/public/oauth/google-ads/callback`);
+    auth.searchParams.set(
+      "redirect_uri",
+      `${data.redirectOrigin}/api/public/oauth/google-ads/callback`,
+    );
     auth.searchParams.set("response_type", "code");
     auth.searchParams.set("scope", "https://www.googleapis.com/auth/adwords openid email profile");
     auth.searchParams.set("access_type", "offline");
@@ -413,7 +460,9 @@ export const saveGoogleAdsSettings = createServerFn({ method: "POST" })
       if (!current?.connected) throw new Error("Connect Google Ads before switching sending on.");
       if (!accountId) throw new Error("Pick the Google Ads account before switching sending on.");
       if (actions.length === 0) {
-        throw new Error("Choose a conversion action for at least one stage before switching sending on.");
+        throw new Error(
+          "Choose a conversion action for at least one stage before switching sending on.",
+        );
       }
     }
 
@@ -515,10 +564,17 @@ async function writeSettings(
        action_lost      = COALESCE($11, s.action_lost)
      RETURNING organization_id`,
     [
-      organizationId, network,
-      v.enabled ?? null, v.accountId ?? null, v.secondaryId ?? null, v.testEventCode ?? null,
-      v.defaultCurrency ?? null, v.actionNew ?? null, v.actionQualified ?? null,
-      v.actionWon ?? null, v.actionLost ?? null,
+      organizationId,
+      network,
+      v.enabled ?? null,
+      v.accountId ?? null,
+      v.secondaryId ?? null,
+      v.testEventCode ?? null,
+      v.defaultCurrency ?? null,
+      v.actionNew ?? null,
+      v.actionQualified ?? null,
+      v.actionWon ?? null,
+      v.actionLost ?? null,
     ],
   );
 
@@ -554,7 +610,9 @@ export const disconnectGoogleAds = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const orgId = await requireOrganization(context.db, data.organizationId);
     const allowed = await context.db.one<{ ok: boolean }>(
-      `SELECT app.has_role($1, ARRAY['owner','admin']) AS ok`, [orgId]);
+      `SELECT app.has_role($1, ARRAY['owner','admin']) AS ok`,
+      [orgId],
+    );
     if (!allowed?.ok) throw new Error("Only owners and admins can disconnect integrations");
     return disconnect(orgId, "google_ads");
   });
@@ -568,7 +626,9 @@ export const disconnectMetaAds = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const orgId = await requireOrganization(context.db, data.organizationId);
     const allowed = await context.db.one<{ ok: boolean }>(
-      `SELECT app.has_role($1, ARRAY['owner','admin']) AS ok`, [orgId]);
+      `SELECT app.has_role($1, ARRAY['owner','admin']) AS ok`,
+      [orgId],
+    );
     if (!allowed?.ok) throw new Error("Only owners and admins can disconnect integrations");
     return disconnect(orgId, "meta_ads");
   });
@@ -599,42 +659,51 @@ export const listGoogleAdsCustomers = createServerFn({ method: "POST" })
     if (!data?.organizationId) throw new Error("organizationId is required");
     return data;
   })
-  .handler(async ({ data, context }): Promise<{ customers: GoogleAdsCustomer[]; error: string | null }> => {
-    const orgId = await requireOrganization(context.db, data.organizationId);
-    const { buildGoogleAdsCreds, listAccessibleCustomers, getCustomerInfo } =
-      await import("./google-ads.server");
+  .handler(
+    async ({
+      data,
+      context,
+    }): Promise<{ customers: GoogleAdsCustomer[]; error: string | null }> => {
+      const orgId = await requireOrganization(context.db, data.organizationId);
+      const { buildGoogleAdsCreds, listAccessibleCustomers, getCustomerInfo } =
+        await import("./google-ads.server");
 
-    const cred = await credentialFor(orgId, "google_ads");
-    const creds = buildGoogleAdsCreds(cred?.refresh_token);
-    if (!creds) return { customers: [], error: "not_connected" };
+      const cred = await credentialFor(orgId, "google_ads");
+      const creds = buildGoogleAdsCreds(cred?.refresh_token);
+      if (!creds) return { customers: [], error: "not_connected" };
 
-    try {
-      const ids = await listAccessibleCustomers(creds);
-      const infos = await Promise.all(ids.map((id) => getCustomerInfo(creds, id).catch(() => null)));
-      return {
-        customers: infos.map(
-          (c, i) =>
-            c ?? {
-              id: ids[i],
-              descriptiveName: "(no access details)",
-              currencyCode: "",
-              timeZone: "",
-              manager: false,
-            },
-        ),
-        error: null,
-      };
-    } catch (e) {
-      return { customers: [], error: e instanceof Error ? e.message : "list_failed" };
-    }
-  });
+      try {
+        const ids = await listAccessibleCustomers(creds);
+        const infos = await Promise.all(
+          ids.map((id) => getCustomerInfo(creds, id).catch(() => null)),
+        );
+        return {
+          customers: infos.map(
+            (c, i) =>
+              c ?? {
+                id: ids[i],
+                descriptiveName: "(no access details)",
+                currencyCode: "",
+                timeZone: "",
+                manager: false,
+              },
+          ),
+          error: null,
+        };
+      } catch (e) {
+        return { customers: [], error: e instanceof Error ? e.message : "list_failed" };
+      }
+    },
+  );
 
 export const listGoogleAdsConversionActions = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((data: { organizationId: string; customerId: string; loginCustomerId?: string }) => {
-    if (!data?.organizationId || !data?.customerId) throw new Error("Invalid input");
-    return data;
-  })
+  .inputValidator(
+    (data: { organizationId: string; customerId: string; loginCustomerId?: string }) => {
+      if (!data?.organizationId || !data?.customerId) throw new Error("Invalid input");
+      return data;
+    },
+  )
   .handler(async ({ data, context }) => {
     const orgId = await requireOrganization(context.db, data.organizationId);
     const { buildGoogleAdsCreds, listConversionActions } = await import("./google-ads.server");
@@ -655,7 +724,11 @@ export const listGoogleAdsConversionActions = createServerFn({ method: "POST" })
         error: null as string | null,
       };
     } catch (e) {
-      return { actions: [], unusableCount: 0, error: e instanceof Error ? e.message : "list_failed" };
+      return {
+        actions: [],
+        unusableCount: 0,
+        error: e instanceof Error ? e.message : "list_failed",
+      };
     }
   });
 
@@ -731,7 +804,8 @@ export const testGoogleAdsConnection = createServerFn({ method: "POST" })
     if (!row?.connected) return { ok: false, message: "Connect Google Ads first." };
     if (!row.accountId) return { ok: false, message: "Pick the Google Ads account first." };
     const action = row.actionWon ?? row.actionQualified ?? row.actionNew ?? row.actionLost;
-    if (!action) return { ok: false, message: "Choose a conversion action for at least one stage." };
+    if (!action)
+      return { ok: false, message: "Choose a conversion action for at least one stage." };
 
     const { buildGoogleAdsCreds, uploadClickConversion, formatConversionDateTime } =
       await import("./google-ads.server");
