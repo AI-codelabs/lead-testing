@@ -22,7 +22,12 @@ export const Route = createFileRoute("/")({
   component: LandingPage,
 });
 
-const integrations = ["Google Ads", "Meta Ads", "HubSpot", "Salesforce", "TikTok Business"];
+/**
+ * Only things that actually work. HubSpot and Salesforce were listed here and
+ * exist nowhere in the codebase — the first prospect to compare this strip
+ * against the integrations page would have found that out.
+ */
+const integrations = ["Google Ads", "Meta Ads", "Google Tag Manager", "Zapier", "TikTok Business"];
 
 const valueProps = [
   { title: "Lead Governance", body: "Centralize disparate lead sources into a single verifiable system of record for every client account." },
