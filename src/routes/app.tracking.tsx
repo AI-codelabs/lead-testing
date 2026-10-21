@@ -105,13 +105,23 @@ const INGEST_KEY_RE = /^[a-f0-9]{32,}$/;
 
 function TrackingPage() {
   const search = Route.useSearch();
-  const { activeWorkspace, activeOrganizationId, authReady, isAuthenticated } = useAccount();
+  const { activeWorkspace, authReady, isAuthenticated } = useAccount();
   const fetchIngestKey = useServerFn(getIngestKey);
 
+  // The workspace being viewed, not the signed-in account's own.
+  //
+  // This used to read activeOrganizationId, which is hardcoded to the agency's
+  // own workspace and never follows the client being viewed. An agency setting
+  // up a client was therefore handed its OWN ingest key: every lead from that
+  // client's website landed in the agency's workspace instead, and the client
+  // workspace stayed empty while "Verify your install" cheerfully reported an
+  // event — it was reading the agency's leads too.
+  const organizationId = activeWorkspace.key;
+
   const { data: ingestData } = useQuery({
-    queryKey: ["ingest-key", activeOrganizationId],
-    queryFn: () => fetchIngestKey({ data: { organizationId: activeOrganizationId } }),
-    enabled: isAuthenticated && !!activeOrganizationId,
+    queryKey: ["ingest-key", organizationId],
+    queryFn: () => fetchIngestKey({ data: { organizationId } }),
+    enabled: isAuthenticated && !!organizationId,
   });
 
   const ingestKey = ingestData?.ingestKey ?? "";
@@ -149,7 +159,7 @@ function TrackingPage() {
   });
 
   // Live ingestion status
-  const liveLeads = useLiveLeads(activeOrganizationId);
+  const liveLeads = useLiveLeads(organizationId);
   const integrationLeads = useMemo(
     () =>
       liveLeads.filter((lead) => {

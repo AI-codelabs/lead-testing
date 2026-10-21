@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireAuth, requireOrganization } from "@/auth/middleware";
+import { requireAuth, requireOrganization, resolveWorkspaceAccess } from "@/auth/middleware";
 
 export type OrganizationContext = {
   organizationId: string;
@@ -171,10 +171,19 @@ export const getIngestKey = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data, context }): Promise<{ ingestKey: string | null }> => {
-    const organizationId = await requireOrganization(context.db, data.organizationId);
+    // An agency setting up a client's tracking needs the CLIENT's key, and it
+    // is not necessarily a member of that workspace — on one it did not build
+    // itself it is only linked. requireOrganization checks membership alone,
+    // so it would refuse exactly the case this page exists for.
+    //
+    // Full access only: this key writes leads into the workspace, so handing
+    // it to an agency granted names_only or metrics_only would give away more
+    // than the client agreed to.
+    const access = await resolveWorkspaceAccess(context.db, data.organizationId);
+    if (access.level !== "full") throw new Error("Forbidden");
     const row = await context.db.one<{ ingest_key: string }>(
       `SELECT ingest_key FROM public.organization_settings WHERE organization_id = $1`,
-      [organizationId],
+      [access.organizationId],
     );
     return { ingestKey: row?.ingest_key ?? null };
   });
