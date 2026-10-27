@@ -3,17 +3,38 @@ export const TRACKER = `/* Leadlogr tracker v2.0 — records every submission; d
   if (window.__LEADLOGR_RUNNING__) return;
   window.__LEADLOGR_RUNNING__ = true;
 
-  var LEADLOGR_BACKEND_ORIGIN = 'https://lead-testing.lovable.app';
+  var LEADLOGR_BACKEND_ORIGIN = 'https://www.leadlogr.com';
   var LEADLOGR_INGEST_PATH = '/api/public/leads/collect';
 
+  /**
+   * Where to post the lead.
+   *
+   * This used to force every leadlogr.com endpoint back to the old Lovable
+   * host, from when that was the only place the ingest route existed. It long
+   * outlived that: leadlogr.com serves the route now, and the Lovable
+   * deployment still answers but runs code old enough to demand the retired
+   * "workspace_key". So a correctly configured snippet was rewritten at
+   * runtime to a backend that rejected every submission with a 400, silently —
+   * only the dashboard's own "Send test event" worked, because it posts
+   * straight to the real endpoint and never goes through here.
+   *
+   * The default is now taken from wherever this script was loaded from: a
+   * tracker served by a host can always reach that host's ingest route, which
+   * is true for a proxied first-party domain too.
+   */
+  function defaultOrigin() {
+    try {
+      var tag = document.getElementById('leadlogr-tracker') || document.currentScript;
+      if (tag && tag.src) return new URL(tag.src, window.location.href).origin;
+    } catch (e) {}
+    return LEADLOGR_BACKEND_ORIGIN;
+  }
+
   function normalizeEndpoint(endpoint) {
-    var fallback = LEADLOGR_BACKEND_ORIGIN + LEADLOGR_INGEST_PATH;
+    var fallback = defaultOrigin() + LEADLOGR_INGEST_PATH;
     if (!endpoint) return fallback;
     try {
-      var url = new URL(endpoint, window.location.href);
-      var host = url.hostname.replace(/^www\./, '');
-      if (host === 'leadlogr.com' && url.pathname === LEADLOGR_INGEST_PATH) return fallback;
-      return url.href;
+      return new URL(endpoint, window.location.href).href;
     } catch (e) {
       return fallback;
     }
