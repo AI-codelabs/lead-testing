@@ -256,37 +256,147 @@ export async function listAccessibleCustomers(creds: GoogleAdsCreds): Promise<st
   return (json.resourceNames ?? []).map((rn) => rn.replace("customers/", ""));
 }
 
-export type CustomerInfo = { id: string; descriptiveName: string; currencyCode: string; timeZone: string; manager: boolean };
+export type AdsAccount = {
+  id: string;
+  descriptiveName: string;
+  currencyCode: string;
+  timeZone: string;
+  /** A manager (MCC). Conversions cannot be uploaded to one. */
+  manager: boolean;
+  /** 0 when the connected Google user is named on this account directly. */
+  level: number;
+  /** What to send as login-customer-id. Empty when the account needs none. */
+  loginCustomerId: string;
+  /** Descriptive name of that manager, for grouping the picker. */
+  via: string;
+};
 
-/** Fetches descriptive info for one or more customer IDs (one GAQL call per ID). */
-export async function getCustomerInfo(
+type CustomerClientRow = Omit<AdsAccount, "loginCustomerId" | "via">;
+
+/** One manager's whole subtree, following pages. */
+async function queryCustomerClients(
   creds: GoogleAdsCreds,
-  customerId: string,
-  loginCustomerId?: string,
-): Promise<CustomerInfo | null> {
+  accessToken: string,
+  managerId: string,
+): Promise<CustomerClientRow[]> {
+  const manager = managerId.replace(/\D/g, "");
+  const out: CustomerClientRow[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const resp = await fetch(
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${manager}/googleAds:search`,
+      {
+        method: "POST",
+        headers: gaHeaders(creds, accessToken, manager),
+        body: JSON.stringify({
+          query: `
+            SELECT customer_client.id, customer_client.descriptive_name,
+                   customer_client.currency_code, customer_client.time_zone,
+                   customer_client.manager, customer_client.level
+            FROM customer_client
+            WHERE customer_client.status = 'ENABLED'
+          `,
+          pageSize: 1000,
+          ...(pageToken ? { pageToken } : {}),
+        }),
+      },
+    );
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(googleAdsError("list_customer_clients_failed", resp.status, text));
+    }
+    const json = (await resp.json()) as {
+      nextPageToken?: string;
+      results?: Array<{
+        customerClient?: {
+          id?: string;
+          descriptiveName?: string;
+          currencyCode?: string;
+          timeZone?: string;
+          manager?: boolean;
+          level?: string | number;
+        };
+      }>;
+    };
+    for (const r of json.results ?? []) {
+      const c = r.customerClient;
+      if (!c?.id) continue;
+      out.push({
+        id: String(c.id),
+        descriptiveName: c.descriptiveName ?? "",
+        currencyCode: c.currencyCode ?? "",
+        timeZone: c.timeZone ?? "",
+        manager: !!c.manager,
+        level: Number(c.level ?? 0),
+      });
+    }
+    pageToken = json.nextPageToken;
+  } while (pageToken);
+
+  return out;
+}
+
+/**
+ * Every account the connected user can actually operate, not only the ones
+ * they are named on.
+ *
+ * customers:listAccessibleCustomers returns accounts with DIRECT access only.
+ * For an agency that is their MCCs plus the odd individually shared account --
+ * never the clients underneath. A partner connected successfully, opened the
+ * picker, and found seven entries, none of them the client he had just
+ * connected: it sits two levels down inside their MCC, so it could never have
+ * been there, and picking the MCC instead would upload conversions to the
+ * manager rather than the client.
+ *
+ * customer_client, queried on a manager, returns that manager's whole subtree
+ * at every level with names attached. So one call per accessible root replaces
+ * one call per account AND reaches the accounts people actually want.
+ */
+export async function listAdsAccounts(
+  creds: GoogleAdsCreds,
+): Promise<{ accounts: AdsAccount[]; errors: string[] }> {
+  const roots = await listAccessibleCustomers(creds);
   const accessToken = await getAccessToken(creds);
-  const customer = customerId.replace(/\D/g, "");
-  const resp = await fetch(
-    `https://googleads.googleapis.com/${API_VERSION}/customers/${customer}/googleAds:search`,
-    {
-      method: "POST",
-      headers: gaHeaders(creds, accessToken, loginCustomerId ?? customer),
-      body: JSON.stringify({
-        query: "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone, customer.manager FROM customer LIMIT 1",
-      }),
-    },
+  const errors: string[] = [];
+  const found = new Map<string, AdsAccount>();
+
+  await Promise.all(
+    roots.map(async (root) => {
+      try {
+        const rows = await queryCustomerClients(creds, accessToken, root);
+        const self = rows.find((r) => r.level === 0);
+        const viaName = self?.descriptiveName || root;
+        for (const r of rows) {
+          const candidate: AdsAccount = {
+            ...r,
+            loginCustomerId: r.id === root ? "" : root,
+            via: r.id === root ? "" : viaName,
+          };
+          // Reaching an account directly beats reaching it through a manager,
+          // and a shorter path beats a longer one: both mean fewer ways for the
+          // upload to be refused later.
+          const existing = found.get(r.id);
+          if (!existing || candidate.level < existing.level) found.set(r.id, candidate);
+        }
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : `customer_client_failed:${root}`);
+      }
+    }),
   );
-  if (!resp.ok) return null;
-  const json = (await resp.json()) as { results?: Array<{ customer?: { id?: string; descriptiveName?: string; currencyCode?: string; timeZone?: string; manager?: boolean } }> };
-  const c = json.results?.[0]?.customer;
-  if (!c?.id) return null;
-  return {
-    id: String(c.id),
-    descriptiveName: c.descriptiveName ?? "",
-    currencyCode: c.currencyCode ?? "",
-    timeZone: c.timeZone ?? "",
-    manager: !!c.manager,
-  };
+
+  // Every root failing is a failure, not an empty account list. The picker used
+  // to say "0 accounts available" for both, which told the customer nothing.
+  if (found.size === 0 && errors.length > 0) throw new Error(errors[0]);
+
+  const accounts = [...found.values()];
+  accounts.sort(
+    (a, b) =>
+      a.via.localeCompare(b.via) ||
+      Number(a.manager) - Number(b.manager) ||
+      (a.descriptiveName || a.id).localeCompare(b.descriptiveName || b.id),
+  );
+  return { accounts, errors };
 }
 
 export type DailySpendRow = { day: string; costMicros: number; currency: string };

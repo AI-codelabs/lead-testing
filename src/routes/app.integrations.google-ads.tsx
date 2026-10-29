@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useAccount } from "@/lib/account-context";
+import { selectableAccounts, groupByManager, accountLabel } from "@/lib/google-ads-accounts";
 import {
   getGoogleAdsSettings,
   saveGoogleAdsSettings,
@@ -41,7 +42,16 @@ const STAGES: Array<{ key: keyof FormState; label: string; hint: string }> = [
   { key: "conversion_action_lost", label: "Lost / Disqualified", hint: "Fired on Lost. Useful as a negative signal for Smart Bidding." },
 ];
 
-type Customer = { id: string; descriptiveName: string; currencyCode: string; timeZone: string; manager: boolean };
+type Customer = {
+  id: string;
+  descriptiveName: string;
+  currencyCode: string;
+  timeZone: string;
+  manager: boolean;
+  level: number;
+  loginCustomerId: string;
+  via: string;
+};
 type Action = { id: string; name: string; category: string; status: string };
 
 function GoogleAdsPage() {
@@ -179,6 +189,9 @@ function GoogleAdsPage() {
       .then((r) => { setCustomers(r.customers as Customer[]); if (r.error) setError(r.error); })
       .finally(() => setLoadingCustomers(false));
   }, [connection.connected, organizationId, listCustomers]);
+
+  const selectableCustomers = useMemo(() => selectableAccounts(customers), [customers]);
+  const customerGroups = useMemo(() => groupByManager(selectableCustomers), [selectableCustomers]);
 
   // Auto-load conversion actions when a customer is picked.
   useEffect(() => {
@@ -370,7 +383,16 @@ function GoogleAdsPage() {
             </header>
 
             <div className="grid sm:grid-cols-2 gap-3">
-              <Field label="Customer account" hint={loadingCustomers ? "Loading accounts you can access…" : `${customers.length} account${customers.length === 1 ? "" : "s"} available.`}>
+              <Field
+                label="Customer account"
+                hint={
+                  loadingCustomers
+                    ? "Reading your account hierarchy…"
+                    : selectableCustomers.length === 0
+                      ? "No client accounts found on this login."
+                      : `${selectableCustomers.length} client account${selectableCustomers.length === 1 ? "" : "s"}. Managers are shown as groups — conversions go to a client account.`
+                }
+              >
                 <select
                   value={form.customer_id}
                   onChange={(e) => {
@@ -379,26 +401,31 @@ function GoogleAdsPage() {
                     setForm((f) => ({
                       ...f,
                       customer_id: id,
+                      // Resolved from the hierarchy, not typed. Getting this
+                      // wrong is how an upload fails with PERMISSION_DENIED,
+                      // and nobody outside the Ads API knows what belongs here.
+                      login_customer_id: c?.loginCustomerId ?? "",
                       default_currency: c?.currencyCode || f.default_currency,
                     }));
                   }}
                   className="w-full text-sm px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">— Pick an account —</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.descriptiveName || "(unnamed)"} · {c.id}{c.manager ? " · manager" : ""}{c.currencyCode ? ` · ${c.currencyCode}` : ""}
-                    </option>
-                  ))}
+                  {customerGroups.map(([via, group]) => {
+                    const options = group.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {accountLabel(c)}
+                      </option>
+                    ));
+                    return via ? (
+                      <optgroup key={via} label={via}>
+                        {options}
+                      </optgroup>
+                    ) : (
+                      options
+                    );
+                  })}
                 </select>
-              </Field>
-              <Field label="Login customer ID (MCC)" hint="Optional. Use the manager ID when this account is accessed through an MCC.">
-                <input
-                  value={form.login_customer_id}
-                  onChange={(e) => setForm((f) => ({ ...f, login_customer_id: e.target.value.replace(/\D/g, "") }))}
-                  placeholder="optional"
-                  className="w-full text-sm font-mono px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
-                />
               </Field>
               <Field label="Default currency" hint="Used for Won deal values when no per-lead currency is set.">
                 <input
@@ -408,6 +435,37 @@ function GoogleAdsPage() {
                   className="w-full text-sm font-mono px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </Field>
+
+              {/* Escape hatch, folded away. Resolving both IDs from the
+                  hierarchy is the supported path; raw IDs only help someone who
+                  already knows the Ads API, and asking for them as the main
+                  route is what left a partner stuck. */}
+              <details className="sm:col-span-2">
+                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                  Account not in the list? Enter the IDs yourself
+                </summary>
+                <div className="grid sm:grid-cols-2 gap-3 mt-3">
+                  <Field label="Customer ID" hint="The client account conversions go to. Digits only.">
+                    <input
+                      value={form.customer_id}
+                      onChange={(e) => setForm((f) => ({ ...f, customer_id: e.target.value.replace(/\D/g, "") }))}
+                      placeholder="1234567890"
+                      className="w-full text-sm font-mono px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </Field>
+                  <Field
+                    label="Manager ID"
+                    hint="Only when the account sits inside an MCC: the MCC your Google login is on, not the account itself. Picking from the list above fills this in."
+                  >
+                    <input
+                      value={form.login_customer_id}
+                      onChange={(e) => setForm((f) => ({ ...f, login_customer_id: e.target.value.replace(/\D/g, "") }))}
+                      placeholder="leave empty if unsure"
+                      className="w-full text-sm font-mono px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </Field>
+                </div>
+              </details>
             </div>
           </section>
 

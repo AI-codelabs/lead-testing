@@ -650,7 +650,14 @@ export type GoogleAdsCustomer = {
   descriptiveName: string;
   currencyCode: string;
   timeZone: string;
+  /** A manager (MCC). Not selectable: conversions go to a client account. */
   manager: boolean;
+  /** How far below the connected user's own access this account sits. */
+  level: number;
+  /** login-customer-id for this account, resolved for the customer. */
+  loginCustomerId: string;
+  /** The manager it was reached through, for grouping the picker. */
+  via: string;
 };
 
 export const listGoogleAdsCustomers = createServerFn({ method: "POST" })
@@ -665,31 +672,18 @@ export const listGoogleAdsCustomers = createServerFn({ method: "POST" })
       context,
     }): Promise<{ customers: GoogleAdsCustomer[]; error: string | null }> => {
       const orgId = await requireOrganization(context.db, data.organizationId);
-      const { buildGoogleAdsCreds, listAccessibleCustomers, getCustomerInfo } =
-        await import("./google-ads.server");
+      const { buildGoogleAdsCreds, listAdsAccounts } = await import("./google-ads.server");
 
       const cred = await credentialFor(orgId, "google_ads");
       const creds = buildGoogleAdsCreds(cred?.refresh_token);
       if (!creds) return { customers: [], error: "not_connected" };
 
       try {
-        const ids = await listAccessibleCustomers(creds);
-        const infos = await Promise.all(
-          ids.map((id) => getCustomerInfo(creds, id).catch(() => null)),
-        );
-        return {
-          customers: infos.map(
-            (c, i) =>
-              c ?? {
-                id: ids[i],
-                descriptiveName: "(no access details)",
-                currencyCode: "",
-                timeZone: "",
-                manager: false,
-              },
-          ),
-          error: null,
-        };
+        // The whole hierarchy, not just the accounts the connected user is
+        // named on -- an agency is named on its MCC, and the client they want
+        // to report conversions for is two levels below it.
+        const { accounts } = await listAdsAccounts(creds);
+        return { customers: accounts, error: null };
       } catch (e) {
         return { customers: [], error: e instanceof Error ? e.message : "list_failed" };
       }
