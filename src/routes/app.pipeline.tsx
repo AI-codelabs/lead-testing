@@ -61,24 +61,6 @@ export const Route = createFileRoute("/app/pipeline")({
 
 function PipelinePage() {
   const access = useAccess();
-  if (access.metricsOnly) {
-    return (
-      <>
-        <PageHeader
-          eyebrow="Sales"
-          title="Lead Pipeline"
-          description="Pipeline details are hidden by the client."
-        />
-        <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-10 text-center">
-          <Lock className="size-6 text-muted-foreground mx-auto mb-3" />
-          <h3 className="font-semibold">Restricted by client</h3>
-          <p className="text-sm text-muted-foreground mt-1.5 max-w-md mx-auto">
-            This client has granted read-only metrics access. The pipeline board isn't visible.
-          </p>
-        </div>
-      </>
-    );
-  }
   const { activeWorkspace } = useAccount();
   const organizationId = activeWorkspace.key;
   const liveLeads = useLiveLeads(organizationId);
@@ -380,6 +362,32 @@ function PipelinePage() {
     }));
     downloadCsv(`leadlogr-pipeline-${timestamp()}.csv`, toCsv(rows));
   };
+
+  // Rendered after every hook has run, not before.
+  //
+  // This used to return early, which put every hook below it behind a
+  // condition: React would see a different number of hooks if a user's
+  // access changed while the page was open, and throw. Stable per session,
+  // so it never fired — but an agency having its level raised from
+  // metrics_only to full is exactly the case that would have.
+  if (access.metricsOnly) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Sales"
+          title="Lead Pipeline"
+          description="Pipeline details are hidden by the client."
+        />
+        <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-10 text-center">
+          <Lock className="size-6 text-muted-foreground mx-auto mb-3" />
+          <h3 className="font-semibold">Restricted by client</h3>
+          <p className="text-sm text-muted-foreground mt-1.5 max-w-md mx-auto">
+            This client has granted read-only metrics access. The pipeline board isn't visible.
+          </p>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

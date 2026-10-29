@@ -232,19 +232,6 @@ function CrmPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rowsPerPage, setRowsPerPage] = useState(50);
 
-  if (access.metricsOnly) {
-    return (
-      <>
-        <PageHeader
-          eyebrow="Contacts"
-          title="CRM"
-          description="Individual leads are hidden by the client."
-        />
-        <RestrictedNotice leadsCount={liveLeads.length} />
-      </>
-    );
-  }
-
   const counts = useMemo(() => {
     const out: Record<Tab, number> = {
       Open: 0,
@@ -464,6 +451,25 @@ function CrmPage() {
       });
     }
   };
+
+  // Rendered after every hook has run, not before.
+  //
+  // This used to return early, which put every hook below it behind a
+  // condition: React would see a different number of hooks if a user's
+  // access changed while the page was open, and throw. It reads liveLeads,
+  // which is resolved above, so it loses nothing by moving down here.
+  if (access.metricsOnly) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="Contacts"
+          title="CRM"
+          description="Individual leads are hidden by the client."
+        />
+        <RestrictedNotice leadsCount={liveLeads.length} />
+      </>
+    );
+  }
 
   return (
     <>
