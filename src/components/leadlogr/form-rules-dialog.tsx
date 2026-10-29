@@ -3,6 +3,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
 import {
   listForms,
   setFormRule,
@@ -24,15 +33,17 @@ import {
  * payment form, and it cannot restore what it did not keep.
  */
 
-const MODES: Array<{ value: FormCaptureMode; label: string; hint: string }> = [
-  { value: "collect", label: "Collect", hint: "Counts as a lead" },
-  {
-    value: "hide",
-    label: "Hidden",
-    hint: "Kept, but out of the pipeline, dashboard and ad platforms",
-  },
-  { value: "block", label: "Never collect", hint: "Not stored at all" },
-];
+/**
+ * The tick is the whole interaction for the common case: on means collected,
+ * off means it is not. The two ways of being off are genuinely different —
+ * one keeps the leads and one never stores them — so they live behind the
+ * menu rather than as a third state of a checkbox that could not express it.
+ */
+const MODE_LABEL: Record<FormCaptureMode, string> = {
+  collect: "Collected",
+  hide: "Not collected for now",
+  block: "Never collected",
+};
 
 function Row({
   form,
@@ -62,8 +73,8 @@ function Row({
       onChanged();
       toast.success(
         r.affected > 0
-          ? `${MODES.find((m) => m.value === mode)?.label} — ${r.affected} existing lead${r.affected === 1 ? "" : "s"} updated`
-          : (MODES.find((m) => m.value === mode)?.label ?? "Saved"),
+          ? `${MODE_LABEL[mode]} — ${r.affected} existing lead${r.affected === 1 ? "" : "s"} updated`
+          : MODE_LABEL[mode],
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save");
@@ -72,17 +83,37 @@ function Row({
     }
   };
 
+  const collected = form.mode === "collect";
+
   return (
     <div className="py-3 border-b border-border last:border-0">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+      <div className="flex items-start gap-3">
+        <Checkbox
+          checked={collected}
+          disabled={busy}
+          // Unticking means "not collected for now": the reversible one, never
+          // the one that throws the data away. That stays a deliberate choice
+          // in the menu.
+          onCheckedChange={(v) => choose(v === true ? "collect" : "hide")}
+          className="mt-0.5"
+          aria-label={`Collect leads from ${form.label || form.pagePath || "this form"}`}
+        />
+
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium truncate">
+            <span
+              className={`text-sm font-medium truncate ${collected ? "" : "text-muted-foreground"}`}
+            >
               {form.label || form.pagePath || form.formAction || "Unknown form"}
             </span>
             {form.unreviewed && form.leads > 0 && (
               <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-stage-amber-soft text-stage-amber-ink ring-1 ring-stage-amber-line">
                 New
+              </span>
+            )}
+            {form.mode === "block" && (
+              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-stage-red-soft text-stage-red-ink ring-1 ring-stage-red-line">
+                Never
               </span>
             )}
           </div>
@@ -92,30 +123,49 @@ function Row({
           </div>
           <div className="text-xs text-muted-foreground mt-0.5">
             {form.leads} lead{form.leads === 1 ? "" : "s"}
-            {form.hidden > 0 ? ` · ${form.hidden} hidden` : ""}
+            {form.hidden > 0 ? ` · ${form.hidden} not shown` : ""}
           </div>
         </div>
-        <div className="shrink-0 flex items-center gap-1 rounded-md ring-1 ring-border bg-card p-0.5">
-          {MODES.map((m) => (
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
-              key={m.value}
-              onClick={() => choose(m.value)}
               disabled={busy}
-              title={m.hint}
-              className={`text-xs font-medium px-2.5 py-1.5 rounded transition-colors disabled:opacity-50 ${
-                form.mode === m.value
-                  ? m.value === "collect"
-                    ? "bg-stage-green-soft text-stage-green-ink"
-                    : m.value === "hide"
-                      ? "bg-stage-amber-soft text-stage-amber-ink"
-                      : "bg-stage-red-soft text-stage-red-ink"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
+              aria-label="More options"
+              className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
             >
-              {m.label}
+              <MoreHorizontal className="size-4" />
             </button>
-          ))}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuItem onSelect={() => void choose("collect")}>
+              <div>
+                <div className="text-sm">Collect</div>
+                <div className="text-xs text-muted-foreground">Counts as a lead</div>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void choose("hide")}>
+              <div>
+                <div className="text-sm">Do not collect for now</div>
+                <div className="text-xs text-muted-foreground">
+                  Kept and reversible — turn it back on and the leads return
+                </div>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => void choose("block")}
+              className="text-destructive focus:text-destructive"
+            >
+              <div>
+                <div className="text-sm">Never collect</div>
+                <div className="text-xs text-muted-foreground">
+                  Not stored at all. Cannot bring back what was not saved
+                </div>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
@@ -175,10 +225,10 @@ export function FormRulesDialog({
         </div>
 
         <p className="text-xs text-muted-foreground border-t border-border pt-3">
-          <strong className="text-foreground">Hidden</strong> keeps the leads and can be undone —
-          turn a form back on and its history returns.{" "}
-          <strong className="text-foreground">Never collect</strong> stops them being stored at all,
-          for forms whose contents should not be kept. It cannot bring back what was not saved.
+          Unticking a form stops it counting, but keeps its leads — tick it again and they return.
+          Use the <strong className="text-foreground">⋯</strong> menu for{" "}
+          <strong className="text-foreground">Never collect</strong>, which does not store the form
+          at all and cannot bring back what was not saved.
         </p>
       </DialogContent>
     </Dialog>
