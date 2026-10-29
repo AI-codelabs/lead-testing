@@ -2,7 +2,6 @@ import type {
   Lead,
   Priority,
   Qualification,
-  Consent,
   LeadLabel,
   Source,
   FormAnswerValue,
@@ -20,7 +19,6 @@ import type {
 export type DbStage = "new" | "contacted" | "qualified" | "won" | "lost" | "disqualified";
 export type DbPriority = "low" | "medium" | "high";
 export type DbQualification = "unqualified" | "qualified" | "customer";
-export type DbConsent = "unknown" | "accepted" | "declined";
 export type DbLabel = "none" | "hot" | "spam" | "quotation_sent";
 
 const STAGE_TO_UI: Record<DbStage, string> = {
@@ -44,12 +42,6 @@ const QUALIFICATION_TO_UI: Record<DbQualification, Qualification> = {
   customer: "Customer",
 };
 
-const CONSENT_TO_UI: Record<DbConsent, Consent> = {
-  unknown: "Unknown",
-  accepted: "Accepted",
-  declined: "Declined",
-};
-
 const LABEL_TO_UI: Record<DbLabel, LeadLabel> = {
   none: "No label",
   hot: "Hot Lead",
@@ -64,7 +56,6 @@ function invert<K extends string, V extends string>(map: Record<K, V>): Record<s
 const STAGE_FROM_UI = invert(STAGE_TO_UI);
 const PRIORITY_FROM_UI = invert(PRIORITY_TO_UI);
 const QUALIFICATION_FROM_UI = invert(QUALIFICATION_TO_UI);
-const CONSENT_FROM_UI = invert(CONSENT_TO_UI);
 const LABEL_FROM_UI = invert(LABEL_TO_UI);
 
 /** Display name -> database enum. Falls back rather than throwing on unknowns. */
@@ -74,8 +65,6 @@ export const toDbPriority = (v: string | null | undefined): DbPriority =>
   PRIORITY_FROM_UI[String(v ?? "").toLowerCase()] ?? "medium";
 export const toDbQualification = (v: string | null | undefined): DbQualification =>
   QUALIFICATION_FROM_UI[String(v ?? "").toLowerCase()] ?? "unqualified";
-export const toDbConsent = (v: string | null | undefined): DbConsent =>
-  CONSENT_FROM_UI[String(v ?? "").toLowerCase()] ?? "unknown";
 export const toDbLabel = (v: string | null | undefined): DbLabel =>
   LABEL_FROM_UI[String(v ?? "").toLowerCase()] ?? "none";
 
@@ -116,7 +105,6 @@ export type LeadRow = {
   landing_page_url: string | null;
   page_path: string | null;
   referrer_url: string | null;
-  consent: DbConsent;
   custom_fields: Record<string, FormAnswerValue> | null;
   raw_payload: Record<string, unknown> | null;
   created_at: string;
@@ -173,7 +161,6 @@ export function rowToLead(row: LeadRow): Lead {
     landingPageUrl: str(row.landing_page_url),
     pagePath: str(row.page_path),
     referrerUrl: str(row.referrer_url),
-    consent: CONSENT_TO_UI[row.consent] ?? "Unknown",
     // Whatever the customer's own form submitted beyond the known fields.
     formAnswers: row.custom_fields ?? {},
     label: LABEL_TO_UI[row.label] ?? "No label",
@@ -201,5 +188,5 @@ export const LEAD_COLUMNS = `
   l.utm_source, l.utm_medium, l.utm_campaign,
   l.gclid, l.fbclid, l.msclkid, l.li_fat_id, l.fbp, l.ga_client_id, l.ga_session_id,
   l.landing_page_url, l.page_path, l.referrer_url,
-  l.consent, l.custom_fields, l.raw_payload, l.created_at, l.updated_at
+  l.custom_fields, l.raw_payload, l.created_at, l.updated_at
 `;

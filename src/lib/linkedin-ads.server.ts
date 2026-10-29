@@ -33,7 +33,7 @@ export type LinkedInConversionInput = {
   eventId?: string;
   value?: number;
   currency?: string;
-  /** SHA-256 of the lowercased, trimmed email. Omitted when consent was not given. */
+  /** SHA-256 of the lowercased, trimmed email. Omitted when the lead left none. */
   hashedEmail?: string;
   /** First-party ad tracking id from the click. Not personal data in the way an email is. */
   liFatId?: string;

@@ -34,7 +34,6 @@ type LeadForUpload = {
   stage: DbStage;
   email: string | null;
   phone: string | null;
-  consent: string;
   name: string | null;
   company: string | null;
   li_fat_id: string | null;
@@ -70,7 +69,7 @@ async function loadContext(leadId: string, network: AdUploadNetwork, stage: DbSt
 
   return withOwner(async (db) => {
     const lead = await db.one<LeadForUpload>(
-      `SELECT id, organization_id, stage, email, phone, consent::text AS consent,
+      `SELECT id, organization_id, stage, email, phone,
               name, company, li_fat_id,
               gclid, wbraid, gbraid, fbclid, fbp, won_value, currency,
               stage_changed_at, updated_at, created_at
@@ -152,24 +151,6 @@ async function recordUpload(row: {
 
 type UploadResult = { ok: boolean; skipped?: boolean; reason?: string; error?: string };
 
-/**
- * Whether a lead's own email and phone may be passed on to an ad platform.
- *
- * Recording the submission needs no consent: the visitor filled in a form to
- * reach the business, and the record is that enquiry. Handing those details to
- * Google or Meta to improve ad matching is a separate act with a separate
- * basis, and Google's EU User Consent Policy puts the duty to hold consent on
- * the advertiser — so this stays gated while the Ads API application is under
- * review.
- *
- * This is the only place consent still changes what happens. Lifting it later
- * means returning true here; nothing else needs touching. The conversion
- * itself uploads either way — only the identifiers are withheld.
- */
-function mayShareIdentifiers(lead: { consent: string }): boolean {
-  return lead.consent === "accepted";
-}
-
 async function uploadGoogleAds(leadId: string, stage: DbStage): Promise<UploadResult> {
   const ctx = await loadContext(leadId, "google_ads", stage);
   if (!ctx) return { ok: false, skipped: true, reason: "stage_not_reported" };
@@ -186,18 +167,20 @@ async function uploadGoogleAds(leadId: string, stage: DbStage): Promise<UploadRe
   // said so — "Direct/organic leads stay internal" — but nothing enforced it,
   // and uploadClickConversions accepts a conversion carrying only hashed
   // identifiers as an Enhanced Conversion for Lead. So a Direct, Meta or
-  // LinkedIn lead with consent and an email was reported to Google as a
+  // LinkedIn lead that carried an email was reported to Google as a
   // conversion, inflating the performance of campaigns that never produced it.
   if (!lead.gclid && !lead.wbraid && !lead.gbraid) {
     return { ok: false, skipped: true, reason: "no_google_click" };
   }
 
+  // Hashed, never raw. The cookie-banner gate that used to stand here is gone:
+  // it read a consent state the tracker inferred from whichever CMP it could
+  // recognise, which was a guess dressed as a fact, and the enquiry's lawful
+  // basis does not come from a cookie banner in the first place.
   const userIdentifiers: Array<{ hashedEmail: string } | { hashedPhoneNumber: string }> = [];
-  if (mayShareIdentifiers(lead)) {
-    if (lead.email) userIdentifiers.push({ hashedEmail: await sha256Hex(lead.email) });
-    if (lead.phone) {
-      userIdentifiers.push({ hashedPhoneNumber: await sha256Hex(lead.phone.replace(/[^\d+]/g, "")) });
-    }
+  if (lead.email) userIdentifiers.push({ hashedEmail: await sha256Hex(lead.email) });
+  if (lead.phone) {
+    userIdentifiers.push({ hashedPhoneNumber: await sha256Hex(lead.phone.replace(/[^\d+]/g, "")) });
   }
 
   const value = stage === "won" && lead.won_value != null ? Number(lead.won_value) : undefined;
@@ -274,8 +257,6 @@ async function uploadMeta(leadId: string, stage: DbStage): Promise<UploadResult>
   const value = stage === "won" && lead.won_value != null ? Number(lead.won_value) : undefined;
   const currency = value != null ? (settings.default_currency || lead.currency || "EUR") : undefined;
 
-  const withConsent = mayShareIdentifiers(lead);
-
   // Same reason as the Google path above: a throw must still be recorded.
   let result: Awaited<ReturnType<typeof sendMetaCapiEvent>>;
   try {
@@ -293,8 +274,8 @@ async function uploadMeta(leadId: string, stage: DbStage): Promise<UploadResult>
       ),
       actionSource: "system_generated",
       userData: {
-        email: withConsent ? lead.email ?? undefined : undefined,
-        phone: withConsent ? lead.phone ?? undefined : undefined,
+        email: lead.email ?? undefined,
+        phone: lead.phone ?? undefined,
         fbc: lead.fbclid ? buildFbc(lead.fbclid) : undefined,
         fbp: lead.fbp ?? undefined,
       },
@@ -349,11 +330,10 @@ async function uploadLinkedIn(leadId: string, stage: DbStage): Promise<UploadRes
   const value = stage === "won" && lead.won_value != null ? Number(lead.won_value) : undefined;
   const currency = value != null ? (settings.default_currency || lead.currency || "EUR") : undefined;
 
-  // The click id alone is a valid identifier, so a lead with no permission to
-  // share an email is still reportable — unlike Meta, nothing is lost but the
-  // match on email.
-  const hashedEmail =
-    mayShareIdentifiers(lead) && lead.email ? await sha256Hex(lead.email) : undefined;
+  // The click id alone is a valid identifier, so a lead that left no email
+  // address is still reportable — unlike Meta, nothing is lost but the match
+  // on email.
+  const hashedEmail = lead.email ? await sha256Hex(lead.email) : undefined;
 
   // The name is split only because LinkedIn takes the two halves separately;
   // a single-word name becomes a first name with no surname rather than being

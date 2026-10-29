@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { resolveIngestKey, withIngest } from "@/db";
-import { toDbConsent } from "@/lib/lead-mapping";
 
 /**
  * Public lead intake for the website tracker.
@@ -55,7 +54,6 @@ const KNOWN_FIELDS = new Set([
   "page_path",
   "referrer_url",
   "user_agent",
-  "consent",
 ]);
 
 /**
@@ -66,6 +64,14 @@ const KNOWN_FIELDS = new Set([
  * later that day get their own lead.
  */
 const DEDUPE_WINDOW_MINUTES = 60;
+
+/**
+ * How long a half-filled version of the same form counts as the same enquiry.
+ *
+ * Ten minutes is longer than anyone takes to finish a contact form and far
+ * shorter than the gap between two different people enquiring from one page.
+ */
+const SUPERSEDE_WINDOW_MINUTES = 10;
 
 /** Trims to a maximum length, and returns null for absent values. */
 function str(v: unknown, max = 2000): string | null {
@@ -168,6 +174,42 @@ export const Route = createFileRoute("/api/public/leads/collect")({
           }
           const excluded = rule?.mode === "hide";
 
+          // Is this the same form, in the same visit, with the same answers
+          // only further along? One submission on a tester's site arrived four
+          // times -- "Test"/"te", then the full email, then a phone number,
+          // then the phone number corrected -- because a third-party analytics
+          // ping every ten seconds was being read as a submission. The tracker
+          // no longer does that, but it runs in someone else's page beside
+          // scripts nobody has audited, and a GTM container we do not control
+          // cannot be redeployed. So the finished version replaces the partial
+          // one here rather than joining it.
+          //
+          // Not something app.is_duplicate_lead can answer: these rows are not
+          // duplicates, each genuinely differs from the last.
+          const superseded = await withIngest(organizationId, (db) =>
+            db.one<{ id: string | null }>(
+              `SELECT app.supersede_lead($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) AS id`,
+              [
+                organizationId,
+                str(body.session_id, 64) ?? "",
+                str(body.form_action, 2000) ?? "",
+                str(body.page_path, 2000) ?? "",
+                str(body.name, 200),
+                str(body.email, 320),
+                str(body.phone, 64),
+                str(body.message, 4000),
+                str(body.company, 200),
+                SUPERSEDE_WINDOW_MINUTES,
+              ],
+            ),
+          );
+          if (superseded?.id) {
+            // The lead already exists and its 'new' stage was already
+            // reported, so there is no conversion to queue -- only more of the
+            // visitor's answers, which the function has just written.
+            return json({ ok: true, id: superseded.id, superseded: true }, 200, CORS);
+          }
+
           await withIngest(organizationId, (db) =>
             db.sql(
               `INSERT INTO public.leads (
@@ -178,7 +220,7 @@ export const Route = createFileRoute("/api/public/leads/collect")({
                  gclid, wbraid, gbraid, fbclid, msclkid, li_fat_id, fbp,
                  ga_client_id, ga_session_id,
                  landing_page_url, page_path, referrer_url, user_agent,
-                 consent, custom_fields, raw_payload, excluded
+                 custom_fields, raw_payload, excluded
                ) VALUES (
                  $1, $2, 'new',
                  $3, $4, $5, $6, $7,
@@ -187,7 +229,7 @@ export const Route = createFileRoute("/api/public/leads/collect")({
                  $16, $17, $18, $19, $20, $21, $22,
                  $23, $24,
                  $25, $26, $27, $28,
-                 $29::lead_consent, $30, $31, $32
+                 $29, $30, $31
                )`,
               [
                 leadId,
@@ -218,7 +260,6 @@ export const Route = createFileRoute("/api/public/leads/collect")({
                 str(body.page_path, 2000),
                 str(body.referrer_url, 2000),
                 str(request.headers.get("user-agent") ?? body.user_agent, 500),
-                toDbConsent(str(body.consent, 32)),
                 JSON.stringify(custom),
                 JSON.stringify(body),
                 excluded,

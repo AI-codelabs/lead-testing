@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useAccount } from "@/lib/account-context";
-import { ConsentNotice } from "@/components/leadlogr/consent-notice";
 import { getIngestKey } from "@/lib/organization.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
@@ -276,12 +275,6 @@ window.Leadlogr.submitForm({
               </span>
             )}
           </div>
-
-          {isScriptInstall && (
-            <div className="mb-4">
-              <ConsentNotice />
-            </div>
-          )}
 
           {!workspaceReady && (
             <div className="mb-4 rounded-md ring-1 ring-amber-300/40 bg-amber-50/60 dark:bg-amber-950/20 p-3 text-xs text-amber-900 dark:text-amber-200">

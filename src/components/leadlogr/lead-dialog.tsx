@@ -117,7 +117,6 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
                 ["details", "Details"],
                 ["tracking", "Tracking"],
                 ["urls", "URLs"],
-                ["consent", "Consent"],
               ].map(([v, label]) => (
                 <TabsTrigger
                   key={v}
@@ -250,23 +249,6 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
                 <Field label="Page path"><Input value={draft.pagePath} onChange={(e) => set("pagePath", e.target.value)} /></Field>
                 <Field label="Referrer URL"><Input value={draft.referrerUrl} onChange={(e) => set("referrerUrl", e.target.value)} /></Field>
               </div>
-            </TabsContent>
-
-            <TabsContent value="consent" className="mt-0 space-y-4">
-              <SectionTitle>Consent information</SectionTitle>
-              <Field label="Overall consent status">
-                <Select value={draft.consent} onValueChange={(v) => set("consent", v as Lead["consent"])}>
-                  <SelectTrigger className="max-w-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {["Unknown", "Accepted", "Declined"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <p className="text-xs text-muted-foreground border-l-2 border-border pl-3">
-                What the consent platform on the page reported when this form was submitted. The
-                enquiry is recorded either way; this decides whether the email address and phone
-                number may be included in what is reported back to your ad platforms.
-              </p>
             </TabsContent>
           </div>
         </Tabs>

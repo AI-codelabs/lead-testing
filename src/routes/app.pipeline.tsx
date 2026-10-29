@@ -352,7 +352,6 @@ function PipelinePage() {
       landing_page_url: l.landingPageUrl,
       page_path: l.pagePath,
       referrer_url: l.referrerUrl,
-      consent: l.consent,
       tags: l.tags,
       notes: l.notes,
       lead_value: l.value,

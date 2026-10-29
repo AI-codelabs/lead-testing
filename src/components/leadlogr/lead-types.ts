@@ -9,7 +9,6 @@ export type FormAnswerValue =
 
 export type Priority = "Low" | "Medium" | "High";
 export type Qualification = "Unqualified" | "Qualified" | "Customer";
-export type Consent = "Unknown" | "Accepted" | "Declined";
 export type Source = "Google" | "Meta" | "Direct" | "LinkedIn" | "Microsoft";
 export type LeadLabel = "Hot Lead" | "Spam Lead" | "Quotation Sent" | "No label";
 
@@ -122,8 +121,6 @@ export interface Lead {
   landingPageUrl: string;
   pagePath: string;
   referrerUrl: string;
-  // Consent
-  consent: Consent;
   /**
    * Answers from the customer's own intake form.
    *
@@ -251,7 +248,6 @@ export function emptyLead(stage: string = "New"): Lead {
     landingPageUrl: "",
     pagePath: "",
     referrerUrl: "",
-    consent: "Unknown",
     formAnswers: {},
     history: [
       { id: crypto.randomUUID(), kind: "created", at: now.toISOString(), message: "Lead created" },
@@ -274,7 +270,7 @@ export const SEED_LEADS: Lead[] = [
     utmSource: "google", utmMedium: "cpc", utmCampaign: "brand-enterprise-q2",
     gclid: "Cj0KCQjw...EALw_wcB", websiteUrl: "https://leadlogr.com",
     landingPageUrl: "https://leadlogr.com/enterprise", pagePath: "/enterprise",
-    referrerUrl: "https://google.com", consent: "Accepted", tags: ["enterprise", "hot"],
+    referrerUrl: "https://google.com",    tags: ["enterprise", "hot"],
     expiresAt: daysFromNow(5),
   },
   {
@@ -285,13 +281,13 @@ export const SEED_LEADS: Lead[] = [
     utmSource: "meta", utmMedium: "paid-social", utmCampaign: "agencies-lal2-es",
     fbclid: "IwAR2x...abc", fbp: "fb.1.1717000000.1234567890",
     landingPageUrl: "https://leadlogr.com/agencies", pagePath: "/agencies",
-    consent: "Accepted", tags: ["agency"],
+    tags: ["agency"],
   },
   {
     ...emptyLead("New"),
     id: "l3", name: "Liam O'Connor", email: "liam@apex.io", phone: "+353 1 555 0101",
     company: "Apex Solutions", source: "Direct", description: "Submitted contact form directly.",
-    priority: "Low", consent: "Unknown",
+    priority: "Low",
     expiresAt: daysFromNow(22),
   },
   {
@@ -300,14 +296,14 @@ export const SEED_LEADS: Lead[] = [
     company: "Northwind Co.", source: "Google", description: "Discovery call scheduled for Thursday.",
     priority: "Medium", campaignName: "Solutions · Mid-market",
     utmSource: "google", utmMedium: "cpc", utmCampaign: "solutions-mm",
-    gclid: "Cj0KCQjw...XYZ", consent: "Accepted", tags: ["mid-market"],
+    gclid: "Cj0KCQjw...XYZ",    tags: ["mid-market"],
   },
   {
     ...emptyLead("Contacted"),
     id: "l5", label: "Hot Lead", name: "Tom Becker", email: "tom@falcongroup.io", phone: "+49 30 1234 5678",
     company: "Falcon Group", source: "Meta", priority: "Medium",
     description: "Demo follow-up pending.", campaignName: "Retargeting · DE",
-    fbclid: "IwAR1y...def", consent: "Accepted",
+    fbclid: "IwAR1y...def",
     expiresAt: daysFromNow(2),
   },
   {
@@ -317,7 +313,7 @@ export const SEED_LEADS: Lead[] = [
     description: "Procurement review in progress. High intent.",
     priority: "High", qualification: "Qualified", campaignName: "Solutions · Enterprise · US",
     utmSource: "google", utmMedium: "cpc", utmCampaign: "solutions-ent-us",
-    gclid: "Cj0KCQjw...HHH", consent: "Accepted", tags: ["high-intent", "enterprise"],
+    gclid: "Cj0KCQjw...HHH",    tags: ["high-intent", "enterprise"],
     notes: "CFO involved. Targeting close by EOQ.",
     qualifiedAt: daysFromNow(-3),
   },
@@ -326,7 +322,7 @@ export const SEED_LEADS: Lead[] = [
     id: "l7", label: "Quotation Sent", name: "Noah Patel", email: "noah@vertexlabs.ai", phone: "+1 408 555 0143",
     company: "Vertex Labs", source: "Meta", value: 3100, priority: "Medium",
     qualification: "Qualified", description: "Trial active. Weekly check-ins.",
-    fbclid: "IwAR3z...ghi", consent: "Accepted",
+    fbclid: "IwAR3z...ghi",
     qualifiedAt: daysFromNow(-10),
   },
   {
@@ -335,7 +331,7 @@ export const SEED_LEADS: Lead[] = [
     company: "Zenith Co.", source: "Google", value: 12500, priority: "High",
     qualification: "Customer", description: "Synced to Google Ads via offline conversion (CAPI).",
     campaignName: "Solutions · Enterprise · US", utmSource: "google", utmMedium: "cpc",
-    utmCampaign: "solutions-ent-us", gclid: "Cj0KCQjw...ZEN", consent: "Accepted",
+    utmCampaign: "solutions-ent-us", gclid: "Cj0KCQjw...ZEN",
     tags: ["closed", "google-capi"],
   },
   {
@@ -343,7 +339,7 @@ export const SEED_LEADS: Lead[] = [
     id: "l9", name: "Falcon Group", email: "billing@falcongroup.io", phone: "+49 30 1234 5678",
     company: "Falcon Group", source: "Meta", value: 6200, priority: "High",
     qualification: "Customer", description: "Synced to Meta CAPI.",
-    fbclid: "IwAR1y...def", consent: "Accepted", tags: ["closed", "meta-capi"],
+    fbclid: "IwAR1y...def",    tags: ["closed", "meta-capi"],
   },
   {
     ...emptyLead("Lost"),
@@ -351,13 +347,13 @@ export const SEED_LEADS: Lead[] = [
     company: "Globex", source: "Google", priority: "Low", qualification: "Unqualified",
     description: "Budget pulled — synced as negative signal to Google Ads.",
     utmSource: "google", utmMedium: "cpc", utmCampaign: "solutions-mm",
-    gclid: "Cj0KCQjw...LST", consent: "Declined", tags: ["lost"],
+    gclid: "Cj0KCQjw...LST",    tags: ["lost"],
   },
   {
     ...emptyLead("Disqualified"),
     id: "l11", label: "Spam Lead", name: "Fake User", email: "fake@example.com", phone: "+1 000 000 0000",
     company: "N/A", source: "Meta", priority: "Low", qualification: "Unqualified",
     description: "Invalid contact info and spam submission — synced as poor-quality signal to Meta.",
-    fbclid: "IwAR0x...spam", consent: "Declined", tags: ["disqualified"],
+    fbclid: "IwAR0x...spam",    tags: ["disqualified"],
   },
 ];
