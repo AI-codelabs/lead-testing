@@ -65,6 +65,7 @@ export const listLeads = createServerFn({ method: "POST" })
       `SELECT ${LEAD_COLUMNS}
          FROM public.leads l
         WHERE l.organization_id = $1
+          AND NOT l.excluded
      ORDER BY l.created_at DESC
         LIMIT $2`,
       [access.organizationId, data.limit],

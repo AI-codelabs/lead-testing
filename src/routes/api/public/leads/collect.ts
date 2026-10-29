@@ -148,6 +148,26 @@ export const Route = createFileRoute("/api/public/leads/collect")({
             return json({ ok: true, deduplicated: true }, 200, CORS);
           }
 
+          // Does this workspace want this form at all?
+          //
+          // Not a judgement we can make: a courier company's job-application
+          // form is noise in a sales pipeline, and a recruiter advertising
+          // that same form has nothing else. The workspace decides, and
+          // anything nobody has ruled on is collected.
+          const rule = await withIngest(organizationId, (db) =>
+            db.one<{ mode: string | null }>(
+              `SELECT app.form_capture_mode($1, $2, $3)::text AS mode`,
+              [organizationId, str(body.form_action, 2000) ?? "", str(body.page_path, 2000) ?? ""],
+            ),
+          );
+          // 'block' means the contents should never be held at all — a
+          // self-hosted payment form is the case that matters — so nothing is
+          // written, not even an empty row.
+          if (rule?.mode === "block") {
+            return json({ ok: true, blocked: true }, 200, CORS);
+          }
+          const excluded = rule?.mode === "hide";
+
           await withIngest(organizationId, (db) =>
             db.sql(
               `INSERT INTO public.leads (
@@ -158,7 +178,7 @@ export const Route = createFileRoute("/api/public/leads/collect")({
                  gclid, wbraid, gbraid, fbclid, msclkid, li_fat_id, fbp,
                  ga_client_id, ga_session_id,
                  landing_page_url, page_path, referrer_url, user_agent,
-                 consent, custom_fields, raw_payload
+                 consent, custom_fields, raw_payload, excluded
                ) VALUES (
                  $1, $2, 'new',
                  $3, $4, $5, $6, $7,
@@ -167,7 +187,7 @@ export const Route = createFileRoute("/api/public/leads/collect")({
                  $16, $17, $18, $19, $20, $21, $22,
                  $23, $24,
                  $25, $26, $27, $28,
-                 $29::lead_consent, $30, $31
+                 $29::lead_consent, $30, $31, $32
                )`,
               [
                 leadId,
@@ -201,14 +221,19 @@ export const Route = createFileRoute("/api/public/leads/collect")({
                 toDbConsent(str(body.consent, 32)),
                 JSON.stringify(custom),
                 JSON.stringify(body),
+                excluded,
               ],
             ),
           );
 
           // Report the 'new' stage in the background; never block intake on it.
+          // A hidden lead is not a conversion: the whole point is that this
+          // form does not count for this workspace right now.
           try {
-            const { queueConversion } = await import("@/lib/conversions.functions");
-            void queueConversion({ data: { leadId, stage: "new" } });
+            if (!excluded) {
+              const { queueConversion } = await import("@/lib/conversions.functions");
+              void queueConversion({ data: { leadId, stage: "new" } });
+            }
           } catch {
             /* ignored by design */
           }

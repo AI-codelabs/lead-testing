@@ -80,6 +80,7 @@ export const getDashboardMetrics = createServerFn({ method: "POST" })
                 COALESCE(sum(won_value) FILTER (WHERE stage = 'won'), 0) AS won_value
            FROM public.leads
           WHERE organization_id = $1
+            AND NOT excluded
             AND created_at >= now() - ($3 || ' days')::interval
        GROUP BY 1, 2`,
         [organizationId, String(range), String(range * 2)],
@@ -92,6 +93,7 @@ export const getDashboardMetrics = createServerFn({ method: "POST" })
                 COALESCE(sum(won_value) FILTER (WHERE stage = 'won'), 0) AS won_value
            FROM public.leads
           WHERE organization_id = $1
+            AND NOT excluded
             AND created_at >= now() - ($2 || ' days')::interval
        GROUP BY 1
        ORDER BY leads DESC
@@ -111,6 +113,7 @@ export const getDashboardMetrics = createServerFn({ method: "POST" })
                 count(*) FILTER (WHERE stage IN ('qualified', 'won'))  AS conv
            FROM public.leads
           WHERE organization_id = $1
+            AND NOT excluded
             AND created_at >= now() - ($2 || ' days')::interval
        GROUP BY 1`,
         [organizationId, String(range), String(buckets)],
@@ -245,6 +248,7 @@ export const getPerformanceBreakdown = createServerFn({ method: "POST" })
                 COALESCE(sum(won_value) FILTER (WHERE stage = 'won'), 0) AS won_value
            FROM public.leads
           WHERE organization_id = $1
+            AND NOT excluded
             AND created_at >= date_trunc($2, now()) - $3::interval
        GROUP BY 1`,
         [organizationId, unit, back],

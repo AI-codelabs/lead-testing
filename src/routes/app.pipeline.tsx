@@ -12,7 +12,19 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { PageHeader } from "@/components/leadlogr/page-header";
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Clock, Download, Lock, Palette, Plus, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Clock,
+  Download,
+  Lock,
+  Palette,
+  Plus,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
 import { LostReasonDialog } from "@/components/leadlogr/lost-reason-dialog";
 import { WonValueDialog } from "@/components/leadlogr/won-value-dialog";
@@ -32,10 +44,10 @@ import {
 
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { useAccess, useAccount } from "@/lib/account-context";
+import { FormRulesDialog } from "@/components/leadlogr/form-rules-dialog";
 import { useLiveLeads } from "@/hooks/use-live-leads";
 import { setLeadStage } from "@/lib/leads.functions";
 import { toast } from "sonner";
-
 
 export const Route = createFileRoute("/app/pipeline")({
   staticData: { width: "full" },
@@ -49,7 +61,11 @@ function PipelinePage() {
   if (access.metricsOnly) {
     return (
       <>
-        <PageHeader eyebrow="Sales" title="Lead Pipeline" description="Pipeline details are hidden by the client." />
+        <PageHeader
+          eyebrow="Sales"
+          title="Lead Pipeline"
+          description="Pipeline details are hidden by the client."
+        />
         <div className="rounded-xl bg-card shadow-xs ring-1 ring-border p-10 text-center">
           <Lock className="size-6 text-muted-foreground mx-auto mb-3" />
           <h3 className="font-semibold">Restricted by client</h3>
@@ -64,6 +80,7 @@ function PipelinePage() {
   const organizationId = activeWorkspace.key;
   const liveLeads = useLiveLeads(organizationId);
   const [seedLeads, setLeads] = useState<Lead[]>([]);
+  const [formsOpen, setFormsOpen] = useState(false);
   // Optimistic stage overrides for live (DB-backed) leads so UI updates
   // immediately on drop while the server write + next poll catch up.
   const [liveStageOverride, setLiveStageOverride] = useState<Record<string, string>>({});
@@ -71,7 +88,9 @@ function PipelinePage() {
   const leads = useMemo(() => {
     const liveIds = new Set(liveLeads.map((l) => l.id));
     return [
-      ...liveLeads.map((l) => (liveStageOverride[l.id] ? { ...l, stage: liveStageOverride[l.id] } : l)),
+      ...liveLeads.map((l) =>
+        liveStageOverride[l.id] ? { ...l, stage: liveStageOverride[l.id] } : l,
+      ),
       ...seedLeads.filter((l) => !liveIds.has(l.id)),
     ];
   }, [liveLeads, seedLeads, liveStageOverride]);
@@ -84,11 +103,11 @@ function PipelinePage() {
   const [addingStage, setAddingStage] = useState(false);
   const [pickerOpenFor, setPickerOpenFor] = useState<string | null>(null);
   const [pendingWon, setPendingWon] = useState<{ leadId: string; fromStage: string } | null>(null);
-  const [pendingLost, setPendingLost] = useState<{ leadId: string; fromStage: string } | null>(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  const [pendingLost, setPendingLost] = useState<{ leadId: string; fromStage: string } | null>(
+    null,
   );
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const stageNames = useMemo(() => stages.map((s) => s.name), [stages]);
 
@@ -102,7 +121,7 @@ function PipelinePage() {
     return map;
   }, [leads, stages]);
 
-  const activeLead = activeId ? leads.find((l) => l.id === activeId) ?? null : null;
+  const activeLead = activeId ? (leads.find((l) => l.id === activeId) ?? null) : null;
 
   const applyStageChange = (leadId: string, targetStage: string, extra?: Partial<Lead>) => {
     const isLive = liveLeads.some((l) => l.id === leadId);
@@ -202,8 +221,6 @@ function PipelinePage() {
     applyStageChange(leadId, targetStage);
   };
 
-
-
   const openCreate = () => {
     setEditing(null);
     setMode("create");
@@ -223,11 +240,12 @@ function PipelinePage() {
       if (exists.value !== lead.value) changes.push(`value €${exists.value} → €${lead.value}`);
       if (exists.label !== lead.label) changes.push(`label ${exists.label} → ${lead.label}`);
       const note = changes.length ? changes.join(", ") : "Lead details updated";
-      const kind = exists.value !== lead.value
-        ? "value_changed"
-        : exists.label !== lead.label
-          ? "label_changed"
-          : "edited";
+      const kind =
+        exists.value !== lead.value
+          ? "value_changed"
+          : exists.label !== lead.label
+            ? "label_changed"
+            : "edited";
       const withHistory = addHistory(lead, { kind, message: note });
       return prev.map((l) => (l.id === lead.id ? withHistory : l));
     });
@@ -260,9 +278,7 @@ function PipelinePage() {
     if (stage.locked) return;
     const fallback = stages.find((s) => s.name !== stage.name)?.name ?? "New";
     setStages((prev) => prev.filter((s) => s.id !== stage.id));
-    setLeads((prev) =>
-      prev.map((l) => (l.stage === stage.name ? { ...l, stage: fallback } : l)),
-    );
+    setLeads((prev) => prev.map((l) => (l.stage === stage.name ? { ...l, stage: fallback } : l)));
   };
 
   const handleRecolor = (stageId: string, palette: PaletteKey) => {
@@ -334,6 +350,13 @@ function PipelinePage() {
         actions={
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setFormsOpen(true)}
+              className="text-sm font-medium px-3 py-2 rounded-md bg-card text-foreground ring-1 ring-border shadow-sm flex items-center gap-1.5 hover:bg-muted transition-colors"
+            >
+              <SlidersHorizontal className="size-3.5" />
+              Forms
+            </button>
+            <button
               onClick={handleExport}
               className="text-sm font-medium px-3 py-2 rounded-md bg-card text-foreground ring-1 ring-border shadow-sm flex items-center gap-1.5 hover:bg-muted transition-colors"
             >
@@ -365,8 +388,12 @@ function PipelinePage() {
                 onCardClick={openEdit}
                 onRemove={() => handleRemoveStage(stage)}
                 onRecolor={(p) => handleRecolor(stage.id, p)}
-                onMoveLeft={prev && !prev.locked && !stage.locked ? () => handleMove(stage.id, -1) : undefined}
-                onMoveRight={next && !next.locked && !stage.locked ? () => handleMove(stage.id, 1) : undefined}
+                onMoveLeft={
+                  prev && !prev.locked && !stage.locked ? () => handleMove(stage.id, -1) : undefined
+                }
+                onMoveRight={
+                  next && !next.locked && !stage.locked ? () => handleMove(stage.id, 1) : undefined
+                }
                 pickerOpen={pickerOpenFor === stage.id}
                 onTogglePicker={() =>
                   setPickerOpenFor((cur) => (cur === stage.id ? null : stage.id))
@@ -390,7 +417,10 @@ function PipelinePage() {
                 onChange={(e) => setNewStageName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleAddStage();
-                  if (e.key === "Escape") { setAddingStage(false); setNewStageName(""); }
+                  if (e.key === "Escape") {
+                    setAddingStage(false);
+                    setNewStageName("");
+                  }
                 }}
                 placeholder="Stage name…"
                 className="w-full bg-card ring-1 ring-border rounded-md text-sm px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
@@ -403,7 +433,10 @@ function PipelinePage() {
                   Add stage
                 </button>
                 <button
-                  onClick={() => { setAddingStage(false); setNewStageName(""); }}
+                  onClick={() => {
+                    setAddingStage(false);
+                    setNewStageName("");
+                  }}
                   className="text-xs font-medium px-2 py-1.5 rounded-md ring-1 ring-border text-muted-foreground"
                 >
                   Cancel
@@ -421,9 +454,7 @@ function PipelinePage() {
           )}
         </div>
 
-        <DragOverlay>
-          {activeLead ? <LeadCard lead={activeLead} dragging /> : null}
-        </DragOverlay>
+        <DragOverlay>{activeLead ? <LeadCard lead={activeLead} dragging /> : null}</DragOverlay>
       </DndContext>
 
       <LeadDialog
@@ -438,11 +469,11 @@ function PipelinePage() {
       <WonValueDialog
         open={!!pendingWon}
         onOpenChange={(o) => !o && setPendingWon(null)}
-        leadName={pendingWon ? leads.find((l) => l.id === pendingWon.leadId)?.name ?? "" : ""}
+        leadName={pendingWon ? (leads.find((l) => l.id === pendingWon.leadId)?.name ?? "") : ""}
         currency={
           (pendingWon ? leads.find((l) => l.id === pendingWon.leadId)?.currency : "EUR") || "EUR"
         }
-        initialValue={pendingWon ? leads.find((l) => l.id === pendingWon.leadId)?.value ?? 0 : 0}
+        initialValue={pendingWon ? (leads.find((l) => l.id === pendingWon.leadId)?.value ?? 0) : 0}
         onConfirm={(value) => {
           if (pendingWon) applyStageChange(pendingWon.leadId, "Won", { value });
           setPendingWon(null);
@@ -453,7 +484,7 @@ function PipelinePage() {
       <LostReasonDialog
         open={!!pendingLost}
         onOpenChange={(o) => !o && setPendingLost(null)}
-        leadName={pendingLost ? leads.find((l) => l.id === pendingLost.leadId)?.name ?? "" : ""}
+        leadName={pendingLost ? (leads.find((l) => l.id === pendingLost.leadId)?.name ?? "") : ""}
         onConfirm={(reason, note) => {
           if (pendingLost) {
             applyStageChange(pendingLost.leadId, "Lost", {
@@ -463,6 +494,11 @@ function PipelinePage() {
           setPendingLost(null);
         }}
         onCancel={() => setPendingLost(null)}
+      />
+      <FormRulesDialog
+        open={formsOpen}
+        onOpenChange={setFormsOpen}
+        organizationId={organizationId}
       />
     </>
   );
@@ -606,9 +642,7 @@ function ColorPicker({
                 title={p.label}
                 className={`relative size-7 rounded-md ${p.dot} ring-1 ring-foreground/10 hover:scale-110 transition`}
               >
-                {isActive && (
-                  <Check className="absolute inset-0 m-auto size-3.5 text-foreground" />
-                )}
+                {isActive && <Check className="absolute inset-0 m-auto size-3.5 text-foreground" />}
               </button>
             );
           })}
@@ -635,7 +669,8 @@ function DraggableCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
 
 function LeadCard({ lead, dragging }: { lead: Lead; dragging?: boolean }) {
   // Won/Lost leads have completed their lifecycle — don't show expiry urgency.
-  const showUrgency = lead.stage !== "Won" && lead.stage !== "Lost" && lead.stage !== "Disqualified";
+  const showUrgency =
+    lead.stage !== "Won" && lead.stage !== "Lost" && lead.stage !== "Disqualified";
   const urgency = showUrgency ? expiryUrgency(lead.expiresAt) : "ok";
   const daysLeft = daysUntilExpiry(lead.expiresAt);
   return (
