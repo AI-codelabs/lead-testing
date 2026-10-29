@@ -28,13 +28,44 @@ function corsHeaders(request: Request): Record<string, string> {
 }
 
 const KNOWN_FIELDS = new Set([
-  "ingest_key", "name", "email", "phone", "company", "message",
-  "source", "campaign_name", "website_url",
-  "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-  "gclid", "wbraid", "gbraid", "fbclid", "msclkid", "li_fat_id", "fbp",
-  "ga_client_id", "ga_session_id",
-  "landing_page_url", "page_path", "referrer_url", "user_agent", "consent",
+  "ingest_key",
+  "name",
+  "email",
+  "phone",
+  "company",
+  "message",
+  "source",
+  "campaign_name",
+  "website_url",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "gclid",
+  "wbraid",
+  "gbraid",
+  "fbclid",
+  "msclkid",
+  "li_fat_id",
+  "fbp",
+  "ga_client_id",
+  "ga_session_id",
+  "landing_page_url",
+  "page_path",
+  "referrer_url",
+  "user_agent",
+  "consent",
 ]);
+
+/**
+ * How long an identical submission counts as the same enquiry.
+ *
+ * An hour is comfortably longer than the bursts seen in the wild (97 copies
+ * over 36 minutes) while still letting someone who genuinely enquires again
+ * later that day get their own lead.
+ */
+const DEDUPE_WINDOW_MINUTES = 60;
 
 /** Trims to a maximum length, and returns null for absent values. */
 function str(v: unknown, max = 2000): string | null {
@@ -90,6 +121,32 @@ export const Route = createFileRoute("/api/public/leads/collect")({
           // app_ingest deliberately has none — it must never be able to read a
           // lead back. Generating the id keeps that guarantee intact.
           const leadId = crypto.randomUUID();
+
+          // Same person, same answers, same page, within the hour: one
+          // enquiry arriving twice, not two enquiries. The tracker guards this
+          // too, but only within one page's lifetime — it cannot see what a
+          // reload, another tab or a re-fire has already sent, and one site
+          // produced 97 copies of a single submission that way.
+          //
+          // Answered by a SECURITY DEFINER function because the ingest role
+          // holds INSERT and nothing else: it must never be able to read a
+          // lead back, so it gets a boolean rather than a query.
+          const duplicate = await withIngest(organizationId, (db) =>
+            db.one<{ dup: boolean }>(
+              `SELECT app.is_duplicate_lead($1, $2, $3, $4, $5, $6) AS dup`,
+              [
+                organizationId,
+                str(body.email, 320),
+                str(body.phone, 64),
+                str(body.name, 200),
+                str(body.page_path, 2000),
+                DEDUPE_WINDOW_MINUTES,
+              ],
+            ),
+          );
+          if (duplicate?.dup) {
+            return json({ ok: true, deduplicated: true }, 200, CORS);
+          }
 
           await withIngest(organizationId, (db) =>
             db.sql(

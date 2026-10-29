@@ -314,7 +314,10 @@ export const TRACKER = `/* Leadlogr tracker v2.0 — records every submission; d
   }
   function shouldSkip(p) {
     var now = Date.now(), key = dedupeKey(p);
-    recentSends = recentSends.filter(function (i) { return now - i.time < 8000; });
+    // Eight seconds was shorter than the interval things actually re-fire at:
+    // the repeats landed at nine to eleven seconds and walked straight past
+    // it. This is a backstop, so it is now wider than any plausible burst.
+    recentSends = recentSends.filter(function (i) { return now - i.time < 300000; });
     for (var i = 0; i < recentSends.length; i++) if (recentSends[i].key === key) return true;
     recentSends.push({ key: key, time: now });
     return false;
@@ -431,12 +434,23 @@ export const TRACKER = `/* Leadlogr tracker v2.0 — records every submission; d
     lastFormInteractionAt = Date.now();
   }
 
+  function forgetForm() {
+    lastSubmittedForm = null;
+    lastFormInteractionAt = 0;
+  }
+
   function flushLastFormOnUnload(reason) {
     if (!lastSubmittedForm || !lastFormInteractionAt) return;
     if (Date.now() - lastFormInteractionAt > 15000) return;
     try {
       log('page leaving after form interaction — flushing', { reason: reason, form_id: lastSubmittedForm.id || '', form_action: lastSubmittedForm.action || '' });
-      send(fromForm(lastSubmittedForm));
+      var form = lastSubmittedForm;
+      // pagehide, beforeunload and visibilitychange all fire for one
+      // departure, and on mobile visibilitychange fires every time the user
+      // switches app and comes back. Without consuming it, leaving a page
+      // sent the same form three times over.
+      forgetForm();
+      send(fromForm(form));
     } catch (e) { log('form unload flush failed', e); }
   }
 
@@ -481,7 +495,17 @@ export const TRACKER = `/* Leadlogr tracker v2.0 — records every submission; d
     if (Date.now() - lastFormInteractionAt > FORM_POST_WINDOW_MS) return;
     try {
       log('form-shaped POST intercepted', { via: source, url: String(url || '').slice(0, 200) });
-      send(fromForm(lastSubmittedForm));
+      var form = lastSubmittedForm;
+      // Consume the remembered form before sending.
+      //
+      // looksLikeFormPost() is true of ANY post this page makes that is not
+      // our own ingest call — a chat widget, an analytics beacon, a session
+      // heartbeat. Each one used to re-send the same form again, which is how
+      // one submission became 97 leads at a steady ten-second cadence. The
+      // submission is worth sending once; the heartbeat that follows it is
+      // not the same event happening again.
+      forgetForm();
+      send(fromForm(form));
     } catch (e) { log('intercept flush failed', e); }
   }
 
