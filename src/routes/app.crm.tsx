@@ -26,6 +26,7 @@ import { deleteLead, setLeadStage, updateLead } from "@/lib/leads.functions";
 import { TableEmptyState } from "@/components/leadlogr/empty-state";
 
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
+import { DATE_RANGES, dateAndTime, exactTimestamp, withinRange } from "@/lib/lead-dates";
 import { LeadDialog } from "@/components/leadlogr/lead-dialog";
 import {
   DEFAULT_STAGES,
@@ -129,14 +130,13 @@ function optionsFrom(leads: Lead[], pick: (l: Lead) => string, order: readonly s
 }
 
 /** Adds or removes one value from a filter set, without mutating it. */
-const toggler =
-  (set: React.Dispatch<React.SetStateAction<Set<string>>>) => (value: string) =>
-    set((prev) => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return next;
-    });
+const toggler = (set: React.Dispatch<React.SetStateAction<Set<string>>>) => (value: string) =>
+  set((prev) => {
+    const next = new Set(prev);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    return next;
+  });
 
 function matchesTab(lead: Lead, tab: Tab): boolean {
   if (tab === "All") return true;
@@ -153,7 +153,16 @@ function matchesTab(lead: Lead, tab: Tab): boolean {
   );
 }
 
-const ALL_COLUMNS = ["Expires In", "Channel", "Name", "Email", "Label", "Value", "Actions"] as const;
+const ALL_COLUMNS = [
+  "Received",
+  "Expires In",
+  "Channel",
+  "Name",
+  "Email",
+  "Label",
+  "Value",
+  "Actions",
+] as const;
 type Column = (typeof ALL_COLUMNS)[number];
 
 function CrmPage() {
@@ -186,18 +195,32 @@ function CrmPage() {
   const [fStage, setFStage] = useState<Set<string>>(new Set());
   const [fLabel, setFLabel] = useState<Set<string>>(new Set());
   const [fPriority, setFPriority] = useState<Set<string>>(new Set());
+  const [fPage, setFPage] = useState<Set<string>>(new Set());
+  const [range, setRange] = useState<number | null>(null);
   const opts = useMemo(
     () => ({
       Source: optionsFrom(leads, (l) => l.source, ORDER.Source),
+      Page: optionsFrom(leads, (l) => l.pagePath || "—", []),
       Stage: optionsFrom(leads, (l) => l.stage, ORDER.Stage),
       Label: optionsFrom(leads, (l) => l.label, ORDER.Label),
       Priority: optionsFrom(leads, (l) => l.priority, ORDER.Priority),
     }),
     [leads],
   );
-  const activeFilters = fSource.size + fStage.size + fLabel.size + fPriority.size;
+  const activeFilters =
+    fSource.size +
+    fStage.size +
+    fLabel.size +
+    fPriority.size +
+    fPage.size +
+    (range !== null ? 1 : 0);
   const clearFilters = () => {
-    setFSource(new Set()); setFStage(new Set()); setFLabel(new Set()); setFPriority(new Set());
+    setFSource(new Set());
+    setFStage(new Set());
+    setFLabel(new Set());
+    setFPriority(new Set());
+    setFPage(new Set());
+    setRange(null);
   };
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
@@ -212,14 +235,25 @@ function CrmPage() {
   if (access.metricsOnly) {
     return (
       <>
-        <PageHeader eyebrow="Contacts" title="CRM" description="Individual leads are hidden by the client." />
+        <PageHeader
+          eyebrow="Contacts"
+          title="CRM"
+          description="Individual leads are hidden by the client."
+        />
         <RestrictedNotice leadsCount={liveLeads.length} />
       </>
     );
   }
 
   const counts = useMemo(() => {
-    const out: Record<Tab, number> = { Open: 0, Qualified: 0, Won: 0, Lost: 0, Expired: 0, All: leads.length };
+    const out: Record<Tab, number> = {
+      Open: 0,
+      Qualified: 0,
+      Won: 0,
+      Lost: 0,
+      Expired: 0,
+      All: leads.length,
+    };
     for (const l of leads) {
       for (const t of TABS) if (t !== "All" && matchesTab(l, t)) out[t]++;
     }
@@ -242,13 +276,15 @@ function CrmPage() {
     if (fStage.size) list = list.filter((l) => fStage.has(l.stage));
     if (fLabel.size) list = list.filter((l) => fLabel.has(l.label));
     if (fPriority.size) list = list.filter((l) => fPriority.has(l.priority));
+    if (fPage.size) list = list.filter((l) => fPage.has(l.pagePath || "—"));
+    if (range !== null) list = list.filter((l) => withinRange(l.createdAt, range));
     list = [...list].sort((a, b) => {
       const ax = new Date(a.expiresAt).getTime();
       const bx = new Date(b.expiresAt).getTime();
       return sortAsc ? ax - bx : bx - ax;
     });
     return list;
-  }, [leads, tab, search, sortAsc, fSource, fStage, fLabel, fPriority]);
+  }, [leads, tab, search, sortAsc, fSource, fStage, fLabel, fPriority, fPage, range]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const safePage = Math.min(page, totalPages - 1);
@@ -312,11 +348,10 @@ function CrmPage() {
   ) => {
     setLeads((prev) => prev.map((l) => (l.id === id ? local(l) : l)));
     if (!liveLeads.some((l) => l.id === id)) return;
-    updateLeadFn({ data: { leadId: id, ...patch } as never })
-      .catch((err) => {
-        console.error("[crm] updateLead failed", err);
-        toast.error("Couldn't save that change.");
-      });
+    updateLeadFn({ data: { leadId: id, ...patch } as never }).catch((err) => {
+      console.error("[crm] updateLead failed", err);
+      toast.error("Couldn't save that change.");
+    });
   };
 
   const setLabel = (id: string, label: LeadLabel) => {
@@ -340,6 +375,7 @@ function CrmPage() {
       source: l.source,
       value: l.value,
       currency: l.currency,
+      received: l.createdAt,
       expires_at: l.expiresAt,
       updated_at: l.updatedAt,
     }));
@@ -391,12 +427,16 @@ function CrmPage() {
     });
   };
 
-
   const handleDeleteSelected = async () => {
     if (!access.canSeeDetails) return;
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
-    if (!window.confirm(`Delete ${ids.length} lead${ids.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    if (
+      !window.confirm(
+        `Delete ${ids.length} lead${ids.length === 1 ? "" : "s"}? This cannot be undone.`,
+      )
+    )
+      return;
 
     setDeletedIds((prev) => {
       const next = new Set(prev);
@@ -425,8 +465,6 @@ function CrmPage() {
     }
   };
 
-
-
   return (
     <>
       <PageHeader
@@ -449,7 +487,9 @@ function CrmPage() {
                   setPage(0);
                 }}
                 className={`text-sm font-medium px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${
-                  active ? "bg-card ring-1 ring-border text-foreground" : "text-muted-foreground hover:bg-muted/50"
+                  active
+                    ? "bg-card ring-1 ring-border text-foreground"
+                    : "text-muted-foreground hover:bg-muted/50"
                 }`}
               >
                 <TabDot tab={t} />
@@ -503,10 +543,56 @@ function CrmPage() {
                 </button>
               </div>
               <div className="max-h-96 overflow-y-auto">
-                <FilterGroup title="Source" options={opts.Source} selected={fSource} onToggle={toggler(setFSource)} />
-                <FilterGroup title="Stage" options={opts.Stage} selected={fStage} onToggle={toggler(setFStage)} />
-                <FilterGroup title="Label" options={opts.Label} selected={fLabel} onToggle={toggler(setFLabel)} />
-                <FilterGroup title="Priority" options={opts.Priority} selected={fPriority} onToggle={toggler(setFPriority)} />
+                <div className="border-b border-border px-3 py-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Received
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {DATE_RANGES.map((r) => (
+                      <button
+                        key={r.label}
+                        onClick={() => setRange(r.days)}
+                        className={`text-xs px-2 py-1 rounded transition-colors ${
+                          range === r.days
+                            ? "bg-foreground text-background"
+                            : "bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <FilterGroup
+                  title="Page"
+                  options={opts.Page}
+                  selected={fPage}
+                  onToggle={toggler(setFPage)}
+                />
+                <FilterGroup
+                  title="Source"
+                  options={opts.Source}
+                  selected={fSource}
+                  onToggle={toggler(setFSource)}
+                />
+                <FilterGroup
+                  title="Stage"
+                  options={opts.Stage}
+                  selected={fStage}
+                  onToggle={toggler(setFStage)}
+                />
+                <FilterGroup
+                  title="Label"
+                  options={opts.Label}
+                  selected={fLabel}
+                  onToggle={toggler(setFLabel)}
+                />
+                <FilterGroup
+                  title="Priority"
+                  options={opts.Priority}
+                  selected={fPriority}
+                  onToggle={toggler(setFPriority)}
+                />
               </div>
             </PopoverContent>
           </Popover>
@@ -587,11 +673,12 @@ function CrmPage() {
                   />
                 </th>
                 <th className="px-3 py-3 w-8 text-muted-foreground/60">#</th>
+                {showCol("Received") && <th className="px-3 py-3">Received</th>}
                 {showCol("Expires In") && <th className="px-3 py-3">Expires In</th>}
                 {showCol("Channel") && <th className="px-3 py-3">Channel</th>}
                 {showCol("Name") && <th className="px-3 py-3">Name</th>}
                 {showCol("Email") && <th className="px-3 py-3">Email</th>}
-                
+
                 {showCol("Label") && <th className="px-3 py-3">Label</th>}
                 {showCol("Value") && <th className="px-3 py-3">Value</th>}
                 {showCol("Actions") && <th className="px-3 py-3 text-right">Actions</th>}
@@ -619,6 +706,19 @@ function CrmPage() {
                     <td className="px-3 py-2.5 text-xs font-mono text-muted-foreground/70">
                       {startIdx + i + 1}
                     </td>
+                    {showCol("Received") && (
+                      <td className="px-3 py-2.5">
+                        {/* The exact stamp, not a relative one: this column
+                            exists to compare rows against each other. */}
+                        <time
+                          dateTime={l.createdAt}
+                          title={exactTimestamp(l.createdAt)}
+                          className="text-xs whitespace-nowrap"
+                        >
+                          {dateAndTime(l.createdAt)}
+                        </time>
+                      </td>
+                    )}
                     {showCol("Expires In") && (
                       <td className="px-3 py-2.5">
                         <span className="inline-flex items-center gap-1.5">
@@ -665,7 +765,9 @@ function CrmPage() {
                                     className="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded hover:bg-muted"
                                   >
                                     <span>{lab}</span>
-                                    {l.label === lab && <Check className="size-3 text-foreground" />}
+                                    {l.label === lab && (
+                                      <Check className="size-3 text-foreground" />
+                                    )}
                                   </button>
                                 ))}
                               </div>
@@ -686,7 +788,9 @@ function CrmPage() {
                               placeholder="0"
                               className="flex-1 min-w-0 bg-transparent text-xs font-mono focus:outline-none"
                             />
-                            <span className="text-[10px] font-mono text-muted-foreground/60">{l.currency}</span>
+                            <span className="text-[10px] font-mono text-muted-foreground/60">
+                              {l.currency}
+                            </span>
                           </div>
                         ) : (
                           <span className="text-muted-foreground">•••</span>
@@ -708,7 +812,9 @@ function CrmPage() {
                             className={`p-1 rounded hover:bg-muted ${favorites.has(l.id) ? "text-stage-amber-ink" : "text-muted-foreground"}`}
                             aria-label="Favorite"
                           >
-                            <Star className={`size-3.5 ${favorites.has(l.id) ? "fill-current" : ""}`} />
+                            <Star
+                              className={`size-3.5 ${favorites.has(l.id) ? "fill-current" : ""}`}
+                            />
                           </button>
                           <button
                             onClick={() => setStage(l.id, "Won")}
@@ -754,16 +860,31 @@ function CrmPage() {
                 className="bg-card ring-1 ring-border rounded px-1.5 py-0.5 focus:outline-none"
               >
                 {[10, 25, 50, 100].map((n) => (
-                  <option key={n} value={n}>{n}</option>
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
                 ))}
               </select>
             </label>
             <div className="flex items-center gap-1">
-              <PagerBtn disabled={safePage === 0} onClick={() => setPage(0)}>«</PagerBtn>
-              <PagerBtn disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>‹</PagerBtn>
-              <span className="px-2">Page {safePage + 1} of {totalPages}</span>
-              <PagerBtn disabled={safePage >= totalPages - 1} onClick={() => setPage(safePage + 1)}>›</PagerBtn>
-              <PagerBtn disabled={safePage >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</PagerBtn>
+              <PagerBtn disabled={safePage === 0} onClick={() => setPage(0)}>
+                «
+              </PagerBtn>
+              <PagerBtn disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>
+                ‹
+              </PagerBtn>
+              <span className="px-2">
+                Page {safePage + 1} of {totalPages}
+              </span>
+              <PagerBtn disabled={safePage >= totalPages - 1} onClick={() => setPage(safePage + 1)}>
+                ›
+              </PagerBtn>
+              <PagerBtn
+                disabled={safePage >= totalPages - 1}
+                onClick={() => setPage(totalPages - 1)}
+              >
+                »
+              </PagerBtn>
             </div>
           </div>
         </div>
@@ -832,7 +953,15 @@ function FilterGroup({
   );
 }
 
-function PagerBtn({ children, disabled, onClick }: { children: React.ReactNode; disabled?: boolean; onClick: () => void }) {
+function PagerBtn({
+  children,
+  disabled,
+  onClick,
+}: {
+  children: React.ReactNode;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
@@ -852,7 +981,9 @@ function RestrictedNotice({ leadsCount }: { leadsCount: number }) {
       <p className="text-sm text-muted-foreground mt-1.5 max-w-md mx-auto">
         This client has granted read-only metrics access. Individual lead records are not visible.
       </p>
-      <div className="text-3xl font-semibold tracking-tight mt-6">{leadsCount.toLocaleString()}</div>
+      <div className="text-3xl font-semibold tracking-tight mt-6">
+        {leadsCount.toLocaleString()}
+      </div>
       <div className="text-xs text-muted-foreground mt-1">total leads in workspace</div>
     </div>
   );

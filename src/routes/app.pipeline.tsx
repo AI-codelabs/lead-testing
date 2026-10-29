@@ -19,6 +19,7 @@ import {
   Check,
   Clock,
   Download,
+  Filter,
   Lock,
   Palette,
   Plus,
@@ -45,6 +46,8 @@ import {
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { useAccess, useAccount } from "@/lib/account-context";
 import { FormRulesDialog } from "@/components/leadlogr/form-rules-dialog";
+import { DATE_RANGES, exactTimestamp, relativeTime, withinRange } from "@/lib/lead-dates";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLiveLeads } from "@/hooks/use-live-leads";
 import { setLeadStage } from "@/lib/leads.functions";
 import { toast } from "sonner";
@@ -85,7 +88,7 @@ function PipelinePage() {
   // immediately on drop while the server write + next poll catch up.
   const [liveStageOverride, setLiveStageOverride] = useState<Record<string, string>>({});
   // Merge locally-created leads with tracker-captured leads for this workspace only.
-  const leads = useMemo(() => {
+  const allLeads = useMemo(() => {
     const liveIds = new Set(liveLeads.map((l) => l.id));
     return [
       ...liveLeads.map((l) =>
@@ -94,6 +97,43 @@ function PipelinePage() {
       ...seedLeads.filter((l) => !liveIds.has(l.id)),
     ];
   }, [liveLeads, seedLeads, liveStageOverride]);
+
+  // Empty set means "do not restrict", so a workspace that has never thought
+  // about filtering sees everything, which is what it saw before.
+  const [range, setRange] = useState<number | null>(null);
+  const [fPage, setFPage] = useState<Set<string>>(new Set());
+  const [fChannel, setFChannel] = useState<Set<string>>(new Set());
+  const activeFilters = (range !== null ? 1 : 0) + fPage.size + fChannel.size;
+  const clearFilters = () => {
+    setRange(null);
+    setFPage(new Set());
+    setFChannel(new Set());
+  };
+
+  // Options come from the leads in hand rather than a fixed list: pages differ
+  // per site, and offering one nobody has a lead from is a filter that can
+  // only ever return nothing.
+  const filterOptions = useMemo(() => {
+    const pages = new Map<string, number>();
+    const channels = new Map<string, number>();
+    for (const l of allLeads) {
+      const p = l.pagePath || "—";
+      pages.set(p, (pages.get(p) ?? 0) + 1);
+      const c = l.source || "Direct";
+      channels.set(c, (channels.get(c) ?? 0) + 1);
+    }
+    const sorted = (m: Map<string, number>) =>
+      [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    return { pages: sorted(pages), channels: sorted(channels) };
+  }, [allLeads]);
+
+  const leads = useMemo(() => {
+    let list = allLeads;
+    if (range !== null) list = list.filter((l) => withinRange(l.createdAt, range));
+    if (fPage.size) list = list.filter((l) => fPage.has(l.pagePath || "—"));
+    if (fChannel.size) list = list.filter((l) => fChannel.has(l.source || "Direct"));
+    return list;
+  }, [allLeads, range, fPage, fChannel]);
   const [stages, setStages] = useState<StageDef[]>(DEFAULT_STAGES);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -349,6 +389,87 @@ function PipelinePage() {
         description="Drag leads between stages. New, Contacted, Qualified, Won, Lost, and Disqualified are fixed system stages used to send conversion signals to Google Ads and Meta Ads. Their colors can still be changed."
         actions={
           <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className={`text-sm font-medium px-3 py-2 rounded-md ring-1 shadow-sm flex items-center gap-1.5 transition-colors ${
+                    activeFilters > 0
+                      ? "bg-foreground text-background ring-foreground"
+                      : "bg-card text-foreground ring-border hover:bg-muted"
+                  }`}
+                >
+                  <Filter className="size-3.5" />
+                  Filter
+                  {activeFilters > 0 && (
+                    <span className="ml-0.5 rounded-full bg-background/20 px-1.5 text-xs font-semibold">
+                      {activeFilters}
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 p-0">
+                <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Filter
+                  </span>
+                  <button
+                    onClick={clearFilters}
+                    disabled={activeFilters === 0}
+                    className="text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  <div className="border-b border-border px-3 py-2">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                      Received
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {DATE_RANGES.map((r) => (
+                        <button
+                          key={r.label}
+                          onClick={() => setRange(r.days)}
+                          className={`text-xs px-2 py-1 rounded transition-colors ${
+                            range === r.days
+                              ? "bg-foreground text-background"
+                              : "bg-muted text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <CountedGroup
+                    title="Channel"
+                    options={filterOptions.channels}
+                    selected={fChannel}
+                    onToggle={(v) =>
+                      setFChannel((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(v)) next.delete(v);
+                        else next.add(v);
+                        return next;
+                      })
+                    }
+                  />
+                  <CountedGroup
+                    title="Page"
+                    options={filterOptions.pages}
+                    selected={fPage}
+                    onToggle={(v) =>
+                      setFPage((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(v)) next.delete(v);
+                        else next.add(v);
+                        return next;
+                      })
+                    }
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
             <button
               onClick={() => setFormsOpen(true)}
               className="text-sm font-medium px-3 py-2 rounded-md bg-card text-foreground ring-1 ring-border shadow-sm flex items-center gap-1.5 hover:bg-muted transition-colors"
@@ -667,6 +788,51 @@ function DraggableCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
   );
 }
 
+/**
+ * A filter group whose options carry their own counts.
+ *
+ * The count is the point: "/werken-bij-mkg/open-sollicitatie 35" tells you
+ * where a pipeline's volume actually comes from before you have filtered
+ * anything, which is the question that sends someone to this menu.
+ */
+function CountedGroup({
+  title,
+  options,
+  selected,
+  onToggle,
+}: {
+  title: string;
+  options: Array<[string, number]>;
+  selected: Set<string>;
+  onToggle: (value: string) => void;
+}) {
+  if (options.length === 0) return null;
+  return (
+    <div className="border-b border-border last:border-0 px-3 py-2">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+        {title}
+      </div>
+      <div className="space-y-0.5">
+        {options.map(([value, count]) => (
+          <label
+            key={value}
+            className="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted cursor-pointer"
+          >
+            <input
+              type="checkbox"
+              checked={selected.has(value)}
+              onChange={() => onToggle(value)}
+              className="size-3.5 accent-foreground shrink-0"
+            />
+            <span className="truncate flex-1">{value}</span>
+            <span className="text-xs text-muted-foreground shrink-0">{count}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LeadCard({ lead, dragging }: { lead: Lead; dragging?: boolean }) {
   // Won/Lost leads have completed their lifecycle — don't show expiry urgency.
   const showUrgency =
@@ -691,6 +857,15 @@ function LeadCard({ lead, dragging }: { lead: Lead; dragging?: boolean }) {
         {lead.company || lead.email || "—"}
       </p>
       <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+        {/* Relative while scanning; the exact stamp is one hover away, which
+            is what you need when two leads look identical. */}
+        <time
+          dateTime={lead.createdAt}
+          title={exactTimestamp(lead.createdAt)}
+          className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-border text-muted-foreground"
+        >
+          {relativeTime(lead.createdAt)}
+        </time>
         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded ring-1 ring-border text-muted-foreground">
           {lead.source}
         </span>
