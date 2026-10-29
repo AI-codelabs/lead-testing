@@ -47,10 +47,14 @@ const MODE_LABEL: Record<FormCaptureMode, string> = {
 
 function Row({
   form,
+  display,
   organizationId,
   onChanged,
 }: {
   form: DiscoveredForm;
+  /** The one line this row shows — resolved by the caller, which can see the
+   *  whole list and so knows when a path alone would be ambiguous. */
+  display: string;
   organizationId: string;
   onChanged: () => void;
 }) {
@@ -96,7 +100,7 @@ function Row({
           // in the menu.
           onCheckedChange={(v) => choose(v === true ? "collect" : "hide")}
           className="mt-0.5"
-          aria-label={`Collect leads from ${form.label || form.pagePath || "this form"}`}
+          aria-label={`Collect leads from ${display}`}
         />
 
         <div className="min-w-0 flex-1">
@@ -104,7 +108,7 @@ function Row({
             <span
               className={`text-sm font-medium truncate ${collected ? "" : "text-muted-foreground"}`}
             >
-              {form.label || form.pagePath || form.formAction || "Unknown form"}
+              {display}
             </span>
             {form.unreviewed && form.leads > 0 && (
               <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-stage-amber-soft text-stage-amber-ink ring-1 ring-stage-amber-line">
@@ -116,14 +120,6 @@ function Row({
                 Never
               </span>
             )}
-          </div>
-          <div className="text-xs text-muted-foreground truncate mt-0.5">
-            {form.pagePath || "—"}
-            {form.formAction ? ` · ${form.formAction.replace(/^https?:\/\/[^/]+/, "")}` : ""}
-          </div>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            {form.leads} lead{form.leads === 1 ? "" : "s"}
-            {form.hidden > 0 ? ` · ${form.hidden} not shown` : ""}
           </div>
         </div>
 
@@ -171,6 +167,39 @@ function Row({
   );
 }
 
+/** Just the path part of a form's action, e.g. "/!/forms/apply". */
+function actionPath(formAction: string): string {
+  if (!formAction) return "";
+  try {
+    return new URL(formAction).pathname;
+  } catch {
+    return formAction.startsWith("/") ? formAction : "";
+  }
+}
+
+/**
+ * One line per form, and always a path, so every row reads the same way.
+ *
+ * The page is what someone recognises, so it leads. The form's own path is
+ * appended only when two forms share a page — two rows both saying "/contact"
+ * would be impossible to tell apart, and that is the one case where the extra
+ * detail earns its place.
+ */
+function displayNames(forms: DiscoveredForm[]): string[] {
+  const counts = new Map<string, number>();
+  for (const f of forms) {
+    const p = f.pagePath || actionPath(f.formAction);
+    counts.set(p, (counts.get(p) ?? 0) + 1);
+  }
+  return forms.map((f) => {
+    const page = f.pagePath || actionPath(f.formAction);
+    if (!page) return "Unknown form";
+    const ambiguous = (counts.get(page) ?? 0) > 1;
+    const action = actionPath(f.formAction);
+    return ambiguous && action && action !== page ? `${page} · ${action}` : page;
+  });
+}
+
 export function FormRulesDialog({
   open,
   onOpenChange,
@@ -189,6 +218,8 @@ export function FormRulesDialog({
     enabled: open && !!organizationId,
   });
 
+  const names = displayNames(forms ?? []);
+
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["discovered-forms", organizationId] });
     void qc.invalidateQueries({ queryKey: ["leads"] });
@@ -201,8 +232,8 @@ export function FormRulesDialog({
           <DialogTitle>Which forms count as leads</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          Every form we have seen on this site. A new one is collected until you say otherwise, so
-          nothing is ever lost by default — switch off what is not a lead for this client.
+          Every page we have seen a form on. A new one is collected until you say otherwise, so
+          nothing is ever lost by default — untick what is not a lead for this client.
         </p>
 
         <div className="mt-2 max-h-[55vh] overflow-y-auto">
@@ -213,10 +244,11 @@ export function FormRulesDialog({
               No forms seen yet. They appear here as soon as the first lead arrives.
             </p>
           ) : (
-            forms.map((f) => (
+            forms.map((f, i) => (
               <Row
                 key={`${f.formAction}|${f.pagePath}`}
                 form={f}
+                display={names[i]}
                 organizationId={organizationId}
                 onChanged={refresh}
               />
