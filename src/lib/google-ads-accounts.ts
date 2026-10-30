@@ -43,3 +43,22 @@ export function accountLabel(a: GoogleAdsCustomer): string {
   const name = a.descriptiveName || "(unnamed)";
   return a.currencyCode ? `${name} · ${a.id} · ${a.currencyCode}` : `${name} · ${a.id}`;
 }
+
+/**
+ * The reasons the server returns as codes rather than sentences.
+ *
+ * These travel as `error` on the server functions and were being rendered
+ * straight into the page: a partner disconnected Google Ads and the only thing
+ * the screen then told him was `not_connected`. A code is a thing for a log.
+ */
+const ERROR_SENTENCES: Record<string, string> = {
+  not_connected: "Not connected to Google Ads yet.",
+  list_failed: "Could not read your Google Ads accounts.",
+  access_denied: "The Google sign-in was cancelled.",
+};
+
+/** A sentence for anything we hand to the reader; passes real messages through. */
+export function humanError(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  return ERROR_SENTENCES[raw] ?? raw;
+}

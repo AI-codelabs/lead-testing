@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useAccount } from "@/lib/account-context";
-import { selectableAccounts, groupByManager, accountLabel } from "@/lib/google-ads-accounts";
+import { selectableAccounts, groupByManager, accountLabel, humanError } from "@/lib/google-ads-accounts";
 import {
   getGoogleAdsSettings,
   saveGoogleAdsSettings,
@@ -99,6 +99,7 @@ function GoogleAdsPage() {
   const [saved, setSaved] = useState(false);
   const [uploads, setUploads] = useState<Array<{ id: string; stage: string; status: string; value: number | null; currency: string | null; click_id_type: string | null; error: string | null; attempted_at: string }>>([]);
   const [error, setError] = useState<string | null>(null);
+  const [customersError, setCustomersError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [s, u] = await Promise.all([
@@ -158,7 +159,7 @@ function GoogleAdsPage() {
         setError(null);
         void refresh();
       } else {
-        setError(p?.error || "Connection failed");
+        setError(humanError(p?.error) || "Connection failed");
       }
     }
     window.addEventListener("message", onMsg);
@@ -174,7 +175,7 @@ function GoogleAdsPage() {
       setError(null);
       void refresh();
     } else {
-      setError(params.get("error") || "Connection failed");
+      setError(humanError(params.get("error")) || "Connection failed");
     }
     // Clean the URL.
     const clean = window.location.pathname;
@@ -186,7 +187,11 @@ function GoogleAdsPage() {
     if (!connection.connected) { setCustomers([]); return; }
     setLoadingCustomers(true);
     listCustomers({ data: { organizationId } })
-      .then((r) => { setCustomers(r.customers as Customer[]); if (r.error) setError(r.error); })
+      .then((r) => {
+        setCustomers(r.customers as Customer[]);
+        setCustomersError(r.error ? humanError(r.error) : null);
+        if (r.error) setError(humanError(r.error));
+      })
       .finally(() => setLoadingCustomers(false));
   }, [connection.connected, organizationId, listCustomers]);
 
@@ -201,7 +206,7 @@ function GoogleAdsPage() {
       .then((r) => {
         setActions(r.actions as Action[]);
         setUnusableActions(r.unusableCount ?? 0);
-        if (r.error) setError(r.error);
+        if (r.error) setError(humanError(r.error));
       })
       .finally(() => setLoadingActions(false));
   }, [connection.connected, organizationId, form.customer_id, form.login_customer_id, listActions]);
@@ -388,9 +393,11 @@ function GoogleAdsPage() {
                 hint={
                   loadingCustomers
                     ? "Reading your account hierarchy…"
-                    : selectableCustomers.length === 0
-                      ? "No client accounts found on this login."
-                      : `${selectableCustomers.length} client account${selectableCustomers.length === 1 ? "" : "s"}. Managers are shown as groups — conversions go to a client account.`
+                    : customersError
+                      ? "We could not read your accounts — see the message above."
+                      : selectableCustomers.length === 0
+                        ? "No client accounts found on this login."
+                        : `${selectableCustomers.length} client account${selectableCustomers.length === 1 ? "" : "s"}. Managers are shown as groups — conversions go to a client account.`
                 }
               >
                 <select
