@@ -56,6 +56,37 @@ export type ClickConversionInput = {
   validateOnly?: boolean;
 };
 
+/**
+ * What we ask Google for at consent time.
+ *
+ * `adwords` covers everything the product does today. The Data Manager API is
+ * a separate service with a scope of its own, and since 15 June 2026 it is
+ * where Google sends new conversion-upload integrations -- so we will need it,
+ * but asking for it is not free: a scope the Cloud project cannot grant fails
+ * the whole consent, and consent is currently the one part of this integration
+ * that works. Google does not reveal which it is until someone has actually
+ * signed in, so this stays opt-in until a real round-trip has proved it.
+ *
+ * To try it: enable the Data Manager API on the Cloud project first, then set
+ * GOOGLE_DATA_MANAGER_SCOPE=1 and reconnect one workspace. Every already
+ * connected workspace needs that reconnect too, because a token only carries
+ * the scopes it was issued with -- which is the whole reason this is a switch
+ * and not simply added to the list.
+ */
+export const DATA_MANAGER_SCOPE = "https://www.googleapis.com/auth/datamanager";
+
+export function googleAdsScopes(env: Record<string, string | undefined> = process.env): string {
+  const flag = (env.GOOGLE_DATA_MANAGER_SCOPE ?? "").toLowerCase();
+  const wanted = flag === "1" || flag === "true" || flag === "yes";
+  return [
+    "https://www.googleapis.com/auth/adwords",
+    ...(wanted ? [DATA_MANAGER_SCOPE] : []),
+    "openid",
+    "email",
+    "profile",
+  ].join(" ");
+}
+
 /** App-level creds shared by all workspaces. Stored in env, set once by Leadlogr. */
 export function readGoogleAdsAppCreds(): GoogleAdsAppCreds | null {
   const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;

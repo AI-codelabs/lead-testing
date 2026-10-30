@@ -9,7 +9,8 @@ export {};
 process.env.GOOGLE_ADS_OAUTH_CLIENT_ID = "test-client";
 process.env.GOOGLE_ADS_OAUTH_CLIENT_SECRET = "test-secret";
 
-const { buildGoogleAdsCreds, listAdsAccounts, listConversionActions } = await import("./google-ads.server");
+const { buildGoogleAdsCreds, listAdsAccounts, listConversionActions, googleAdsScopes, DATA_MANAGER_SCOPE } =
+  await import("./google-ads.server");
 const { selectableAccounts, groupByManager, accountLabel, humanError, shouldLoadAccounts } =
   await import("./google-ads-accounts");
 
@@ -146,6 +147,22 @@ check("…until someone asks", walk({ hasSavedAccount: true, requested: true }),
 check("setup still loads the list", walk({}), true);
 check("nothing runs before settings arrive", walk({ settingsLoaded: false }), false);
 check("…and nothing runs while disconnected", walk({ connected: false, requested: true }), false);
+
+// ---- The Data Manager scope stays off until a real consent proves it -----
+console.log("\nData Manager scope — opt-in, because a bad scope fails the whole consent");
+check("off by default", googleAdsScopes({}).includes(DATA_MANAGER_SCOPE), false);
+check("…so consent keeps working untouched", googleAdsScopes({}),
+  "https://www.googleapis.com/auth/adwords openid email profile");
+for (const on of ["1", "true", "yes", "TRUE"]) {
+  check(`on for ${JSON.stringify(on)}`,
+    googleAdsScopes({ GOOGLE_DATA_MANAGER_SCOPE: on }).includes(DATA_MANAGER_SCOPE), true);
+}
+for (const off of ["0", "false", "", "no"]) {
+  check(`still off for ${JSON.stringify(off)}`,
+    googleAdsScopes({ GOOGLE_DATA_MANAGER_SCOPE: off }).includes(DATA_MANAGER_SCOPE), false);
+}
+check("adwords is never dropped when it is on",
+  googleAdsScopes({ GOOGLE_DATA_MANAGER_SCOPE: "1" }).includes("https://www.googleapis.com/auth/adwords"), true);
 
 console.log("\nUI codes:");
 check("not_connected becomes a sentence", humanError("not_connected"), "Not connected to Google Ads yet.");

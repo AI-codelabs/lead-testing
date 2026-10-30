@@ -308,7 +308,8 @@ export const startGoogleAdsOAuth = createServerFn({ method: "POST" })
       `${data.redirectOrigin}/api/public/oauth/google-ads/callback`,
     );
     auth.searchParams.set("response_type", "code");
-    auth.searchParams.set("scope", "https://www.googleapis.com/auth/adwords openid email profile");
+    const { googleAdsScopes } = await import("./google-ads.server");
+    auth.searchParams.set("scope", googleAdsScopes());
     auth.searchParams.set("access_type", "offline");
     // Forces a refresh token to be issued, and shows the account picker.
     auth.searchParams.set("prompt", "consent select_account");
