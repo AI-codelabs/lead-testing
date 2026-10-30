@@ -297,7 +297,10 @@ async function queryCustomerClients(
             FROM customer_client
             WHERE customer_client.status = 'ENABLED'
           `,
-          pageSize: 1000,
+          // No page size. v25 rejects it outright -- "Setting the page size is
+          // not supported. Search Responses will have fixed page size of
+          // '10000' rows" -- so asking for one is an error, not a hint.
+          // nextPageToken still works, which is all the loop below needs.
           ...(pageToken ? { pageToken } : {}),
         }),
       },
@@ -430,7 +433,6 @@ export async function fetchDailySpend(
           WHERE segments.date BETWEEN '${from}' AND '${to}'
           ORDER BY segments.date
         `,
-        pageSize: 1000,
       }),
     },
   );
@@ -487,7 +489,6 @@ export async function listConversionActions(
           WHERE conversion_action.status != 'REMOVED'
           ORDER BY conversion_action.name
         `,
-        pageSize: 200,
       }),
     },
   );
