@@ -10,7 +10,8 @@ process.env.GOOGLE_ADS_OAUTH_CLIENT_ID = "test-client";
 process.env.GOOGLE_ADS_OAUTH_CLIENT_SECRET = "test-secret";
 
 const { buildGoogleAdsCreds, listAdsAccounts, listConversionActions } = await import("./google-ads.server");
-const { selectableAccounts, groupByManager, accountLabel, humanError } = await import("./google-ads-accounts");
+const { selectableAccounts, groupByManager, accountLabel, humanError, shouldLoadAccounts } =
+  await import("./google-ads-accounts");
 
 let pass = 0, fail = 0;
 const check = (name: string, got: unknown, want: unknown) => {
@@ -114,6 +115,37 @@ msg = "";
 try { await listConversionActions(creds, "1", undefined); } catch (e: any) { msg = e.message; }
 check("a retired API version is named, not pasted", msg.includes("has almost certainly been retired"), true);
 check("…and no markup reaches the reader", msg.includes("<html"), false);
+
+// ---- Explorer: the two failures that only start happening once we are in ----
+console.log("\nExplorer readiness — failures that cannot occur until access is granted");
+const QUOTA_429 = JSON.stringify({ error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "Quota exceeded",
+  details: [{ errors: [{ errorCode: { quotaError: "RESOURCE_EXHAUSTED" },
+    message: "Too many requests. Retry in 3600 seconds." }] }] } });
+const NOT_ALLOWLISTED = JSON.stringify({ error: { code: 403, status: "PERMISSION_DENIED", message: "Not allowlisted",
+  details: [{ errors: [{ errorCode: { notAllowlistedError: "CUSTOMER_NOT_ALLOWLISTED_FOR_THIS_FEATURE" },
+    message: "Customer is not allowlisted for this feature." }] }] } });
+
+stub(() => ({ status: 429, body: QUOTA_429 }));
+msg = "";
+try { await listConversionActions(creds, "1", undefined); } catch (e: any) { msg = e.message; }
+check("daily quota says it clears itself", msg.includes("clears automatically within 24 hours"), true);
+check("…and never shows Google's retry seconds", /Retry in|seconds/.test(msg), false);
+
+stub(() => ({ status: 403, body: NOT_ALLOWLISTED }));
+msg = "";
+try { await listConversionActions(creds, "1", undefined); } catch (e: any) { msg = e.message; }
+check("the allowlist wall is explained, not echoed", msg.includes("not yet accepting uploaded conversions"), true);
+check("…and says leads are still collected", msg.includes("leads keep being collected"), true);
+check("…without the raw enum", msg.includes("CUSTOMER_NOT_ALLOWLISTED"), false);
+
+// ---- Explorer: 2,880 operations a day, shared across every customer -------
+console.log("\nExplorer readiness — the hierarchy walk stays off the shared quota");
+const walk = (o: any) => shouldLoadAccounts({ connected: true, settingsLoaded: true, hasSavedAccount: false, requested: false, ...o });
+check("a configured workspace costs nothing on arrival", walk({ hasSavedAccount: true }), false);
+check("…until someone asks", walk({ hasSavedAccount: true, requested: true }), true);
+check("setup still loads the list", walk({}), true);
+check("nothing runs before settings arrive", walk({ settingsLoaded: false }), false);
+check("…and nothing runs while disconnected", walk({ connected: false, requested: true }), false);
 
 console.log("\nUI codes:");
 check("not_connected becomes a sentence", humanError("not_connected"), "Not connected to Google Ads yet.");

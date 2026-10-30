@@ -62,3 +62,26 @@ export function humanError(raw: string | null | undefined): string | null {
   if (!raw) return null;
   return ERROR_SENTENCES[raw] ?? raw;
 }
+
+/**
+ * Whether to read the account hierarchy now.
+ *
+ * One API operation per manager account, counted against Leadlogr's Cloud
+ * project rather than the workspace spending them: Explorer allows 2,880 a day
+ * across every customer we have, so a configured workspace re-reading the list
+ * on every visit spends a shared allowance on an answer nobody asked for.
+ *
+ * It runs while an account is still being chosen, because then the list is the
+ * whole point, and afterwards only when asked for.
+ */
+export function shouldLoadAccounts(state: {
+  connected: boolean;
+  /** Settings have arrived; before that `hasSavedAccount` means nothing. */
+  settingsLoaded: boolean;
+  hasSavedAccount: boolean;
+  requested: boolean;
+}): boolean {
+  if (!state.connected) return false;
+  if (state.requested) return true;
+  return state.settingsLoaded && !state.hasSavedAccount;
+}

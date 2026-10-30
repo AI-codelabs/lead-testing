@@ -160,16 +160,52 @@ export const PLATFORM_NOT_READY =
   "Google is not accepting conversions for this workspace yet. We are completing " +
   "verification with Google — nothing for you to do, and your settings are saved.";
 
+/**
+ * Google counts a day's API operations against the Cloud project, not against
+ * the workspace making the call — so one busy agency can exhaust the allowance
+ * for every other customer. Explorer access allows 2,880 operations a day
+ * against production accounts, which is small enough to reach by accident.
+ *
+ * Nobody reading this caused it and nobody reading it can clear it, so it says
+ * what will happen instead: the allowance resets, and the work is not lost.
+ */
+export const PLATFORM_DAILY_LIMIT =
+  "Google's daily limit for Leadlogr has been reached. This clears automatically " +
+  "within 24 hours and nothing you have set up is affected — conversions still " +
+  "waiting are sent once it does.";
+
+/**
+ * Since 15 June 2026 Google has refused UploadClickConversions to callers
+ * without prior upload history, directing new integrations to the Data Manager
+ * API instead. It arrives as NotAllowlistedError, and it is the first thing we
+ * expect to hit once the project clears access review -- the account picker
+ * will work and the upload behind it will not.
+ */
+export const UPLOAD_NOT_ALLOWLISTED =
+  "Google is not yet accepting uploaded conversions for this workspace. Your " +
+  "settings are saved and leads keep being collected — only the send-back to " +
+  "Google is waiting.";
+
 function googleAdsError(prefix: string, status: number, body: string): string {
   try {
     const parsed = JSON.parse(body) as {
-      error?: { message?: string; details?: Array<{ errors?: Array<{ errorCode?: Record<string, string>; message?: string }> }> };
+      error?: { message?: string; status?: string; details?: Array<{ errors?: Array<{ errorCode?: Record<string, string>; message?: string }> }> };
     };
     const detail = parsed.error?.details?.flatMap((d) => d.errors ?? [])?.[0];
     const authzCode = detail?.errorCode?.authorizationError;
     if (authzCode && PLATFORM_AUTHORIZATION_CODES.has(authzCode)) {
       console.warn(`[google-ads] platform-side authorization: ${authzCode} — ${detail?.message ?? ""}`);
       return PLATFORM_NOT_READY;
+    }
+    const quotaCode = detail?.errorCode?.quotaError;
+    if (quotaCode === "RESOURCE_EXHAUSTED" || parsed.error?.status === "RESOURCE_EXHAUSTED") {
+      console.warn(`[google-ads] daily operation quota exhausted — ${detail?.message ?? parsed.error?.message ?? ""}`);
+      return PLATFORM_DAILY_LIMIT;
+    }
+    const allowlistCode = detail?.errorCode?.notAllowlistedError;
+    if (allowlistCode) {
+      console.warn(`[google-ads] not allowlisted: ${allowlistCode} — ${detail?.message ?? ""}`);
+      return UPLOAD_NOT_ALLOWLISTED;
     }
     const authCode = detail?.errorCode?.authenticationError;
     if (authCode === "NOT_ADS_USER") {

@@ -3,7 +3,13 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { PageHeader } from "@/components/leadlogr/page-header";
 import { useAccount } from "@/lib/account-context";
-import { selectableAccounts, groupByManager, accountLabel, humanError } from "@/lib/google-ads-accounts";
+import {
+  selectableAccounts,
+  groupByManager,
+  accountLabel,
+  humanError,
+  shouldLoadAccounts,
+} from "@/lib/google-ads-accounts";
 import {
   getGoogleAdsSettings,
   saveGoogleAdsSettings,
@@ -100,6 +106,15 @@ function GoogleAdsPage() {
   const [uploads, setUploads] = useState<Array<{ id: string; stage: string; status: string; value: number | null; currency: string | null; click_id_type: string | null; error: string | null; attempted_at: string }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [customersError, setCustomersError] = useState<string | null>(null);
+  /**
+   * Reading the hierarchy costs one API operation per manager account, and
+   * Google counts those against Leadlogr's Cloud project rather than against
+   * the workspace spending them — Explorer allows 2,880 a day across every
+   * customer we have. A configured workspace re-reading the whole list on each
+   * visit would spend that allowance on an answer nobody asked for, so the
+   * walk runs while an account is still being chosen, and on request after.
+   */
+  const [accountsRequested, setAccountsRequested] = useState(false);
 
   const refresh = useCallback(async () => {
     const [s, u] = await Promise.all([
@@ -182,9 +197,16 @@ function GoogleAdsPage() {
     window.history.replaceState({}, "", clean);
   }, [refresh]);
 
-  // Auto-load customers when connected.
+  const loadAccounts = shouldLoadAccounts({
+    connected: connection.connected,
+    settingsLoaded: !loading,
+    hasSavedAccount: !!form.customer_id,
+    requested: accountsRequested,
+  });
+
   useEffect(() => {
     if (!connection.connected) { setCustomers([]); return; }
+    if (!loadAccounts) return;
     setLoadingCustomers(true);
     listCustomers({ data: { organizationId } })
       .then((r) => {
@@ -193,7 +215,7 @@ function GoogleAdsPage() {
         if (r.error) setError(humanError(r.error));
       })
       .finally(() => setLoadingCustomers(false));
-  }, [connection.connected, organizationId, listCustomers]);
+  }, [connection.connected, loadAccounts, organizationId, listCustomers]);
 
   const selectableCustomers = useMemo(() => selectableAccounts(customers), [customers]);
   const customerGroups = useMemo(() => groupByManager(selectableCustomers), [selectableCustomers]);
@@ -393,11 +415,13 @@ function GoogleAdsPage() {
                 hint={
                   loadingCustomers
                     ? "Reading your account hierarchy…"
-                    : customersError
-                      ? "We could not read your accounts — see the message above."
-                      : selectableCustomers.length === 0
-                        ? "No client accounts found on this login."
-                        : `${selectableCustomers.length} client account${selectableCustomers.length === 1 ? "" : "s"}. Managers are shown as groups — conversions go to a client account.`
+                    : !loadAccounts
+                      ? "Saved. Load the list to pick a different account."
+                      : customersError
+                        ? "We could not read your accounts — see the message above."
+                        : selectableCustomers.length === 0
+                          ? "No client accounts found on this login."
+                          : `${selectableCustomers.length} client account${selectableCustomers.length === 1 ? "" : "s"}. Managers are shown as groups — conversions go to a client account.`
                 }
               >
                 <select
@@ -418,6 +442,9 @@ function GoogleAdsPage() {
                   className="w-full text-sm px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">— Pick an account —</option>
+                  {form.customer_id && !customers.some((c) => c.id === form.customer_id) && (
+                    <option value={form.customer_id}>{form.customer_id}</option>
+                  )}
                   {customerGroups.map(([via, group]) => {
                     const options = group.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -433,6 +460,15 @@ function GoogleAdsPage() {
                     );
                   })}
                 </select>
+                {!loadAccounts && (
+                  <button
+                    type="button"
+                    onClick={() => setAccountsRequested(true)}
+                    className="mt-1.5 text-[11px] font-medium text-primary hover:underline"
+                  >
+                    Load accounts
+                  </button>
+                )}
               </Field>
               <Field label="Default currency" hint="Used for Won deal values when no per-lead currency is set.">
                 <input
