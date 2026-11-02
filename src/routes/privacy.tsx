@@ -260,11 +260,19 @@ function PrivacyPage() {
           </table>
         </div>
         <p>
-          Our database and application are hosted in the European Union. Google and Meta receive
-          conversion data in the United States, and only where a workspace has connected them. Those
-          transfers rely on the European Commission's adequacy decision for the EU–US Data Privacy
-          Framework where the recipient is certified under it, and on the Commission's Standard
-          Contractual Clauses otherwise. You can ask us for a copy of the clauses that apply to you.
+          Our database and the code that runs the service are both in Frankfurt, so a lead is
+          recorded, stored and read inside the European Union. Static files — the page design,
+          scripts and images, which hold nobody's data — are cached on servers worldwide so pages
+          load quickly.
+        </p>
+        <p>
+          Three things do leave the European Union. Google and Meta receive conversion data in the
+          United States, and only where a workspace has connected them. Our email provider sends
+          invitations from the United States and keeps the delivery record there, which means the
+          recipient's address. Those transfers rely on the European Commission's adequacy decision
+          for the EU–US Data Privacy Framework where the recipient is certified under it, and on the
+          Commission's Standard Contractual Clauses otherwise. You can ask us for a copy of the
+          clauses that apply to you.
         </p>
         <p>
           We do not sell personal data, we do not use lead data to train anything, and we make no

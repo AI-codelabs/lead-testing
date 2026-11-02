@@ -48,12 +48,16 @@ export const SUBPROCESSORS = [
   {
     name: "Vercel",
     purpose: "Application hosting and delivery",
-    region: "European Union, with global edge delivery",
+    region: "European Union (Frankfurt); static files cached worldwide",
   },
   {
     name: "Resend",
+    // Their region setting governs which mail servers send, not where the
+    // account, the message metadata and the delivery logs are held — those
+    // are in the United States whatever it is set to. Saying "Ireland" here
+    // would have been a claim about the wrong half of the service.
     purpose: "Sending invitation and notification email",
-    region: "European Union (Ireland)",
+    region: "United States (message delivery, metadata and logs)",
   },
   {
     name: "Google",
