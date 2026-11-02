@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   DndContext,
   DragOverlay,
@@ -22,6 +24,7 @@ import {
   Filter,
   Lock,
   Palette,
+  Copy,
   Plus,
   SlidersHorizontal,
   X,
@@ -46,6 +49,8 @@ import {
 import { downloadCsv, timestamp, toCsv } from "@/lib/csv";
 import { useAccess, useAccount } from "@/lib/account-context";
 import { FormRulesDialog } from "@/components/leadlogr/form-rules-dialog";
+import { DuplicatesDialog } from "@/components/leadlogr/duplicates-dialog";
+import { listDuplicateLeads } from "@/lib/duplicates.functions";
 import { DATE_RANGES, exactTimestamp, relativeTime, withinRange } from "@/lib/lead-dates";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useLiveLeads } from "@/hooks/use-live-leads";
@@ -66,6 +71,21 @@ function PipelinePage() {
   const liveLeads = useLiveLeads(organizationId);
   const [seedLeads, setLeads] = useState<Lead[]>([]);
   const [formsOpen, setFormsOpen] = useState(false);
+  const [dupesOpen, setDupesOpen] = useState(false);
+
+  /**
+   * Double-counting is invisible from the board — two cards with the same name
+   * read as two people having a busy morning — and it distorts the only
+   * numbers this product reports. So the pipeline checks on arrival and says
+   * so, instead of waiting for somebody to notice.
+   */
+  const listDupes = useServerFn(listDuplicateLeads);
+  const { data: duplicates } = useQuery({
+    queryKey: ["duplicate-leads", organizationId],
+    queryFn: () => listDupes({ data: { organizationId } }),
+    enabled: !!organizationId,
+  });
+  const duplicateCount = duplicates?.length ?? 0;
   // Optimistic stage overrides for live (DB-backed) leads so UI updates
   // immediately on drop while the server write + next poll catch up.
   const [liveStageOverride, setLiveStageOverride] = useState<Record<string, string>>({});
@@ -477,6 +497,15 @@ function PipelinePage() {
                 </div>
               </PopoverContent>
             </Popover>
+            {duplicateCount > 0 && (
+              <button
+                onClick={() => setDupesOpen(true)}
+                className="text-sm font-medium px-3 py-2 rounded-md bg-stage-amber-soft text-stage-amber-ink ring-1 ring-stage-amber-line shadow-sm flex items-center gap-1.5 hover:brightness-95 transition-all"
+              >
+                <Copy className="size-3.5" />
+                {duplicateCount} duplicated {duplicateCount === 1 ? "enquiry" : "enquiries"}
+              </button>
+            )}
             <button
               onClick={() => setFormsOpen(true)}
               className="text-sm font-medium px-3 py-2 rounded-md bg-card text-foreground ring-1 ring-border shadow-sm flex items-center gap-1.5 hover:bg-muted transition-colors"
@@ -626,6 +655,11 @@ function PipelinePage() {
       <FormRulesDialog
         open={formsOpen}
         onOpenChange={setFormsOpen}
+        organizationId={organizationId}
+      />
+      <DuplicatesDialog
+        open={dupesOpen}
+        onOpenChange={setDupesOpen}
         organizationId={organizationId}
       />
     </>
