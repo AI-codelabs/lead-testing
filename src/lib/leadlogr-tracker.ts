@@ -243,6 +243,26 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
      'textarea-1' — while the label right beside each box said 'Bedrijfsnaam'
      and 'Omschrijving'. The visible label is usually the only honest
      description a field has. */
+  /* A form's own fields shadow its properties. Forminator ships a hidden
+     <input name="action">, so form.action stops being the URL and starts
+     being that element -- it JSON-stringifies to {}, which is what four real
+     Holland Huurt enquiries were tagged with before anyone noticed. Each was
+     booked two or three times, because de-duplication compares this value and
+     {} never equalled what the server read back.
+
+     The attribute is what the form actually declares and no field can shadow
+     it. Absent means "posts to itself", which '' says just as well, and
+     unlike form.action it does not drift when the URL gains a query string.
+     A field called id, method or submit clobbers the same way, so id is read
+     through here too. */
+  function formAttr(form, name) {
+    try {
+      if (!form || typeof form.getAttribute !== 'function') return '';
+      var v = form.getAttribute(name);
+      return typeof v === 'string' ? v : '';
+    } catch (e) { return ''; }
+  }
+
   function fieldHints(el) {
     var parts = [];
     try {
@@ -305,8 +325,8 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
       else extra.custom_fields[name || ('field_' + i)] = val;
     }
     // attach a small form fingerprint for debugging / dedupe
-    extra.form_id = form.id || '';
-    extra.form_action = form.action || '';
+    extra.form_id = formAttr(form, 'id');
+    extra.form_action = formAttr(form, 'action');
     return extra;
   }
 
@@ -357,7 +377,7 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
   function sendFormExtra(extra, form, why) {
     if (!extra) return false;
     if (!isEnquiry(extra, form)) {
-      log('ignored, nothing a business could act on', { via: why, form_id: (form && form.id) || '' });
+      log('ignored, nothing a business could act on', { via: why, form_id: formAttr(form, 'id') });
       return false;
     }
     log('submission captured', { via: why, form_id: extra.form_id, form_action: extra.form_action });
@@ -433,7 +453,7 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
     if (!form) return;
     submitIntentForm = form;
     submitIntentAt = Date.now();
-    log('submit intent', { why: why, form_id: form.id || '' });
+    log('submit intent', { why: why, form_id: formAttr(form, 'id') });
   }
   function clearSubmitIntent() {
     submitIntentForm = null;
@@ -695,7 +715,7 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
   window.Leadlogr = {
     submitForm: function (fields) { send(fields || {}); },
     config: CFG,
-    version: '3.0.0',
+    version: '3.0.1',
   };
 
   log('ready', { endpoint: CFG.endpoint, session: SESSION_ID });

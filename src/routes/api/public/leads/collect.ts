@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { str } from "@/lib/ingest-values";
 import { resolveIngestKey, withIngest } from "@/db";
 
 /**
@@ -74,12 +75,6 @@ const DEDUPE_WINDOW_MINUTES = 60;
 const SUPERSEDE_WINDOW_MINUTES = 10;
 
 /** Trims to a maximum length, and returns null for absent values. */
-function str(v: unknown, max = 2000): string | null {
-  if (v === null || v === undefined) return null;
-  const s = String(v).trim();
-  if (!s) return null;
-  return s.length > max ? s.slice(0, max) : s;
-}
 
 const json = (body: unknown, status: number, cors: Record<string, string>) =>
   new Response(JSON.stringify(body), {
