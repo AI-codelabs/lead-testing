@@ -45,10 +45,7 @@ export type ClickConversionInput = {
   value?: number;
   currencyCode?: string;
   orderId?: string;
-  userIdentifiers?: Array<
-    | { hashedEmail: string }
-    | { hashedPhoneNumber: string }
-  >;
+  userIdentifiers?: Array<{ hashedEmail: string } | { hashedPhoneNumber: string }>;
   /**
    * Runs the whole call — credentials, account, conversion action, payload —
    * and reports what would have happened without recording a conversion.
@@ -100,7 +97,9 @@ export function readGoogleAdsAppCreds(): GoogleAdsAppCreds | null {
 }
 
 /** Combine app-level creds with a workspace's refresh token. */
-export function buildGoogleAdsCreds(refreshToken: string | null | undefined): GoogleAdsCreds | null {
+export function buildGoogleAdsCreds(
+  refreshToken: string | null | undefined,
+): GoogleAdsCreds | null {
   const app = readGoogleAdsAppCreds();
   if (!app || !refreshToken) return null;
   return { ...app, refreshToken };
@@ -129,6 +128,34 @@ export async function getAccessToken(creds: GoogleAdsCreds): Promise<string> {
   const json = (await resp.json()) as { access_token?: string };
   if (!json.access_token) throw new Error("oauth_refresh_failed: no access_token");
   return json.access_token;
+}
+
+/**
+ * Tells Google to drop the grant, not just our copy of it.
+ *
+ * Deleting the refresh token row only makes us forget it: the authorization
+ * stays live in the user's Google account, listed under third-party access,
+ * until they remove it by hand. Someone who disconnects Google Ads means "stop
+ * having access", so the grant goes too.
+ *
+ * Revoking a refresh token revokes every token derived from it, so this is the
+ * whole grant rather than one session. Returns whether Google accepted it;
+ * never throws, because a disconnect must succeed even when Google is down —
+ * our own copy is already gone by then, which is the part we control.
+ */
+export async function revokeGoogleGrant(refreshToken: string): Promise<boolean> {
+  try {
+    const resp = await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token: refreshToken }),
+    });
+    // 400 invalid_token means it was already revoked or expired, which is the
+    // outcome we wanted anyway.
+    return resp.ok || resp.status === 400;
+  } catch {
+    return false;
+  }
 }
 
 export async function sha256Hex(input: string): Promise<string> {
@@ -220,17 +247,27 @@ export const UPLOAD_NOT_ALLOWLISTED =
 function googleAdsError(prefix: string, status: number, body: string): string {
   try {
     const parsed = JSON.parse(body) as {
-      error?: { message?: string; status?: string; details?: Array<{ errors?: Array<{ errorCode?: Record<string, string>; message?: string }> }> };
+      error?: {
+        message?: string;
+        status?: string;
+        details?: Array<{
+          errors?: Array<{ errorCode?: Record<string, string>; message?: string }>;
+        }>;
+      };
     };
     const detail = parsed.error?.details?.flatMap((d) => d.errors ?? [])?.[0];
     const authzCode = detail?.errorCode?.authorizationError;
     if (authzCode && PLATFORM_AUTHORIZATION_CODES.has(authzCode)) {
-      console.warn(`[google-ads] platform-side authorization: ${authzCode} — ${detail?.message ?? ""}`);
+      console.warn(
+        `[google-ads] platform-side authorization: ${authzCode} — ${detail?.message ?? ""}`,
+      );
       return PLATFORM_NOT_READY;
     }
     const quotaCode = detail?.errorCode?.quotaError;
     if (quotaCode === "RESOURCE_EXHAUSTED" || parsed.error?.status === "RESOURCE_EXHAUSTED") {
-      console.warn(`[google-ads] daily operation quota exhausted — ${detail?.message ?? parsed.error?.message ?? ""}`);
+      console.warn(
+        `[google-ads] daily operation quota exhausted — ${detail?.message ?? parsed.error?.message ?? ""}`,
+      );
       return PLATFORM_DAILY_LIMIT;
     }
     const allowlistCode = detail?.errorCode?.notAllowlistedError;
@@ -247,7 +284,9 @@ function googleAdsError(prefix: string, status: number, body: string): string {
     }
     const message = detail?.message || parsed.error?.message;
     if (message) return `${prefix}: ${message}`;
-  } catch { /* fall through to the non-JSON handling below */ }
+  } catch {
+    /* fall through to the non-JSON handling below */
+  }
 
   // Google answers with an HTML error page, not JSON, when the URL itself is
   // not a route it serves — which in practice means the API version in
@@ -296,10 +335,20 @@ export async function uploadClickConversion(
   });
   const text = await resp.text();
   let parsed: unknown = text;
-  try { parsed = JSON.parse(text); } catch { /* keep raw */ }
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    /* keep raw */
+  }
 
   if (!resp.ok) {
-    return { ok: false, status: resp.status, request: body, response: parsed, error: `http_${resp.status}` };
+    return {
+      ok: false,
+      status: resp.status,
+      request: body,
+      response: parsed,
+      error: `http_${resp.status}`,
+    };
   }
   const pfe = (parsed as { partialFailureError?: { message?: string } }).partialFailureError;
   if (pfe && pfe.message) {
@@ -517,11 +566,13 @@ export async function fetchDailySpend(
   return (json.results ?? []).flatMap((r) => {
     const day = r.segments?.date;
     if (!day) return [];
-    return [{
-      day,
-      costMicros: Number(r.metrics?.costMicros ?? 0),
-      currency: r.customer?.currencyCode ?? "EUR",
-    }];
+    return [
+      {
+        day,
+        costMicros: Number(r.metrics?.costMicros ?? 0),
+        currency: r.customer?.currencyCode ?? "EUR",
+      },
+    ];
   });
 }
 
@@ -565,23 +616,31 @@ export async function listConversionActions(
   }
   const json = (await resp.json()) as {
     results?: Array<{
-      conversionAction?: { id?: string; name?: string; category?: string; status?: string; type?: string };
+      conversionAction?: {
+        id?: string;
+        name?: string;
+        category?: string;
+        status?: string;
+        type?: string;
+      };
     }>;
   };
   return (json.results ?? []).flatMap((r) => {
     const ca = r.conversionAction;
     if (!ca?.id) return [];
-    return [{
-      id: String(ca.id),
-      name: ca.name ?? "",
-      category: ca.category ?? "",
-      status: ca.status ?? "",
-      type: ca.type ?? "",
-      // uploadClickConversions accepts only actions created for imported click
-      // conversions. A website action listed beside them looks identical here
-      // and fails at upload with INVALID_CONVERSION_ACTION, long after the
-      // person who chose it has moved on.
-      uploadable: ca.type === "UPLOAD_CLICKS",
-    }];
+    return [
+      {
+        id: String(ca.id),
+        name: ca.name ?? "",
+        category: ca.category ?? "",
+        status: ca.status ?? "",
+        type: ca.type ?? "",
+        // uploadClickConversions accepts only actions created for imported click
+        // conversions. A website action listed beside them looks identical here
+        // and fails at upload with INVALID_CONVERSION_ACTION, long after the
+        // person who chose it has moved on.
+        uploadable: ca.type === "UPLOAD_CLICKS",
+      },
+    ];
   });
 }

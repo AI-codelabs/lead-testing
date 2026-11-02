@@ -583,15 +583,44 @@ async function writeSettings(
   return { ok: true };
 }
 
-/** Forgets the stored credential. The settings row survives so config is kept. */
+/**
+ * Forgets the stored credential. The settings row survives so config is kept.
+ *
+ * For Google the grant is also revoked at Google, so disconnecting ends the
+ * access rather than only forgetting how to use it. Deleting our row alone
+ * left the authorization sitting in the user's Google account indefinitely,
+ * which is not what "disconnect" says to anyone reading the button.
+ */
 async function disconnect(organizationId: string, network: AdNetwork) {
   const { withOwner } = await import("@/db");
   await withOwner(async (db) => {
+    // Read before deleting: revoking needs the token, and the delete is what
+    // guarantees we have stopped using it even if Google never answers.
+    const held =
+      network === "google_ads"
+        ? await db.one<{ refresh_token: string | null }>(
+            `SELECT refresh_token FROM public.ad_platform_credentials
+              WHERE organization_id = $1 AND network = $2::ad_network`,
+            [organizationId, network],
+          )
+        : null;
+
     await db.sql(
       `DELETE FROM public.ad_platform_credentials
         WHERE organization_id = $1 AND network = $2::ad_network`,
       [organizationId, network],
     );
+
+    if (held?.refresh_token) {
+      const { revokeGoogleGrant } = await import("@/lib/google-ads.server");
+      const revoked = await revokeGoogleGrant(held.refresh_token);
+      if (!revoked) {
+        // Our copy is gone either way; say so rather than failing the
+        // disconnect, so the record shows the grant may still be listed in
+        // the user's Google account.
+        console.warn("[disconnect] google grant not revoked at Google", { organizationId });
+      }
+    }
     await db.sql(
       `UPDATE public.ad_platform_settings
           SET enabled = false, connected_email = NULL, connected_at = NULL

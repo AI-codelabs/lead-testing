@@ -32,7 +32,7 @@ export const COMPANY = {
 } as const;
 
 /** Shown on the policies. Update when their wording changes, not on deploy. */
-export const POLICY_LAST_UPDATED = "6 October 2026";
+export const POLICY_LAST_UPDATED = "2 November 2026";
 
 /**
  * Processors with access to customer data, named because a policy that says

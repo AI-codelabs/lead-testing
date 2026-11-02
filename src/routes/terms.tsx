@@ -8,7 +8,8 @@ export const Route = createFileRoute("/terms")({
       { title: "Terms of Service — Leadlogr" },
       {
         name: "description",
-        content: "The terms under which Leadlogr may be used, and what each side is responsible for.",
+        content:
+          "The terms under which Leadlogr may be used, and what each side is responsible for.",
       },
     ],
   }),
@@ -48,15 +49,15 @@ function TermsPage() {
         </p>
         <p>
           Where an agency manages a workspace on your behalf, the workspace remains yours. You
-          choose how much of it the agency can see, and you may remove their access at any time.
-          An agency may build a workspace before handing it over; once you accept, you own it.
+          choose how much of it the agency can see, and you may remove their access at any time. An
+          agency may build a workspace before handing it over; once you accept, you own it.
         </p>
       </Section>
 
       <Section heading="What you are responsible for">
         <p>
-          You decide what data your forms collect and why, which makes you the controller of it.
-          In particular:
+          You decide what data your forms collect and why, which makes you the controller of it. In
+          particular:
         </p>
         <List
           items={[
@@ -67,9 +68,9 @@ function TermsPage() {
             <>
               You must operate a working consent mechanism on any site using our tracking script
               where the law requires one. Our script reads the consent state it finds and reports
-              it; it does not obtain consent on your behalf. Where consent was not given we
-              withhold the lead's email and telephone number from everything sent to advertising
-              platforms, but that is a safeguard, not a substitute for your own compliance.
+              it; it does not obtain consent on your behalf. Where consent was not given we withhold
+              the lead's email and telephone number from everything sent to advertising platforms,
+              but that is a safeguard, not a substitute for your own compliance.
             </>,
             <>
               You must not use Leadlogr to collect special categories of personal data — health,
@@ -85,10 +86,75 @@ function TermsPage() {
 
       <Section heading="What we will not do">
         <p>
-          We do not sell your data or your leads' data, we do not share it with other customers,
-          and we do not use it to train machine learning models. Workspaces are separated at the
+          We do not sell your data or your leads' data, we do not share it with other customers, and
+          we do not use it to train machine learning models. Workspaces are separated at the
           database level, not only in the interface.
         </p>
+      </Section>
+
+      <Section heading="Data processing terms">
+        <p>
+          For lead data you are the controller and we are your processor, so the law requires a
+          written agreement between us about it. This section is that agreement; accepting these
+          terms accepts it, and no separate signature is needed. Where you require your own data
+          processing agreement instead, write to {COMPANY.contactEmail} and we will sign one.
+        </p>
+        <List
+          items={[
+            <>
+              <strong>Scope and duration.</strong> We process the personal data your forms collect,
+              concerning the people who submit them, in order to record enquiries, show them to you,
+              and report their outcomes to platforms you have connected. Processing lasts as long as
+              your workspace does.
+            </>,
+            <>
+              <strong>Only on your instructions.</strong> We process that data to provide the
+              service and for no purpose of our own. Your configuration — which forms count, which
+              stages report, which platforms are connected — is your instruction to us. If we ever
+              believe an instruction breaks data protection law, we will tell you rather than
+              quietly carry it out.
+            </>,
+            <>
+              <strong>Confidentiality.</strong> Everyone with access is bound to confidentiality,
+              and access is limited to those who need it to do their work.
+            </>,
+            <>
+              <strong>Security.</strong> We keep appropriate technical and organisational measures,
+              described in our privacy policy, and will not weaken them during your contract.
+            </>,
+            <>
+              <strong>Sub-processors.</strong> You authorise the providers listed in our privacy
+              policy. Each is bound by terms no weaker than these, and we remain answerable to you
+              for them. We will give at least thirty days' notice before adding or replacing one,
+              and you may object; if we cannot resolve the objection you may end your use of the
+              service and take your data with you.
+            </>,
+            <>
+              <strong>Helping you with requests.</strong> If one of your leads asks for access,
+              correction, erasure or a copy, we will help you answer. You can see, edit, export and
+              delete any lead yourself at any time, which usually makes that immediate.
+            </>,
+            <>
+              <strong>Breaches.</strong> We will tell you without undue delay after becoming aware
+              of a personal data breach affecting your data, with what we know, so you can meet your
+              own notification duties.
+            </>,
+            <>
+              <strong>Assessments and audits.</strong> We will give you the information you
+              reasonably need for a data protection impact assessment or to demonstrate compliance,
+              and will cooperate with an audit on reasonable notice.
+            </>,
+            <>
+              <strong>Transfers.</strong> Processing happens in the European Union. Data leaves it
+              only where you connect a platform that receives it abroad, under the safeguards named
+              in our privacy policy.
+            </>,
+            <>
+              <strong>Deletion at the end.</strong> Deleting your workspace deletes the data. Export
+              what you need first, because we cannot restore it afterwards.
+            </>,
+          ]}
+        />
       </Section>
 
       <Section heading="Acceptable use">
@@ -123,8 +189,8 @@ function TermsPage() {
 
       <Section heading="Your data, and leaving">
         <p>
-          Your data remains yours. You can export your leads to CSV at any time while your
-          workspace is active, and we would encourage you to do so before closing it.
+          Your data remains yours. You can export your leads to CSV at any time while your workspace
+          is active, and we would encourage you to do so before closing it.
         </p>
         <p>
           You may stop using Leadlogr whenever you like. Deleting a workspace deletes its leads,
