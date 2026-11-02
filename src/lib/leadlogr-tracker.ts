@@ -194,8 +194,19 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
     };
   }
 
+  /* The same number written differently is not a second enquiry. Phone
+     widgets reformat 0634893503 into +31 0634893503 when the visitor leaves
+     the field, and that re-fires the submit: four real Holland Huurt
+     enquiries were booked twice because this key contained the raw string and
+     the raw string had changed. Digits only, last nine, so any prefix a
+     formatter prepends falls away. */
+  function phoneKey(v) {
+    var digits = String(v || '').replace(/[^0-9]/g, '');
+    return digits.length > 9 ? digits.slice(-9) : digits;
+  }
+
   function dedupeKey(p) {
-    return [p.email || '', p.phone || '', p.name || '', p.page_path || ''].join('|').toLowerCase();
+    return [p.email || '', phoneKey(p.phone), p.name || '', p.page_path || ''].join('|').toLowerCase();
   }
   function shouldSkip(p) {
     var now = Date.now(), key = dedupeKey(p);
@@ -316,7 +327,7 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
       // that labels are matched too, or 'Vertel ons meer' becomes a phone
       // number.
       if (type === 'email' || /e-?mail|email/.test(hints)) extra.email = val;
-      else if (type === 'tel' || /telefoon|telephone|phone|mobiel|mobile|gsm|\btel\b/.test(hints)) extra.phone = val;
+      else if (type === 'tel' || /telefoon|telephone|phone|mobiel|mobile|gsm|\\btel\\b/.test(hints)) extra.phone = val;
       else if (/company|organi[sz]ation|business|bedrijf/.test(hints)) extra.company = val;
       else if (/name|naam|voornaam|achternaam/.test(hints) && !extra.name) extra.name = val;
       else if ((type === 'textarea' ||
@@ -715,7 +726,7 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
   window.Leadlogr = {
     submitForm: function (fields) { send(fields || {}); },
     config: CFG,
-    version: '3.0.1',
+    version: '3.1.0',
   };
 
   log('ready', { endpoint: CFG.endpoint, session: SESSION_ID });

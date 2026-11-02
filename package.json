@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "bun src/lib/google-ads-wizard.test.ts && bun src/lib/form-action-clobbering.test.ts"
+    "test": "bun src/lib/google-ads-wizard.test.ts && bun src/lib/lead-dedupe.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

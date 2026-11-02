@@ -84,5 +84,47 @@ const storedAfter = formAttr(forminatorForm, "action");
 const sentAfter = str(formAttr(forminatorForm, "action")) ?? "";
 check("after: they agree", storedAfter === sentAfter, true);
 
+// --- escapes the template literal silently eats ---------------------------
+// The tracker is built from a JS template literal, where \b means backspace,
+// not word boundary. /gsm|\btel\b/ shipped for days as /gsm|<BS>tel<BS>/ --
+// a branch that can never match, so a field named just "tel" was never read
+// as a phone. Nothing failed; it just quietly stopped working.
+console.log("\nControl characters in the generated tracker");
+const ctrl = [...src].filter((c) => {
+  const n = c.charCodeAt(0);
+  return n < 32 && c !== "\n" && c !== "\r" && c !== "\t";
+});
+check("no stray control characters", ctrl.map((c) => c.charCodeAt(0)), []);
+check("the word boundary survives as a word boundary",
+  /gsm\|\\btel\\b/.test(src), true);
+
+// the shipped regex, lifted and run
+const telRe = /\/telefoon\|[^/]*\//.exec(src);
+check("phone-hint regex found", !!telRe, true);
+const phoneHint = new Function(`return ${telRe![0]};`)() as RegExp;
+check("a field named 'tel' is a phone", phoneHint.test("tel"), true);
+check("'telefoon' still matches", phoneHint.test("telefoon"), true);
+check("'hotel' is not a phone", phoneHint.test("hotel"), false);
+check("'vertel ons meer' is not a phone", phoneHint.test("vertel ons meer"), false);
+
+// --- the phone key that stops a reformat looking like a new enquiry -------
+console.log("\nphoneKey");
+const pkSrc = /function phoneKey\(v\) \{[\s\S]*?\n  \}/.exec(src);
+check("phoneKey found in the shipped source", !!pkSrc, true);
+const phoneKey = new Function(`${pkSrc![0]}; return phoneKey;`)() as (v: unknown) => string;
+const sameNumber: Array<[string, string]> = [
+  ["0634893503", "+31 0634893503"],
+  ["6 21572792", "+31 6 21572792"],
+  ["0618686636", "+31 0618686636"],
+  ["06-11250686", "+31 (0)6 11250686"],
+];
+for (const [a, b] of sameNumber) {
+  check(`${a} and ${b} are one number`, phoneKey(a), phoneKey(b));
+}
+check("two different numbers stay different",
+  phoneKey("0612345678") === phoneKey("0698765432"), false);
+check("empty stays empty", phoneKey(""), "");
+check("undefined is survivable", phoneKey(undefined), "");
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
