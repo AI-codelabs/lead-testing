@@ -164,7 +164,7 @@ export const setLeadStage = createServerFn({ method: "POST" })
 
     try {
       const { queueConversion } = await import("./conversions.functions");
-      void queueConversion({ data: { leadId: data.leadId, stage: data.stage } });
+      void queueConversion({ leadId: data.leadId, stage: data.stage });
     } catch {
       // A conversion upload must never fail a stage change.
     }

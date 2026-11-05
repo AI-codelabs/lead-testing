@@ -130,7 +130,7 @@ export const Route = createFileRoute("/api/public/crm/$key")({
           // and never let that failing undo the stage change itself.
           try {
             const { queueConversion } = await import("@/lib/conversions.functions");
-            void queueConversion({ data: { leadId: lead.id, stage } });
+            void queueConversion({ leadId: lead.id, stage });
           } catch {
             /* recorded by the uploader, not this webhook */
           }

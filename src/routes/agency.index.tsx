@@ -23,13 +23,10 @@ export const Route = createFileRoute("/agency/")({
   component: AgencyOverview,
 });
 
-const symbols: Record<string, string> = { EUR: "€", USD: "$", GBP: "£" };
-
 function AgencyOverview() {
   const { clientWorkspaces, enterClient } = useAccount();
   const navigate = useNavigate();
 
-  const totalMrr = clientWorkspaces.reduce((sum, c) => sum + c.monthlyReferralFee, 0);
   const totalLeads = clientWorkspaces.reduce((sum, c) => sum + c.leadsCount, 0);
   const avgConv =
     clientWorkspaces.length === 0
@@ -70,13 +67,13 @@ function AgencyOverview() {
       <PageHeader
         eyebrow="Agency"
         title="Clients overview"
-        description="All client workspaces under your management, with monthly referral fees and key metrics."
+        description="All client workspaces under your management, with key metrics."
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <SummaryCard label="Clients" value={clientWorkspaces.length.toString()} />
-        <SummaryCard label="Monthly referral total" value={`€${totalMrr.toLocaleString()}`} />
-        <SummaryCard label="Avg. conversion" value={`${(avgConv * 100).toFixed(1)}%`} hint={`${totalLeads} total leads`} />
+        <SummaryCard label="Total leads" value={totalLeads.toLocaleString()} />
+        <SummaryCard label="Avg. conversion" value={`${(avgConv * 100).toFixed(1)}%`} />
       </div>
 
       <div className="rounded-xl bg-card shadow-xs ring-1 ring-border overflow-hidden">
@@ -87,14 +84,12 @@ function AgencyOverview() {
               <th className="px-5 py-3">Access level</th>
               <th className="px-5 py-3 text-right">Leads</th>
               <th className="px-5 py-3 text-right">Conv. rate</th>
-              <th className="px-5 py-3 text-right">Referral fee / mo</th>
               <th className="px-5 py-3" />
             </tr>
           </thead>
           <tbody>
             {clientWorkspaces.map((c) => {
               const access = c.agencyAccess;
-              const sym = symbols[c.currency] ?? "€";
               return (
                 <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="px-5 py-3.5">
@@ -121,7 +116,6 @@ function AgencyOverview() {
                   </td>
                   <td className="px-5 py-3.5 text-right font-mono">{c.leadsCount.toLocaleString()}</td>
                   <td className="px-5 py-3.5 text-right font-mono">{(c.conversionRate * 100).toFixed(1)}%</td>
-                  <td className="px-5 py-3.5 text-right font-mono">{sym}{c.monthlyReferralFee.toLocaleString()}</td>
                   <td className="px-5 py-3.5 text-right whitespace-nowrap">
                   {!c.claimed && (
                     <button
@@ -146,7 +140,7 @@ function AgencyOverview() {
             })}
             {clientWorkspaces.length === 0 && (
               <TableEmptyState
-                colSpan={6}
+                colSpan={5}
                 icon={Building2}
                 title="No client workspaces yet"
                 description="Invite a client and their workspace appears here with live lead counts and conversion rates."

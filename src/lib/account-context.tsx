@@ -19,8 +19,6 @@ export type ClientWorkspace = {
   claimed: boolean;
   ownerName: string;
   ownerEmail: string;
-  monthlyReferralFee: number;
-  currency: "EUR" | "USD" | "GBP";
   leadsCount: number;
   conversionRate: number; // 0-1
   /** Permission the workspace owner granted to the agency. null = no agency access. */

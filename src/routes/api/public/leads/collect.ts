@@ -268,7 +268,7 @@ export const Route = createFileRoute("/api/public/leads/collect")({
           try {
             if (!excluded) {
               const { queueConversion } = await import("@/lib/conversions.functions");
-              void queueConversion({ data: { leadId, stage: "new" } });
+              void queueConversion({ leadId, stage: "new" });
             }
           } catch {
             /* ignored by design */

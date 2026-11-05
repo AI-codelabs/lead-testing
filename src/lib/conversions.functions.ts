@@ -1,4 +1,3 @@
-import { createServerFn } from "@tanstack/react-start";
 import { withOwner } from "@/db";
 import {
   buildGoogleAdsCreds,
@@ -10,13 +9,17 @@ import { sendMetaCapiEvent, buildFbc } from "./meta-capi.server";
 import type { DbStage } from "./lead-mapping";
 
 /**
- * Conversion upload to Google Ads and Meta.
+ * Conversion upload to Google Ads, Meta and LinkedIn.
  *
  * Runs on the owner connection rather than a user-scoped one, because it needs
  * ad platform credentials that app_user is deliberately not granted, and
  * because it is triggered in the background where no session exists. The lead
  * id is resolved to its organization here — nothing about the tenant comes
  * from the caller.
+ *
+ * `queueConversion` is a plain server helper, not a createServerFn: it must
+ * only be imported from trusted server routes / other server functions. Making
+ * it a public RPC would let anyone with a lead id fire outbound API calls.
  */
 
 const STAGE_TO_ACTION_COLUMN: Record<DbStage, string | null> = {
@@ -78,15 +81,22 @@ async function loadContext(leadId: string, network: AdUploadNetwork, stage: DbSt
     );
     if (!lead) return null;
 
+    // Fixed CASE — no dynamic column names in SQL.
     const settings = await db.one<SettingsForUpload>(
       `SELECT s.enabled, s.account_id, s.secondary_id, s.default_currency, s.test_event_code,
-              s.${actionColumn} AS action,
+              CASE $3::text
+                WHEN 'action_new'        THEN s.action_new
+                WHEN 'action_qualified'  THEN s.action_qualified
+                WHEN 'action_won'        THEN s.action_won
+                WHEN 'action_lost'       THEN s.action_lost
+                ELSE NULL
+              END AS action,
               c.refresh_token, c.access_token
          FROM public.ad_platform_settings s
     LEFT JOIN public.ad_platform_credentials c
            ON c.organization_id = s.organization_id AND c.network = s.network
         WHERE s.organization_id = $1 AND s.network = $2::ad_network`,
-      [lead.organization_id, network],
+      [lead.organization_id, network, actionColumn],
     );
 
     return { lead, settings };
@@ -389,22 +399,25 @@ async function uploadLinkedIn(leadId: string, stage: DbStage): Promise<UploadRes
  *
  * Idempotent per (lead, network, stage) via the unique index on
  * conversion_uploads, so a retried stage change cannot double-report.
+ *
+ * Server-only — call from ingest/CRM/stage handlers, never expose as RPC.
  */
-export const queueConversion = createServerFn({ method: "POST" })
-  .inputValidator((data: { leadId: string; stage: string }) => {
-    if (!data?.leadId) throw new Error("leadId is required");
-    if (!data?.stage) throw new Error("stage is required");
-    return { leadId: data.leadId, stage: data.stage as DbStage };
-  })
-  .handler(async ({ data }) => {
-    const [google, meta, linkedin] = await Promise.allSettled([
-      uploadGoogleAds(data.leadId, data.stage),
-      uploadMeta(data.leadId, data.stage),
-      uploadLinkedIn(data.leadId, data.stage),
-    ]);
+export async function queueConversion(input: {
+  leadId: string;
+  stage: string;
+}): Promise<{ google: UploadResult; meta: UploadResult; linkedin: UploadResult }> {
+  if (!input?.leadId) throw new Error("leadId is required");
+  if (!input?.stage) throw new Error("stage is required");
+  const stage = input.stage as DbStage;
 
-    const settled = (r: PromiseSettledResult<UploadResult>): UploadResult =>
-      r.status === "fulfilled" ? r.value : { ok: false, error: String(r.reason) };
+  const [google, meta, linkedin] = await Promise.allSettled([
+    uploadGoogleAds(input.leadId, stage),
+    uploadMeta(input.leadId, stage),
+    uploadLinkedIn(input.leadId, stage),
+  ]);
 
-    return { google: settled(google), meta: settled(meta), linkedin: settled(linkedin) };
-  });
+  const settled = (r: PromiseSettledResult<UploadResult>): UploadResult =>
+    r.status === "fulfilled" ? r.value : { ok: false, error: String(r.reason) };
+
+  return { google: settled(google), meta: settled(meta), linkedin: settled(linkedin) };
+}

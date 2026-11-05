@@ -367,8 +367,6 @@ export const listAgencyClients = createServerFn({ method: "POST" })
           // so there is no client contact to show yet.
           ownerName: c.claimed ? c.ownerName || c.ownerEmail : "",
           ownerEmail: c.claimed ? c.ownerEmail : "",
-          monthlyReferralFee: 0,
-          currency: "EUR" as const,
           leadsCount: total,
           conversionRate: total > 0 ? Number(c.wonCount) / total : 0,
           agencyAccess: c.agencyAccess,

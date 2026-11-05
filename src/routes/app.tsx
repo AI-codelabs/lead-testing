@@ -50,10 +50,6 @@ function AppLayout() {
           <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
             Workspace · {workspaceName}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="size-1.5 rounded-full bg-success animate-pulse" />
-            <span className="text-xs font-medium text-muted-foreground">All systems synced</span>
-          </div>
         </div>
         <PageContainer width={pageWidth}>
           <Outlet />
