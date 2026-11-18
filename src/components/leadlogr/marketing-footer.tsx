@@ -31,9 +31,6 @@ export function MarketingFooter() {
             </a>
           </div>
         </div>
-        {/* Was "Leadlogr Systems Inc.", a company that does not exist. Google's
-            brand verification checks the site against the company register, so
-            an invented entity fails it — and misstates who users contract with. */}
         <div className="mt-16 flex flex-col gap-1 border-t border-border/60 pt-8">
           <span className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} {COMPANY.legalName}
