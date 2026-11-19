@@ -889,6 +889,7 @@ export const testMetaAdsConnection = createServerFn({ method: "POST" })
 export type ConversionUploadRow = {
   id: string;
   lead_id: string;
+  lead_name: string | null;
   network: AdNetwork;
   stage: string;
   status: string;
@@ -909,11 +910,14 @@ export const listConversionUploads = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ uploads: ConversionUploadRow[] }> => {
     const orgId = await requireOrganization(context.db, data.organizationId);
     const uploads = await context.db.sql<ConversionUploadRow>(
-      `SELECT id, lead_id, network, stage::text AS stage, status::text AS status,
-              value, currency, click_id_type, error, attempted_at, succeeded_at
-         FROM public.conversion_uploads
-        WHERE organization_id = $1
-     ORDER BY COALESCE(attempted_at, created_at) DESC
+      `SELECT u.id, u.lead_id,
+              COALESCE(NULLIF(trim(l.name), ''), NULLIF(trim(l.email), ''), 'Lead') AS lead_name,
+              u.network, u.stage::text AS stage, u.status::text AS status,
+              u.value, u.currency, u.click_id_type, u.error, u.attempted_at, u.succeeded_at
+         FROM public.conversion_uploads u
+    LEFT JOIN public.leads l ON l.id = u.lead_id
+        WHERE u.organization_id = $1
+     ORDER BY COALESCE(u.attempted_at, u.created_at) DESC
         LIMIT $2`,
       [orgId, data.limit],
     );

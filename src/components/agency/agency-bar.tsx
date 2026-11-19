@@ -47,7 +47,7 @@ export function AgencyBar() {
     // the sidebar's offset below it never drifts.
     <div
       ref={ref}
-      className="sticky top-0 z-40 flex items-center justify-between gap-3 bg-foreground px-6 py-2 text-xs text-background"
+      className="sticky top-0 z-40 flex items-center justify-between gap-3 bg-[#e3f4ec] px-6 py-2.5 text-xs text-[#066542]"
     >
       <div className="flex min-w-0 items-center gap-2">
         <Eye className="size-3.5 shrink-0" />

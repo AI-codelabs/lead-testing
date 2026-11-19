@@ -26,6 +26,8 @@ import { Route as AppCrmRouteImport } from './routes/app.crm'
 import { Route as AppDashboardRouteImport } from './routes/app.dashboard'
 import { Route as AppIntegrationsRouteImport } from './routes/app.integrations'
 import { Route as AppPipelineRouteImport } from './routes/app.pipeline'
+import { Route as AppReportsRouteImport } from './routes/app.reports'
+import { Route as AppSignalsRouteImport } from './routes/app.signals'
 import { Route as AppTrackingRouteImport } from './routes/app.tracking'
 import { Route as AuthSplatRouteImport } from './routes/auth/$'
 import { Route as TrackerV1DotjsRouteImport } from './routes/tracker.v1[.]js'
@@ -122,6 +124,16 @@ const AppPipelineRoute = AppPipelineRouteImport.update({
   path: '/pipeline',
   getParentRoute: () => AppRoute,
 } as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSignalsRoute = AppSignalsRouteImport.update({
+  id: '/signals',
+  path: '/signals',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTrackingRoute = AppTrackingRouteImport.update({
   id: '/tracking',
   path: '/tracking',
@@ -192,6 +204,8 @@ export interface FileRoutesByFullPath {
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
+  '/app/reports': typeof AppReportsRoute
+  '/app/signals': typeof AppSignalsRoute
   '/app/tracking': typeof AppTrackingRoute
   '/auth/$': typeof AuthSplatRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
@@ -219,6 +233,8 @@ export interface FileRoutesByTo {
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
+  '/app/reports': typeof AppReportsRoute
+  '/app/signals': typeof AppSignalsRoute
   '/app/tracking': typeof AppTrackingRoute
   '/auth/$': typeof AuthSplatRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
@@ -249,6 +265,8 @@ export interface FileRoutesById {
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
   '/app/pipeline': typeof AppPipelineRoute
+  '/app/reports': typeof AppReportsRoute
+  '/app/signals': typeof AppSignalsRoute
   '/app/tracking': typeof AppTrackingRoute
   '/auth/$': typeof AuthSplatRoute
   '/tracker/v1.js': typeof TrackerV1DotjsRoute
@@ -280,6 +298,8 @@ export interface FileRouteTypes {
     | '/app/dashboard'
     | '/app/integrations'
     | '/app/pipeline'
+    | '/app/reports'
+    | '/app/signals'
     | '/app/tracking'
     | '/auth/$'
     | '/tracker/v1.js'
@@ -307,6 +327,8 @@ export interface FileRouteTypes {
     | '/app/dashboard'
     | '/app/integrations'
     | '/app/pipeline'
+    | '/app/reports'
+    | '/app/signals'
     | '/app/tracking'
     | '/auth/$'
     | '/tracker/v1.js'
@@ -336,6 +358,8 @@ export interface FileRouteTypes {
     | '/app/dashboard'
     | '/app/integrations'
     | '/app/pipeline'
+    | '/app/reports'
+    | '/app/signals'
     | '/app/tracking'
     | '/auth/$'
     | '/tracker/v1.js'
@@ -488,6 +512,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPipelineRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/reports': {
+      id: '/app/reports'
+      path: '/reports'
+      fullPath: '/app/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/signals': {
+      id: '/app/signals'
+      path: '/signals'
+      fullPath: '/app/signals'
+      preLoaderRoute: typeof AppSignalsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/tracking': {
       id: '/app/tracking'
       path: '/tracking'
@@ -598,6 +636,8 @@ interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppIntegrationsRoute: typeof AppIntegrationsRouteWithChildren
   AppPipelineRoute: typeof AppPipelineRoute
+  AppReportsRoute: typeof AppReportsRoute
+  AppSignalsRoute: typeof AppSignalsRoute
   AppTrackingRoute: typeof AppTrackingRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -608,6 +648,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppIntegrationsRoute: AppIntegrationsRouteWithChildren,
   AppPipelineRoute: AppPipelineRoute,
+  AppReportsRoute: AppReportsRoute,
+  AppSignalsRoute: AppSignalsRoute,
   AppTrackingRoute: AppTrackingRoute,
   AppIndexRoute: AppIndexRoute,
 }

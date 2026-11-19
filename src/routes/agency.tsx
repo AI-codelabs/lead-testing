@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { LayoutGrid, Mail, Settings } from "lucide-react";
+import { LayoutGrid, Mail, Settings, Percent, Palette } from "lucide-react";
 import { PageContainer } from "@/components/leadlogr/page-container";
 import { usePageWidth } from "@/lib/page-width";
 import { Logo } from "@/components/leadlogr/logo";
@@ -13,22 +13,15 @@ export const Route = createFileRoute("/agency")({
   component: AgencyLayout,
 });
 
+const linkClass =
+  "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors";
+
 function AgencyLayout() {
   const pageWidth = usePageWidth();
-  const { accountType, workspaceReady, authReady, isAuthenticated } = useAccount();
+  const { accountType, workspaceReady, authReady, isAuthenticated, ownWorkspace } = useAccount();
   const navigate = useNavigate();
 
-  // Soft guard: non-agency workspaces belong in the main app.
-  //
-  // This runs in an effect rather than `throw redirect()` in the render body.
-  // A thrown redirect here is caught by the route's error boundary instead of
-  // being handled by the router, which surfaced as "This page didn't load".
-  // The account type is also only known once the active organization has
-  // resolved, so acting earlier redirects on an unconfirmed default.
   useEffect(() => {
-    // Signing out clears the account type, which would otherwise read as
-    // "not an agency" and bounce the user into the authenticated app shell
-    // instead of the login page.
     if (authReady && !isAuthenticated) {
       navigate({ to: "/login", replace: true });
       return;
@@ -43,45 +36,65 @@ function AgencyLayout() {
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-      <aside className="w-60 shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col sticky top-[var(--agency-bar-height,0px)] h-[calc(100dvh-var(--agency-bar-height,0px))]">
-        <div className="h-16 px-5 flex items-center border-b border-sidebar-border">
-          <Logo to="/agency" />
+      <aside className="w-[248px] shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground flex flex-col sticky top-[var(--agency-bar-height,0px)] h-[calc(100dvh-var(--agency-bar-height,0px))]">
+        <div className="h-16 px-4 flex items-center border-b border-sidebar-border">
+          <Logo to="/agency" onDark />
+        </div>
+        <div className="px-3 pt-3">
+          <div className="rounded-xl bg-white/5 px-3 py-2.5 ring-1 ring-white/10">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+              Agency
+            </div>
+            <div className="text-sm font-bold text-white truncate mt-0.5">
+              {ownWorkspace.name || "Agency"}
+            </div>
+          </div>
         </div>
         <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
           <Link
             to="/agency"
             activeOptions={{ exact: true }}
-            activeProps={{ className: "bg-muted text-foreground ring-1 ring-border" }}
-            inactiveProps={{
-              className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-            }}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            activeProps={{ className: "bg-white/12 text-white" }}
+            inactiveProps={{ className: "text-white/65 hover:bg-white/8 hover:text-white" }}
+            className={linkClass}
           >
             <LayoutGrid className="size-4" />
-            Clients overview
+            Clients
           </Link>
+          <a
+            href="#commission"
+            className={`${linkClass} text-white/65 hover:bg-white/8 hover:text-white`}
+          >
+            <Percent className="size-4" />
+            Commission
+          </a>
           <Link
             to="/agency/invites"
-            activeProps={{ className: "bg-muted text-foreground ring-1 ring-border" }}
-            inactiveProps={{
-              className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-            }}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+            activeProps={{ className: "bg-white/12 text-white" }}
+            inactiveProps={{ className: "text-white/65 hover:bg-white/8 hover:text-white" }}
+            className={linkClass}
           >
             <Mail className="size-4" />
-            Invites
+            Invite and referral
           </Link>
-          <Link
-            to="/agency/account"
-            activeProps={{ className: "bg-muted text-foreground ring-1 ring-border" }}
-            inactiveProps={{
-              className: "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-            }}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+          <a
+            href="#white-label"
+            className={`${linkClass} text-white/65 hover:bg-white/8 hover:text-white`}
           >
-            <Settings className="size-4" />
-            Account
-          </Link>
+            <Palette className="size-4" />
+            White label
+          </a>
+          <div className="pt-3 mt-2 border-t border-white/10">
+            <Link
+              to="/agency/account"
+              activeProps={{ className: "bg-white/12 text-white" }}
+              inactiveProps={{ className: "text-white/65 hover:bg-white/8 hover:text-white" }}
+              className={linkClass}
+            >
+              <Settings className="size-4" />
+              Account
+            </Link>
+          </div>
         </nav>
         <div className="shrink-0 p-3 border-t border-sidebar-border space-y-2">
           <WorkspaceSwitcher />
@@ -89,11 +102,6 @@ function AgencyLayout() {
         </div>
       </aside>
       <main className="flex-1 min-w-0">
-        <div className="h-16 border-b border-border bg-background/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-8">
-          <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
-            Agency · Overview
-          </div>
-        </div>
         <PageContainer width={pageWidth}>
           <Outlet />
         </PageContainer>

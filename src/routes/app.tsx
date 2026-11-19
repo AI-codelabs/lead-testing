@@ -14,7 +14,7 @@ export const Route = createFileRoute("/app")({
 function AppLayout() {
   const pageWidth = usePageWidth();
   const {
-    accountType, isAgencyViewing, viewingClientId, clientWorkspaces, ownWorkspace, workspaceReady,
+    accountType, isAgencyViewing, workspaceReady,
     authReady,
     isAuthenticated,
   } = useAccount();
@@ -38,19 +38,10 @@ function AppLayout() {
     }
   }, [authReady, isAuthenticated, workspaceReady, accountType, isAgencyViewing, navigate]);
 
-  const workspaceName = isAgencyViewing
-    ? clientWorkspaces.find((c) => c.id === viewingClientId)?.name ?? "Client"
-    : ownWorkspace.name;
-
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <AppSidebar />
       <main className="flex-1 min-w-0">
-        <div className="h-16 border-b border-border bg-background/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-8">
-          <div className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
-            Workspace · {workspaceName}
-          </div>
-        </div>
         <PageContainer width={pageWidth}>
           <Outlet />
         </PageContainer>

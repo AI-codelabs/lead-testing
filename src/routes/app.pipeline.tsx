@@ -412,8 +412,8 @@ function PipelinePage() {
     <>
       <PageHeader
         eyebrow="Sales"
-        title="Lead Pipeline"
-        description="Drag leads between stages. New, Contacted, Qualified, Won, Lost, and Disqualified are fixed system stages used to send conversion signals to Google Ads and Meta Ads. Their colors can still be changed."
+        title="Pipeline"
+        description="Drag a lead between stages. Qualified and Won send conversion signals to Google Ads and Meta. System stages stay fixed so uploads stay mapped."
         actions={
           <div className="flex items-center gap-2">
             <Popover>

@@ -310,3 +310,66 @@ function isoWeek(date: Date): string {
   const week = 1 + Math.round((d.getTime() - firstThursday.getTime()) / (7 * 86_400_000));
   return String(week).padStart(2, "0");
 }
+
+export type CampaignRevenueRow = {
+  campaign: string;
+  leads: number;
+  qualified: number;
+  won: number;
+  revenue: number;
+};
+
+/**
+ * Revenue grouped by campaign name from won leads.
+ *
+ * Ad spend is not available per campaign yet (only daily totals), so Reports
+ * shows lead/revenue columns from this query and leaves spend/ROAS blank.
+ */
+export const getCampaignRevenue = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data: { organizationId: string; range?: DashboardRange }) => {
+    if (!data?.organizationId) throw new Error("organizationId is required");
+    const range = data.range ?? 30;
+    if (![7, 30, 90].includes(range)) throw new Error("Invalid range");
+    return { organizationId: data.organizationId, range: range as DashboardRange };
+  })
+  .handler(async ({ data, context }): Promise<{ rows: CampaignRevenueRow[]; range: DashboardRange }> => {
+    const organizationId = await requireOrganization(context.db, data.organizationId);
+    const rows = await context.db.sql<{
+      campaign: string;
+      leads: string;
+      qualified: string;
+      won: string;
+      revenue: string;
+    }>(
+      `SELECT COALESCE(
+                NULLIF(trim(campaign_name), ''),
+                NULLIF(trim(utm_campaign), ''),
+                '(no campaign)'
+              ) AS campaign,
+              count(*) AS leads,
+              count(*) FILTER (WHERE stage IN ('qualified', 'won')) AS qualified,
+              count(*) FILTER (WHERE stage = 'won') AS won,
+              COALESCE(sum(won_value) FILTER (WHERE stage = 'won'), 0) AS revenue
+         FROM public.leads
+        WHERE organization_id = $1
+          AND NOT excluded
+          AND created_at >= now() - ($2 || ' days')::interval
+     GROUP BY 1
+     ORDER BY revenue DESC, leads DESC
+        LIMIT 50`,
+      [organizationId, String(data.range)],
+    );
+
+    return {
+      range: data.range,
+      rows: rows.map((r) => ({
+        campaign: r.campaign,
+        leads: Number(r.leads),
+        qualified: Number(r.qualified),
+        won: Number(r.won),
+        revenue: Number(r.revenue),
+      })),
+    };
+  });
+

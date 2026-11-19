@@ -36,7 +36,7 @@ type Stage = {
 
 export const Route = createFileRoute("/app/dashboard")({
   staticData: { width: "wide" },
-  head: () => ({ meta: [{ title: "Dashboard — Leadlogr" }] }),
+  head: () => ({ meta: [{ title: "Overview — Leadlogr" }] }),
   component: DashboardPage,
 });
 
@@ -252,7 +252,7 @@ function DashboardPage() {
         <PageHeader
           tone="strong"
           eyebrow="Overview"
-          title="Dashboard"
+          title="Overview"
           description="Real-time view of leads, conversions, and what's flowing back to your ad platforms."
           actions={
             <div className="flex items-center gap-2">
