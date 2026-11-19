@@ -19,9 +19,12 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TrackerDotv1DotjsRouteImport } from './routes/tracker[.]v1[.]js'
 import { Route as AgencyIndexRouteImport } from './routes/agency.index'
 import { Route as AgencyAccountRouteImport } from './routes/agency.account'
+import { Route as AgencyCommissionRouteImport } from './routes/agency.commission'
 import { Route as AgencyInvitesRouteImport } from './routes/agency.invites'
+import { Route as AgencyWhiteLabelRouteImport } from './routes/agency.white-label'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppAccountRouteImport } from './routes/app.account'
+import { Route as AppBillingRouteImport } from './routes/app.billing'
 import { Route as AppCrmRouteImport } from './routes/app.crm'
 import { Route as AppDashboardRouteImport } from './routes/app.dashboard'
 import { Route as AppIntegrationsRouteImport } from './routes/app.integrations'
@@ -89,9 +92,19 @@ const AgencyAccountRoute = AgencyAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AgencyRoute,
 } as any)
+const AgencyCommissionRoute = AgencyCommissionRouteImport.update({
+  id: '/commission',
+  path: '/commission',
+  getParentRoute: () => AgencyRoute,
+} as any)
 const AgencyInvitesRoute = AgencyInvitesRouteImport.update({
   id: '/invites',
   path: '/invites',
+  getParentRoute: () => AgencyRoute,
+} as any)
+const AgencyWhiteLabelRoute = AgencyWhiteLabelRouteImport.update({
+  id: '/white-label',
+  path: '/white-label',
   getParentRoute: () => AgencyRoute,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -102,6 +115,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppAccountRoute = AppAccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBillingRoute = AppBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCrmRoute = AppCrmRouteImport.update({
@@ -198,8 +216,11 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
+  '/agency/commission': typeof AgencyCommissionRoute
   '/agency/invites': typeof AgencyInvitesRoute
+  '/agency/white-label': typeof AgencyWhiteLabelRoute
   '/app/account': typeof AppAccountRoute
+  '/app/billing': typeof AppBillingRoute
   '/app/crm': typeof AppCrmRoute
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
@@ -227,8 +248,11 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
+  '/agency/commission': typeof AgencyCommissionRoute
   '/agency/invites': typeof AgencyInvitesRoute
+  '/agency/white-label': typeof AgencyWhiteLabelRoute
   '/app/account': typeof AppAccountRoute
+  '/app/billing': typeof AppBillingRoute
   '/app/crm': typeof AppCrmRoute
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
@@ -259,8 +283,11 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/tracker.v1.js': typeof TrackerDotv1DotjsRoute
   '/agency/account': typeof AgencyAccountRoute
+  '/agency/commission': typeof AgencyCommissionRoute
   '/agency/invites': typeof AgencyInvitesRoute
+  '/agency/white-label': typeof AgencyWhiteLabelRoute
   '/app/account': typeof AppAccountRoute
+  '/app/billing': typeof AppBillingRoute
   '/app/crm': typeof AppCrmRoute
   '/app/dashboard': typeof AppDashboardRoute
   '/app/integrations': typeof AppIntegrationsRouteWithChildren
@@ -292,8 +319,11 @@ export interface FileRouteTypes {
     | '/terms'
     | '/tracker.v1.js'
     | '/agency/account'
+    | '/agency/commission'
     | '/agency/invites'
+    | '/agency/white-label'
     | '/app/account'
+    | '/app/billing'
     | '/app/crm'
     | '/app/dashboard'
     | '/app/integrations'
@@ -321,8 +351,11 @@ export interface FileRouteTypes {
     | '/terms'
     | '/tracker.v1.js'
     | '/agency/account'
+    | '/agency/commission'
     | '/agency/invites'
+    | '/agency/white-label'
     | '/app/account'
+    | '/app/billing'
     | '/app/crm'
     | '/app/dashboard'
     | '/app/integrations'
@@ -352,8 +385,11 @@ export interface FileRouteTypes {
     | '/terms'
     | '/tracker.v1.js'
     | '/agency/account'
+    | '/agency/commission'
     | '/agency/invites'
+    | '/agency/white-label'
     | '/app/account'
+    | '/app/billing'
     | '/app/crm'
     | '/app/dashboard'
     | '/app/integrations'
@@ -463,11 +499,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgencyAccountRouteImport
       parentRoute: typeof AgencyRoute
     }
+    '/agency/commission': {
+      id: '/agency/commission'
+      path: '/commission'
+      fullPath: '/agency/commission'
+      preLoaderRoute: typeof AgencyCommissionRouteImport
+      parentRoute: typeof AgencyRoute
+    }
     '/agency/invites': {
       id: '/agency/invites'
       path: '/invites'
       fullPath: '/agency/invites'
       preLoaderRoute: typeof AgencyInvitesRouteImport
+      parentRoute: typeof AgencyRoute
+    }
+    '/agency/white-label': {
+      id: '/agency/white-label'
+      path: '/white-label'
+      fullPath: '/agency/white-label'
+      preLoaderRoute: typeof AgencyWhiteLabelRouteImport
       parentRoute: typeof AgencyRoute
     }
     '/app/': {
@@ -482,6 +532,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/app/account'
       preLoaderRoute: typeof AppAccountRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/billing': {
+      id: '/app/billing'
+      path: '/billing'
+      fullPath: '/app/billing'
+      preLoaderRoute: typeof AppBillingRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/crm': {
@@ -601,13 +658,17 @@ declare module '@tanstack/react-router' {
 
 interface AgencyRouteChildren {
   AgencyAccountRoute: typeof AgencyAccountRoute
+  AgencyCommissionRoute: typeof AgencyCommissionRoute
   AgencyInvitesRoute: typeof AgencyInvitesRoute
+  AgencyWhiteLabelRoute: typeof AgencyWhiteLabelRoute
   AgencyIndexRoute: typeof AgencyIndexRoute
 }
 
 const AgencyRouteChildren: AgencyRouteChildren = {
   AgencyAccountRoute: AgencyAccountRoute,
+  AgencyCommissionRoute: AgencyCommissionRoute,
   AgencyInvitesRoute: AgencyInvitesRoute,
+  AgencyWhiteLabelRoute: AgencyWhiteLabelRoute,
   AgencyIndexRoute: AgencyIndexRoute,
 }
 
@@ -632,6 +693,7 @@ const AppIntegrationsRouteWithChildren = AppIntegrationsRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAccountRoute: typeof AppAccountRoute
+  AppBillingRoute: typeof AppBillingRoute
   AppCrmRoute: typeof AppCrmRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppIntegrationsRoute: typeof AppIntegrationsRouteWithChildren
@@ -644,6 +706,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAccountRoute: AppAccountRoute,
+  AppBillingRoute: AppBillingRoute,
   AppCrmRoute: AppCrmRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppIntegrationsRoute: AppIntegrationsRouteWithChildren,

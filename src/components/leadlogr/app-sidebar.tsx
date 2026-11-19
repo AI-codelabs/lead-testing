@@ -9,6 +9,7 @@ import {
   LogOut,
   Send,
   BarChart3,
+  CreditCard,
 } from "lucide-react";
 import { useAccount } from "@/lib/account-context";
 import { WorkspaceSwitcher } from "@/components/agency/workspace-switcher";
@@ -27,6 +28,7 @@ const primaryNav = [
 
 const secondaryNav = [
   { to: "/app/crm", label: "CRM", icon: Users },
+  { to: "/app/billing", label: "Billing", icon: CreditCard },
   { to: "/app/account", label: "Account", icon: Settings },
 ] as const;
 
@@ -50,7 +52,7 @@ export function AppSidebar() {
   const failedCount = failedQuery.data ?? 0;
 
   const secondary = isAgencyViewing
-    ? secondaryNav.filter((n) => n.to !== "/app/account")
+    ? secondaryNav.filter((n) => n.to !== "/app/account" && n.to !== "/app/billing")
     : secondaryNav;
 
   const handleSignOut = async () => {

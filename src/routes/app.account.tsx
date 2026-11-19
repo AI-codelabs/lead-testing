@@ -86,14 +86,17 @@ function AccountPage() {
           <WorkspacePanel />
         </SectionCard>
 
-        <SectionCard title="Billing" description="Not set up yet.">
-          {/* Was "Growth · $99/mo, next invoice Jul 1 2026" with a button that
-              did nothing. No plan exists and nothing is charged, so saying so
-              beats showing a figure nobody is paying. */}
+        <SectionCard title="Billing" description="Plans, invoices and payment method.">
           <p className="text-sm text-muted-foreground">
-            There is no plan on this workspace and nothing is being charged. Billing arrives
-            with pricing.
+            No plan is active and nothing is being charged yet. The billing page is ready for
+            checkout once a payment processor is connected.
           </p>
+          <Link
+            to="/app/billing"
+            className="inline-flex mt-3 text-sm font-medium px-3 py-2 rounded-md ring-1 ring-border bg-card hover:bg-muted transition-colors"
+          >
+            Open billing
+          </Link>
         </SectionCard>
 
         <SectionCard title="Danger zone" description="Irreversible actions for this workspace.">

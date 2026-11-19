@@ -61,13 +61,15 @@ function AgencyLayout() {
             <LayoutGrid className="size-4" />
             Clients
           </Link>
-          <a
-            href="#commission"
-            className={`${linkClass} text-white/65 hover:bg-white/8 hover:text-white`}
+          <Link
+            to="/agency/commission"
+            activeProps={{ className: "bg-white/12 text-white" }}
+            inactiveProps={{ className: "text-white/65 hover:bg-white/8 hover:text-white" }}
+            className={linkClass}
           >
             <Percent className="size-4" />
             Commission
-          </a>
+          </Link>
           <Link
             to="/agency/invites"
             activeProps={{ className: "bg-white/12 text-white" }}
@@ -77,13 +79,15 @@ function AgencyLayout() {
             <Mail className="size-4" />
             Invite and referral
           </Link>
-          <a
-            href="#white-label"
-            className={`${linkClass} text-white/65 hover:bg-white/8 hover:text-white`}
+          <Link
+            to="/agency/white-label"
+            activeProps={{ className: "bg-white/12 text-white" }}
+            inactiveProps={{ className: "text-white/65 hover:bg-white/8 hover:text-white" }}
+            className={linkClass}
           >
             <Palette className="size-4" />
             White label
-          </a>
+          </Link>
           <div className="pt-3 mt-2 border-t border-white/10">
             <Link
               to="/agency/account"
