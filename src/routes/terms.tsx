@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { LegalPage, List, Section } from "@/components/leadlogr/legal-page";
 import { COMPANY } from "@/lib/legal";
 
@@ -95,9 +95,13 @@ function TermsPage() {
       <Section heading="Data processing terms">
         <p>
           For lead data you are the controller and we are your processor, so the law requires a
-          written agreement between us about it. This section is that agreement; accepting these
-          terms accepts it, and no separate signature is needed. Where you require your own data
-          processing agreement instead, write to {COMPANY.contactEmail} and we will sign one.
+          written agreement between us about it. The full{" "}
+          <Link to="/dpa" className="underline underline-offset-2 hover:text-foreground">
+            Data Processing Agreement
+          </Link>{" "}
+          is incorporated into these terms; accepting these terms accepts it, and no separate
+          signature is needed. The summary below restates the essentials. Where you require a
+          separately signed copy, write to {COMPANY.contactEmail} and we will sign one.
         </p>
         <List
           items={[

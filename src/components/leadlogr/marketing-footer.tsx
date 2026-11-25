@@ -23,6 +23,12 @@ export function MarketingFooter() {
             <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground">
               Terms of Service
             </Link>
+            <Link to="/cookies" className="text-xs text-muted-foreground hover:text-foreground">
+              Cookie Policy
+            </Link>
+            <Link to="/dpa" className="text-xs text-muted-foreground hover:text-foreground">
+              Data Processing Agreement
+            </Link>
             <a
               href={`mailto:${COMPANY.contactEmail}`}
               className="text-xs text-muted-foreground hover:text-foreground"

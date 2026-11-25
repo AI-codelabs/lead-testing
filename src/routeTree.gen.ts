@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AgencyRouteImport } from './routes/agency'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as CookiesRouteImport } from './routes/cookies'
+import { Route as DpaRouteImport } from './routes/dpa'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignupRouteImport } from './routes/signup'
@@ -55,6 +57,16 @@ const AgencyRoute = AgencyRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CookiesRoute = CookiesRouteImport.update({
+  id: '/cookies',
+  path: '/cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DpaRoute = DpaRouteImport.update({
+  id: '/dpa',
+  path: '/dpa',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -210,6 +222,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agency': typeof AgencyRouteWithChildren
   '/app': typeof AppRouteWithChildren
+  '/cookies': typeof CookiesRoute
+  '/dpa': typeof DpaRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
@@ -242,6 +256,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cookies': typeof CookiesRoute
+  '/dpa': typeof DpaRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
@@ -277,6 +293,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/agency': typeof AgencyRouteWithChildren
   '/app': typeof AppRouteWithChildren
+  '/cookies': typeof CookiesRoute
+  '/dpa': typeof DpaRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
@@ -313,6 +331,8 @@ export interface FileRouteTypes {
     | '/'
     | '/agency'
     | '/app'
+    | '/cookies'
+    | '/dpa'
     | '/login'
     | '/privacy'
     | '/signup'
@@ -345,6 +365,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/cookies'
+    | '/dpa'
     | '/login'
     | '/privacy'
     | '/signup'
@@ -379,6 +401,8 @@ export interface FileRouteTypes {
     | '/'
     | '/agency'
     | '/app'
+    | '/cookies'
+    | '/dpa'
     | '/login'
     | '/privacy'
     | '/signup'
@@ -414,6 +438,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgencyRoute: typeof AgencyRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
+  CookiesRoute: typeof CookiesRoute
+  DpaRoute: typeof DpaRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
@@ -448,6 +474,20 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cookies': {
+      id: '/cookies'
+      path: '/cookies'
+      fullPath: '/cookies'
+      preLoaderRoute: typeof CookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dpa': {
+      id: '/dpa'
+      path: '/dpa'
+      fullPath: '/dpa'
+      preLoaderRoute: typeof DpaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -723,6 +763,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgencyRoute: AgencyRouteWithChildren,
   AppRoute: AppRouteWithChildren,
+  CookiesRoute: CookiesRoute,
+  DpaRoute: DpaRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,

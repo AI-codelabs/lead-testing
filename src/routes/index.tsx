@@ -557,6 +557,12 @@ function LandingPage() {
               <li>
                 <Link to="/terms">Terms</Link>
               </li>
+              <li>
+                <Link to="/cookies">Cookies</Link>
+              </li>
+              <li>
+                <Link to="/dpa">DPA</Link>
+              </li>
             </ul>
           </div>
           <div className="legal">

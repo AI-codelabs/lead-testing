@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { LegalPage, List, Section } from "@/components/leadlogr/legal-page";
 import { COMPANY, SUBPROCESSORS } from "@/lib/legal";
 
@@ -301,7 +301,11 @@ function PrivacyPage() {
         <p>
           leadlogr.com carries no advertising or analytics trackers. We do not set a cookie to
           follow you across sites, and there is nothing here to consent to, which is why you are not
-          asked.
+          asked. Details and the technology inventory are in the{" "}
+          <Link to="/cookies" className="underline underline-offset-2 hover:text-foreground">
+            Cookie Policy
+          </Link>
+          .
         </p>
         <p>
           Two things are stored in your browser. Whether you chose light or dark is remembered
