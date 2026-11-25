@@ -215,8 +215,10 @@ export const RECONNECT_NEEDED =
   "Google rejected the saved authorization. Disconnect and reconnect Google Ads.";
 
 export const PLATFORM_NOT_READY =
-  "Google is not accepting conversions for this workspace yet. We are completing " +
-  "verification with Google — nothing for you to do, and your settings are saved.";
+  "Google has not yet approved Leadlogr’s Ads API access for production accounts. " +
+  "Connecting a Google login can succeed while listing accounts and uploading " +
+  "conversions still fail. We are finishing Google’s access review — nothing to " +
+  "change on this screen; your connection is saved.";
 
 /**
  * Google counts a day's API operations against the Cloud project, not against

@@ -432,7 +432,7 @@ function GoogleAdsPage() {
                     : !loadAccounts
                       ? "Saved. Load the list to pick a different account."
                       : customersError
-                        ? "We could not read your accounts — see the message above."
+                        ? customersError
                         : selectableCustomers.length === 0
                           ? "No client accounts found on this login."
                           : `${selectableCustomers.length} client account${selectableCustomers.length === 1 ? "" : "s"}. Managers are shown as groups — conversions go to a client account.`
@@ -440,6 +440,7 @@ function GoogleAdsPage() {
               >
                 <select
                   value={form.customer_id}
+                  disabled={!!customersError && selectableCustomers.length === 0}
                   onChange={(e) => {
                     const id = e.target.value;
                     const c = customers.find((c) => c.id === id);
@@ -453,7 +454,7 @@ function GoogleAdsPage() {
                       default_currency: c?.currencyCode || f.default_currency,
                     }));
                   }}
-                  className="w-full text-sm px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full text-sm px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
                 >
                   <option value="">— Pick an account —</option>
                   {form.customer_id && !customers.some((c) => c.id === form.customer_id) && (

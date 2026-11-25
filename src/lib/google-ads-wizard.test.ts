@@ -102,7 +102,7 @@ stub(() => ({ status: 403, body: REAL_403 }));
 let msg = "";
 try { await listAdsAccounts(creds); } catch (e: any) { msg = e.message; }
 check("platform block becomes the neutral sentence",
-  msg.startsWith("Google is not accepting conversions for this workspace yet."), true);
+  msg.startsWith("Google has not yet approved Leadlogr’s Ads API access"), true);
 check("…and never leaks the tier name to the customer", /Explorer|Basic|Standard|Cloud project/.test(msg), false);
 
 stub(() => ({ status: 403, body: REAL_SCOPE_403 }));
