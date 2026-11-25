@@ -57,6 +57,12 @@ export function MarketingNav({ overlay = false }: { overlay?: boolean }) {
         </div>
         <div className="flex items-center gap-2">
           <Link
+            to="/privacy"
+            className={`hidden sm:inline text-sm font-medium px-3 py-2 transition-colors ${quiet}`}
+          >
+            Privacy
+          </Link>
+          <Link
             to="/login"
             className={`text-sm font-medium px-4 py-2 transition-colors ${quiet}`}
           >

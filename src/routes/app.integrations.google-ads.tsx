@@ -389,6 +389,20 @@ function GoogleAdsPage() {
               </button>
             )}
 
+            <p className="mt-4 text-xs text-muted-foreground leading-relaxed">
+              Connecting gives Leadlogr access only to report conversions and show account spend for
+              this workspace. We do not manage campaigns or sell Google data. Full detail:{" "}
+              <a
+                href="/privacy#google"
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                Privacy Policy — Google data
+              </a>
+              .
+            </p>
+
             {error ? (
               <div className="mt-3 text-xs text-stage-red-ink flex items-center gap-1.5">
                 <AlertCircle className="size-3.5" /> {error}

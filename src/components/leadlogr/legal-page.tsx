@@ -35,9 +35,17 @@ export function LegalPage({
 }
 
 /** One titled section of a policy. */
-export function Section({ heading, children }: { heading: string; children: ReactNode }) {
+export function Section({
+  heading,
+  children,
+  id,
+}: {
+  heading: string;
+  children: ReactNode;
+  id?: string;
+}) {
   return (
-    <section className="space-y-3">
+    <section className="space-y-3" id={id}>
       <h2 className="text-lg font-semibold tracking-tight text-foreground">{heading}</h2>
       <div className="space-y-3 text-[15px] leading-relaxed text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground">
         {children}

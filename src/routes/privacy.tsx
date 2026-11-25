@@ -115,7 +115,7 @@ function PrivacyPage() {
         </p>
       </Section>
 
-      <Section heading="Data from the Google account you connect">
+      <Section id="google" heading="Data from the Google account you connect">
         <p>
           A workspace can connect its Google Ads account so that outcomes are reported back to it.
           Connecting uses Google's own sign-in, so we never see or hold a Google password. This

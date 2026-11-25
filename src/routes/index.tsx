@@ -118,6 +118,9 @@ function LandingPage() {
             <a href="#pricing">Pricing</a>
             <a href="#faq">FAQ</a>
           </nav>
+          <Link className="login" to="/privacy">
+            Privacy
+          </Link>
           <Link className="login" to="/login">
             Log in
           </Link>
