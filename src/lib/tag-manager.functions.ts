@@ -367,10 +367,11 @@ export const installTagManagerTracker = createServerFn({ method: "POST" })
  * Forgets the Tag Manager grant and asks Google to revoke it.
  *
  * Google keeps one authorization per Google account per OAuth client, so
- * revoking it also ends a Google Ads connection made with the same Google
- * account. When this workspace's Google Ads connection uses the same email,
- * our copy is still deleted (so Leadlogr can no longer publish) but the grant
- * is not revoked at Google, and the result says so.
+ * revoking it also ends any other Leadlogr connection made with the same
+ * Google account (Google Ads here, or either integration in another
+ * workspace). In that case our copy is still deleted, so Leadlogr can no
+ * longer publish, but the grant is not revoked at Google, and the result
+ * says so.
  *
  * The published tag is left in the container: it is the customer's site now,
  * and removing tracking without being asked would silently stop lead capture.
@@ -389,25 +390,22 @@ export const disconnectTagManager = createServerFn({ method: "POST" })
       const orgId = await requireAdmin(context, data.organizationId, "disconnect integrations");
       const { withOwner } = await import("@/db");
       return withOwner(async (db) => {
-        const held = await db.one<{ refresh_token: string | null }>(
-          `SELECT refresh_token FROM public.ad_platform_credentials
-            WHERE organization_id = $1 AND network = 'google_tag_manager'`,
+        const held = await db.one<{ refresh_token: string | null; connected_email: string | null }>(
+          `SELECT c.refresh_token, t.connected_email
+             FROM public.ad_platform_credentials c
+        LEFT JOIN public.tag_manager_installs t ON t.organization_id = c.organization_id
+            WHERE c.organization_id = $1 AND c.network = 'google_tag_manager'`,
           [orgId],
         );
-        const shared = await db.one<{ same: boolean }>(
-          `SELECT EXISTS (
-             SELECT 1
-               FROM public.tag_manager_installs t
-               JOIN public.ad_platform_settings s
-                 ON s.organization_id = t.organization_id AND s.network = 'google_ads'
-               JOIN public.ad_platform_credentials c
-                 ON c.organization_id = t.organization_id AND c.network = 'google_ads'
-              WHERE t.organization_id = $1
-                AND c.refresh_token IS NOT NULL
-                AND lower(t.connected_email) = lower(s.connected_email)
-           ) AS same`,
-          [orgId],
-        );
+        const { otherGoogleGrantHolders } = await import("./google-grant.server");
+        const { decideGoogleRevoke } = await import("./google-grant");
+        const decision = decideGoogleRevoke({
+          network: "google_tag_manager",
+          held: !!held?.refresh_token,
+          otherHolders: held?.refresh_token
+            ? await otherGoogleGrantHolders(db, orgId, "google_tag_manager", held.connected_email)
+            : [],
+        });
 
         await db.sql(
           `DELETE FROM public.ad_platform_credentials
@@ -422,8 +420,8 @@ export const disconnectTagManager = createServerFn({ method: "POST" })
         );
 
         let revokedAtGoogle = false;
-        let note: string | null = null;
-        if (held?.refresh_token && !shared?.same) {
+        let note = decision.note;
+        if (decision.revoke && held?.refresh_token) {
           const { revokeGoogleGrant } = await import("./google-ads.server");
           revokedAtGoogle = await revokeGoogleGrant(held.refresh_token);
           if (!revokedAtGoogle) {
@@ -431,9 +429,6 @@ export const disconnectTagManager = createServerFn({ method: "POST" })
             note =
               "Leadlogr deleted its copy, but Google did not confirm the revocation. You can remove Leadlogr at myaccount.google.com/permissions.";
           }
-        } else if (held?.refresh_token) {
-          note =
-            "Leadlogr deleted its Tag Manager authorization. The Google account is also connected to Google Ads here, so the grant was not revoked at Google (that would disconnect Google Ads too).";
         }
         return { ok: true as const, revokedAtGoogle, note };
       });

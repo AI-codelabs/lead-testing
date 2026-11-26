@@ -591,19 +591,41 @@ async function writeSettings(
  * left the authorization sitting in the user's Google account indefinitely,
  * which is not what "disconnect" says to anyone reading the button.
  */
-async function disconnect(organizationId: string, network: AdNetwork) {
+async function disconnect(
+  organizationId: string,
+  network: AdNetwork,
+): Promise<{ ok: true; revokedAtGoogle: boolean; note: string | null }> {
   const { withOwner } = await import("@/db");
-  await withOwner(async (db) => {
+  return withOwner(async (db) => {
     // Read before deleting: revoking needs the token, and the delete is what
     // guarantees we have stopped using it even if Google never answers.
     const held =
       network === "google_ads"
-        ? await db.one<{ refresh_token: string | null }>(
-            `SELECT refresh_token FROM public.ad_platform_credentials
-              WHERE organization_id = $1 AND network = $2::ad_network`,
+        ? await db.one<{ refresh_token: string | null; connected_email: string | null }>(
+            `SELECT c.refresh_token, s.connected_email
+               FROM public.ad_platform_credentials c
+          LEFT JOIN public.ad_platform_settings s
+                 ON s.organization_id = c.organization_id AND s.network = c.network
+              WHERE c.organization_id = $1 AND c.network = $2::ad_network`,
             [organizationId, network],
           )
         : null;
+
+    // Google keeps one grant per Google account for our OAuth client, so
+    // revoking here would also end a Tag Manager connection (or a Google Ads
+    // connection in another workspace) made with the same Google account.
+    let decision: { revoke: boolean; note: string | null } = { revoke: false, note: null };
+    if (network === "google_ads") {
+      const { otherGoogleGrantHolders } = await import("@/lib/google-grant.server");
+      const { decideGoogleRevoke } = await import("@/lib/google-grant");
+      decision = decideGoogleRevoke({
+        network: "google_ads",
+        held: !!held?.refresh_token,
+        otherHolders: held?.refresh_token
+          ? await otherGoogleGrantHolders(db, organizationId, "google_ads", held.connected_email)
+          : [],
+      });
+    }
 
     await db.sql(
       `DELETE FROM public.ad_platform_credentials
@@ -611,14 +633,18 @@ async function disconnect(organizationId: string, network: AdNetwork) {
       [organizationId, network],
     );
 
-    if (held?.refresh_token) {
+    let revokedAtGoogle = false;
+    let note = decision.note;
+    if (decision.revoke && held?.refresh_token) {
       const { revokeGoogleGrant } = await import("@/lib/google-ads.server");
-      const revoked = await revokeGoogleGrant(held.refresh_token);
-      if (!revoked) {
+      revokedAtGoogle = await revokeGoogleGrant(held.refresh_token);
+      if (!revokedAtGoogle) {
         // Our copy is gone either way; say so rather than failing the
         // disconnect, so the record shows the grant may still be listed in
         // the user's Google account.
         console.warn("[disconnect] google grant not revoked at Google", { organizationId });
+        note =
+          "Leadlogr deleted its copy, but Google did not confirm the revocation. You can remove Leadlogr at myaccount.google.com/permissions.";
       }
     }
     await db.sql(
@@ -627,8 +653,8 @@ async function disconnect(organizationId: string, network: AdNetwork) {
         WHERE organization_id = $1 AND network = $2::ad_network`,
       [organizationId, network],
     );
+    return { ok: true as const, revokedAtGoogle, note };
   });
-  return { ok: true };
 }
 
 export const disconnectGoogleAds = createServerFn({ method: "POST" })

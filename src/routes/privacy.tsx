@@ -232,9 +232,10 @@ function PrivacyPage() {
         />
         <p>
           <strong>Taking it back.</strong> Disconnecting Tag Manager on the Tracking page deletes
-          the stored authorization and asks Google to revoke it. The one exception: if the same
-          Google account is also connected to Google Ads in that workspace, revoking at Google would
-          end the Google Ads connection too, so we delete our copy (Leadlogr can no longer reach
+          the stored authorization and asks Google to revoke it. The one exception: Google keeps a
+          single permission per Google account for Leadlogr, so if the same Google account is still
+          connected to Google Ads (or to Tag Manager in another workspace), revoking at Google would
+          end that connection too. In that case we delete our copy (Leadlogr can no longer reach
           your containers) and tell you so; you can then remove access entirely from your Google
           account&apos;s third-party access page. The tag already published stays in your container
           until you remove or pause it there, because it is part of your website.
@@ -242,7 +243,10 @@ function PrivacyPage() {
         <p>
           <strong>Taking it back.</strong> Disconnecting Google Ads in your settings deletes the
           stored authorization and tells Google to revoke it, so the permission ends rather than
-          merely being forgotten. You can also remove it yourself at any time from{" "}
+          merely being forgotten. The same exception applies as for Tag Manager: if that Google
+          account still backs another Leadlogr connection, we delete our copy and tell you, and the
+          permission is not revoked at Google until you remove it there. You can also remove it
+          yourself at any time from{" "}
           <a
             href="https://myaccount.google.com/permissions"
             className="underline underline-offset-2 hover:text-foreground"

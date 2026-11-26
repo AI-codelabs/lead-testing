@@ -276,7 +276,10 @@ function GoogleAdsPage() {
 
   const onDisconnect = async () => {
     if (!confirm("Disconnect Google Ads? Conversion uploads will stop until you reconnect.")) return;
-    await disconnect({ data: { organizationId } });
+    const r = await disconnect({ data: { organizationId } });
+    // Set when the same Google account still backs another Leadlogr connection,
+    // so the grant was kept at Google.
+    if (r?.note) toast.message(r.note);
     await refresh();
   };
 
