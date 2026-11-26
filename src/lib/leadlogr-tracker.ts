@@ -150,7 +150,7 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
   function isGmbReferrer(ref) {
     var u = String(ref || '').toLowerCase();
     if (!u) return false;
-    return /google\.[^/]+\/maps|maps\.google\.|business\.google\.|google\.com\/local|g\.page\/|google\.[^/]+\/(?:place|maps)/.test(u);
+    return /google\\.[^/]+\\/maps|maps\\.google\\.|business\\.google\\.|google\\.com\\/local|g\\.page\\/|google\\.[^/]+\\/(?:place|maps)/.test(u);
   }
 
   function inferSource(attr, referrer) {
