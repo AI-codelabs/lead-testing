@@ -121,8 +121,50 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
     attribution[k] = fromUrl || getLS('ll_' + k);
   });
 
+  /* ValueTrack and common Google Ads final-URL aliases. Prefer an explicit
+     alias when the matching UTM is empty, so campaign / ad group / keyword
+     still land on the lead when the account uses {keyword} instead of utm_term. */
+  function preferAlias(utmKey, aliases) {
+    if (attribution[utmKey]) return;
+    for (var i = 0; i < aliases.length; i++) {
+      var v = getParam(aliases[i]) || getLS('ll_' + aliases[i]);
+      var fromUrl = getParam(aliases[i]);
+      if (fromUrl) setLS('ll_' + aliases[i], fromUrl);
+      if (v) { attribution[utmKey] = v; setLS('ll_' + utmKey, v); return; }
+    }
+  }
+  preferAlias('utm_campaign', ['campaign', 'campaignid', 'campaign_id']);
+  preferAlias('utm_content', ['adgroup', 'ad_group', 'adgroupid', 'ad_group_id']);
+  preferAlias('utm_term', ['keyword', 'kw']);
+
+  var searchTerm = getParam('search_term') || getParam('searchterm') || getLS('ll_search_term') || '';
+  if (getParam('search_term') || getParam('searchterm')) {
+    setLS('ll_search_term', searchTerm);
+  } else {
+    searchTerm = getLS('ll_search_term') || '';
+  }
+
   if (!getLS('ll_landing_page_url')) setLS('ll_landing_page_url', window.location.href);
   if (!getLS('ll_referrer_url')) setLS('ll_referrer_url', document.referrer || '');
+
+  function isGmbReferrer(ref) {
+    var u = String(ref || '').toLowerCase();
+    if (!u) return false;
+    return /google\.[^/]+\/maps|maps\.google\.|business\.google\.|google\.com\/local|g\.page\/|google\.[^/]+\/(?:place|maps)/.test(u);
+  }
+
+  function inferSource(attr, referrer) {
+    if (attr.gclid || attr.wbraid || attr.gbraid) return 'Google';
+    if (attr.fbclid) return 'Meta';
+    if (attr.li_fat_id) return 'LinkedIn';
+    if (attr.msclkid) return 'Microsoft';
+    var us = String(attr.utm_source || '').toLowerCase();
+    var um = String(attr.utm_medium || '').toLowerCase();
+    if (/^google.?my.?business$|^google.?business$|^gmb$|^maps$/.test(us)) return 'Google My Business';
+    if (us === 'google' && /^(organic|local|maps|yext|gmb)$/.test(um)) return 'Google My Business';
+    if (isGmbReferrer(referrer)) return 'Google My Business';
+    return 'Direct';
+  }
 
   function gaClientId() {
     var ga = getCookie('_ga'); if (!ga) return '';
@@ -161,15 +203,23 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
   }
 
   function basePayload() {
+    var referrer = getLS('ll_referrer_url') || document.referrer || '';
+    var campaign = attribution.utm_campaign || '';
+    var adGroup = attribution.utm_content || '';
+    var keyword = attribution.utm_term || '';
     return {
       ingest_key: CFG.ingestKey,
       integration_id: CFG.integrationId || 'gtm',
       session_id: SESSION_ID,
       utm_source: attribution.utm_source || '',
       utm_medium: attribution.utm_medium || '',
-      utm_campaign: attribution.utm_campaign || '',
-      utm_term: attribution.utm_term || '',
-      utm_content: attribution.utm_content || '',
+      utm_campaign: campaign,
+      utm_term: keyword,
+      utm_content: adGroup,
+      campaign_name: campaign,
+      ad_group: adGroup,
+      keyword: keyword,
+      search_term: searchTerm || '',
       gclid: attribution.gclid || '',
       wbraid: attribution.wbraid || '',
       gbraid: attribution.gbraid || '',
@@ -183,14 +233,10 @@ export const TRACKER = `/* Leadlogr tracker v3.0 — records a submission when t
       page_path: window.location.pathname,
       page_url: window.location.href,
       page_title: document.title || '',
-      referrer_url: getLS('ll_referrer_url') || document.referrer || '',
+      referrer_url: referrer,
       user_agent: navigator.userAgent || '',
       client_context: clientContext(),
-      source: ((attribution.gclid || attribution.wbraid || attribution.gbraid) ? 'Google'
-              : attribution.fbclid ? 'Meta'
-              : attribution.li_fat_id ? 'LinkedIn'
-              : attribution.msclkid ? 'Microsoft'
-              : 'Direct'),
+      source: inferSource(attribution, referrer),
     };
   }
 

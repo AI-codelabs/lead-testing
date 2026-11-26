@@ -313,14 +313,88 @@ function isoWeek(date: Date): string {
 
 export type CampaignRevenueRow = {
   campaign: string;
+  source: string;
   leads: number;
   qualified: number;
   won: number;
   revenue: number;
 };
 
+export type SourceRevenueRow = {
+  source: string;
+  leads: number;
+  qualified: number;
+  won: number;
+  revenue: number;
+};
+
+const SOURCE_SORT_ORDER = [
+  "Google",
+  "Google My Business",
+  "Direct",
+  "Meta",
+  "LinkedIn",
+  "Microsoft",
+];
+
+function sourceSortIndex(name: string): number {
+  const i = SOURCE_SORT_ORDER.findIndex((s) => s.toLowerCase() === name.toLowerCase());
+  return i === -1 ? SOURCE_SORT_ORDER.length : i;
+}
+
 /**
- * Revenue grouped by campaign name from won leads.
+ * Revenue grouped by lead source (Google, Direct, Google My Business, …).
+ */
+export const getSourceRevenue = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data: { organizationId: string; range?: DashboardRange }) => {
+    if (!data?.organizationId) throw new Error("organizationId is required");
+    const range = data.range ?? 30;
+    if (![7, 30, 90].includes(range)) throw new Error("Invalid range");
+    return { organizationId: data.organizationId, range: range as DashboardRange };
+  })
+  .handler(async ({ data, context }): Promise<{ rows: SourceRevenueRow[]; range: DashboardRange }> => {
+    const organizationId = await requireOrganization(context.db, data.organizationId);
+    const rows = await context.db.sql<{
+      source: string;
+      leads: string;
+      qualified: string;
+      won: string;
+      revenue: string;
+    }>(
+      `SELECT COALESCE(NULLIF(trim(source), ''), 'Direct') AS source,
+              count(*) AS leads,
+              count(*) FILTER (WHERE stage IN ('qualified', 'won')) AS qualified,
+              count(*) FILTER (WHERE stage = 'won') AS won,
+              COALESCE(sum(won_value) FILTER (WHERE stage = 'won'), 0) AS revenue
+         FROM public.leads
+        WHERE organization_id = $1
+          AND NOT excluded
+          AND created_at >= now() - ($2 || ' days')::interval
+     GROUP BY 1
+     ORDER BY revenue DESC, leads DESC`,
+      [organizationId, String(data.range)],
+    );
+
+    const mapped = rows.map((r) => ({
+      source: r.source,
+      leads: Number(r.leads),
+      qualified: Number(r.qualified),
+      won: Number(r.won),
+      revenue: Number(r.revenue),
+    }));
+    mapped.sort(
+      (a, b) =>
+        sourceSortIndex(a.source) - sourceSortIndex(b.source) ||
+        b.revenue - a.revenue ||
+        b.leads - a.leads,
+    );
+
+    return { range: data.range, rows: mapped };
+  });
+
+/**
+ * Revenue grouped by campaign name from leads, with the captured source.
  *
  * Ad spend is not available per campaign yet (only daily totals), so Reports
  * shows lead/revenue columns from this query and leaves spend/ROAS blank.
@@ -337,6 +411,7 @@ export const getCampaignRevenue = createServerFn({ method: "POST" })
     const organizationId = await requireOrganization(context.db, data.organizationId);
     const rows = await context.db.sql<{
       campaign: string;
+      source: string;
       leads: string;
       qualified: string;
       won: string;
@@ -347,6 +422,7 @@ export const getCampaignRevenue = createServerFn({ method: "POST" })
                 NULLIF(trim(utm_campaign), ''),
                 '(no campaign)'
               ) AS campaign,
+              COALESCE(NULLIF(trim(source), ''), 'Direct') AS source,
               count(*) AS leads,
               count(*) FILTER (WHERE stage IN ('qualified', 'won')) AS qualified,
               count(*) FILTER (WHERE stage = 'won') AS won,
@@ -355,7 +431,7 @@ export const getCampaignRevenue = createServerFn({ method: "POST" })
         WHERE organization_id = $1
           AND NOT excluded
           AND created_at >= now() - ($2 || ' days')::interval
-     GROUP BY 1
+     GROUP BY 1, 2
      ORDER BY revenue DESC, leads DESC
         LIMIT 50`,
       [organizationId, String(data.range)],
@@ -365,6 +441,7 @@ export const getCampaignRevenue = createServerFn({ method: "POST" })
       range: data.range,
       rows: rows.map((r) => ({
         campaign: r.campaign,
+        source: r.source,
         leads: Number(r.leads),
         qualified: Number(r.qualified),
         won: Number(r.won),

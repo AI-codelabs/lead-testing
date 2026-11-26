@@ -91,10 +91,15 @@ export type LeadRow = {
   tags: string[] | null;
   source: string | null;
   campaign_name: string | null;
+  ad_group: string | null;
+  keyword: string | null;
+  search_term: string | null;
   website_url: string | null;
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
+  utm_term: string | null;
+  utm_content: string | null;
   gclid: string | null;
   fbclid: string | null;
   msclkid: string | null;
@@ -114,7 +119,14 @@ export type LeadRow = {
 
 const str = (v: string | null | undefined): string => v ?? "";
 
-const KNOWN_SOURCES = ["Google", "Meta", "Direct", "LinkedIn", "Microsoft"] as const;
+const KNOWN_SOURCES = [
+  "Google",
+  "Google My Business",
+  "Meta",
+  "Direct",
+  "LinkedIn",
+  "Microsoft",
+] as const;
 
 function toUiSource(v: string | null): Source {
   const found = KNOWN_SOURCES.find((s) => s.toLowerCase() === String(v ?? "").toLowerCase());
@@ -140,6 +152,9 @@ export function rowToLead(row: LeadRow): Lead {
     qualification: QUALIFICATION_TO_UI[row.qualification] ?? "Unqualified",
     value: row.won_value == null ? 0 : Number(row.won_value),
     campaignName: str(row.campaign_name) || str(row.utm_campaign),
+    adGroup: str(row.ad_group) || str(row.utm_content),
+    keyword: str(row.keyword) || str(row.utm_term),
+    searchTerm: str(row.search_term),
     tags: row.tags ?? [],
     notes: str(row.notes),
     source: toUiSource(row.source),
@@ -184,8 +199,8 @@ export const LEAD_COLUMNS = `
   l.id, l.stage, l.stage_changed_at, l.qualification, l.qualified_at, l.priority,
   l.label, l.won_value, l.currency, l.lost_reason, l.expires_at,
   l.name, l.email, l.phone, l.company, l.message, l.description, l.notes, l.tags,
-  l.source, l.campaign_name, l.website_url,
-  l.utm_source, l.utm_medium, l.utm_campaign,
+  l.source, l.campaign_name, l.ad_group, l.keyword, l.search_term, l.website_url,
+  l.utm_source, l.utm_medium, l.utm_campaign, l.utm_term, l.utm_content,
   l.gclid, l.fbclid, l.msclkid, l.li_fat_id, l.fbp, l.ga_client_id, l.ga_session_id,
   l.landing_page_url, l.page_path, l.referrer_url,
   l.custom_fields, l.raw_payload, l.created_at, l.updated_at

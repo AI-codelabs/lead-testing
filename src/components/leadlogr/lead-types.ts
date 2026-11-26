@@ -9,7 +9,13 @@ export type FormAnswerValue =
 
 export type Priority = "Low" | "Medium" | "High";
 export type Qualification = "Unqualified" | "Qualified" | "Customer";
-export type Source = "Google" | "Meta" | "Direct" | "LinkedIn" | "Microsoft";
+export type Source =
+  | "Google"
+  | "Google My Business"
+  | "Meta"
+  | "Direct"
+  | "LinkedIn"
+  | "Microsoft";
 export type LeadLabel = "Hot Lead" | "Spam Lead" | "Quotation Sent" | "No label";
 
 export const LEAD_LABELS: LeadLabel[] = ["Hot Lead", "Spam Lead", "Quotation Sent", "No label"];
@@ -99,6 +105,9 @@ export interface Lead {
   qualification: Qualification;
   value: number;
   campaignName: string;
+  adGroup: string;
+  keyword: string;
+  searchTerm: string;
   tags: string[];
   notes: string;
   source: Source;
@@ -224,6 +233,9 @@ export function emptyLead(stage: string = "New"): Lead {
     qualification: "Unqualified",
     value: 0,
     campaignName: "",
+    adGroup: "",
+    keyword: "",
+    searchTerm: "",
     tags: [],
     notes: "",
     source: "Direct",

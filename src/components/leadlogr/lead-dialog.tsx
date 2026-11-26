@@ -176,7 +176,20 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
                   <Input type="number" min={0} value={draft.value} onChange={(e) => set("value", Number(e.target.value) || 0)} />
                 </Field>
               </div>
-              <Field label="Campaign name"><Input value={draft.campaignName} onChange={(e) => set("campaignName", e.target.value)} /></Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Campaign name">
+                  <Input value={draft.campaignName} onChange={(e) => set("campaignName", e.target.value)} />
+                </Field>
+                <Field label="Ad group">
+                  <Input value={draft.adGroup} onChange={(e) => set("adGroup", e.target.value)} />
+                </Field>
+                <Field label="Keyword">
+                  <Input value={draft.keyword} onChange={(e) => set("keyword", e.target.value)} />
+                </Field>
+                <Field label="Search term">
+                  <Input value={draft.searchTerm} onChange={(e) => set("searchTerm", e.target.value)} />
+                </Field>
+              </div>
               <Field label="Tags">
                 <div className="space-y-2">
                   <div className="flex gap-2">
@@ -208,6 +221,27 @@ export function LeadDialog({ open, onOpenChange, lead, mode, onSave, stages }: P
             </TabsContent>
 
             <TabsContent value="tracking" className="mt-0 space-y-5">
+              <div>
+                <SectionTitle>Campaign attribution</SectionTitle>
+                <div className="grid grid-cols-2 gap-4 mt-3">
+                  <Field label="Campaign">
+                    <Input value={draft.campaignName} onChange={(e) => set("campaignName", e.target.value)} />
+                  </Field>
+                  <Field label="Ad group">
+                    <Input value={draft.adGroup} onChange={(e) => set("adGroup", e.target.value)} />
+                  </Field>
+                  <Field label="Keyword">
+                    <Input value={draft.keyword} onChange={(e) => set("keyword", e.target.value)} />
+                  </Field>
+                  <Field label="Search term">
+                    <Input value={draft.searchTerm} onChange={(e) => set("searchTerm", e.target.value)} />
+                  </Field>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Filled from the landing URL when ads pass campaign, ad group, keyword or search
+                  term (UTM or ValueTrack aliases).
+                </p>
+              </div>
               <div>
                 <SectionTitle>UTM parameters</SectionTitle>
                 <div className="grid grid-cols-3 gap-4 mt-3">

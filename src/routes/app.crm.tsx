@@ -12,6 +12,7 @@ import {
   Globe,
   Linkedin,
   Lock,
+  MapPin,
   Monitor,
   Plus,
   Search,
@@ -83,6 +84,12 @@ function ChannelIcon({ source }: { source: Source }) {
         <BrandSvg icon={siGoogleads} />
       </span>
     );
+  if (source === "Google My Business")
+    return (
+      <span title="Google My Business" className={`${base} bg-card ring-1 ring-border text-[#4285F4]`}>
+        <MapPin className="size-3.5" />
+      </span>
+    );
   if (source === "Meta")
     return (
       <span title="Meta Ads" className={`${base} bg-card ring-1 ring-border`}>
@@ -116,7 +123,7 @@ function ChannelIcon({ source }: { source: Source }) {
  * would offer stages a workspace has never used.
  */
 const ORDER: Record<string, readonly string[]> = {
-  Source: ["Google", "Meta", "LinkedIn", "Microsoft", "Direct"],
+  Source: ["Google", "Google My Business", "Meta", "LinkedIn", "Microsoft", "Direct"],
   Stage: DEFAULT_STAGES.map((s) => s.name),
   Label: ["Hot Lead", "Quotation Sent", "Spam Lead", "No label"],
   Priority: ["High", "Medium", "Low"],

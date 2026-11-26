@@ -322,6 +322,9 @@ CREATE TABLE public.leads (
 
   source           text,
   campaign_name    text,
+  ad_group         text,
+  keyword          text,
+  search_term      text,
   website_url      text,
   utm_source       text,
   utm_medium       text,

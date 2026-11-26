@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { str } from "@/lib/ingest-values";
 import { resolveIngestKey, withIngest } from "@/db";
+import { inferLeadSource, resolveCampaignName } from "@/lib/lead-attribution";
 
 /**
  * Public lead intake for the website tracker.
@@ -36,6 +37,9 @@ const KNOWN_FIELDS = new Set([
   "message",
   "source",
   "campaign_name",
+  "ad_group",
+  "keyword",
+  "search_term",
   "website_url",
   "utm_source",
   "utm_medium",
@@ -205,12 +209,32 @@ export const Route = createFileRoute("/api/public/leads/collect")({
             return json({ ok: true, id: superseded.id, superseded: true }, 200, CORS);
           }
 
+          const utmCampaign = str(body.utm_campaign, 200);
+          const utmTerm = str(body.utm_term, 200);
+          const utmContent = str(body.utm_content, 200);
+          const campaignName = resolveCampaignName(str(body.campaign_name, 200), utmCampaign);
+          const adGroup = str(body.ad_group, 200) ?? utmContent;
+          const keyword = str(body.keyword, 200) ?? utmTerm;
+          const searchTerm = str(body.search_term, 500);
+          const source = inferLeadSource({
+            gclid: str(body.gclid, 500),
+            wbraid: str(body.wbraid, 500),
+            gbraid: str(body.gbraid, 500),
+            fbclid: str(body.fbclid, 500),
+            liFatId: str(body.li_fat_id, 500),
+            msclkid: str(body.msclkid, 500),
+            utmSource: str(body.utm_source, 200),
+            utmMedium: str(body.utm_medium, 200),
+            referrerUrl: str(body.referrer_url, 2000),
+            hinted: str(body.source, 64),
+          });
+
           await withIngest(organizationId, (db) =>
             db.sql(
               `INSERT INTO public.leads (
                  id, organization_id, stage,
                  name, email, phone, company, message,
-                 source, campaign_name, website_url,
+                 source, campaign_name, ad_group, keyword, search_term, website_url,
                  utm_source, utm_medium, utm_campaign, utm_term, utm_content,
                  gclid, wbraid, gbraid, fbclid, msclkid, li_fat_id, fbp,
                  ga_client_id, ga_session_id,
@@ -219,12 +243,12 @@ export const Route = createFileRoute("/api/public/leads/collect")({
                ) VALUES (
                  $1, $2, 'new',
                  $3, $4, $5, $6, $7,
-                 $8, $9, $10,
-                 $11, $12, $13, $14, $15,
-                 $16, $17, $18, $19, $20, $21, $22,
-                 $23, $24,
-                 $25, $26, $27, $28,
-                 $29, $30, $31
+                 $8, $9, $10, $11, $12, $13,
+                 $14, $15, $16, $17, $18,
+                 $19, $20, $21, $22, $23, $24, $25,
+                 $26, $27,
+                 $28, $29, $30, $31,
+                 $32, $33, $34
                )`,
               [
                 leadId,
@@ -234,14 +258,17 @@ export const Route = createFileRoute("/api/public/leads/collect")({
                 str(body.phone, 64),
                 str(body.company, 200),
                 str(body.message, 4000),
-                str(body.source, 32) ?? "Direct",
-                str(body.campaign_name, 200),
+                source,
+                campaignName,
+                adGroup,
+                keyword,
+                searchTerm,
                 str(body.website_url, 2000),
                 str(body.utm_source, 200),
                 str(body.utm_medium, 200),
-                str(body.utm_campaign, 200),
-                str(body.utm_term, 200),
-                str(body.utm_content, 200),
+                utmCampaign,
+                utmTerm,
+                utmContent,
                 str(body.gclid, 500),
                 str(body.wbraid, 500),
                 str(body.gbraid, 500),

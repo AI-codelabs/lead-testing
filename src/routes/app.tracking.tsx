@@ -310,6 +310,15 @@ window.Leadlogr.submitForm({
                   </>
                 )}
               </p>
+              <p className="text-sm text-muted-foreground">
+                For campaign name, ad group, keyword and search term on each lead, append them to
+                your Google Ads final URL, for example{" "}
+                <code className="text-xs bg-muted px-1 rounded">
+                  {`utm_campaign={campaignid}&utm_content={adgroupid}&utm_term={keyword}&search_term={keyword}`}
+                </code>
+                . Aliases like <code className="text-xs bg-muted px-1 rounded">keyword</code> and{" "}
+                <code className="text-xs bg-muted px-1 rounded">adgroup</code> also work.
+              </p>
 
               <details className="rounded-lg ring-1 ring-border bg-muted/20 p-4">
                 <summary className="text-sm font-medium cursor-pointer">
