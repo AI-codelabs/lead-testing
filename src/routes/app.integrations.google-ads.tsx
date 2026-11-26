@@ -17,11 +17,13 @@ import {
   disconnectGoogleAds,
   listGoogleAdsCustomers,
   listGoogleAdsConversionActions,
+  ensureGoogleAdsConversionActions,
   startGoogleAdsOAuth,
   getGoogleAdsReadiness,
   testGoogleAdsConnection,
 } from "@/lib/integrations.functions";
-import { Check, AlertCircle, ExternalLink, Loader2, Plug, Unplug, RefreshCw } from "lucide-react";
+import { Check, AlertCircle, ExternalLink, Loader2, Plug, Unplug, RefreshCw, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/integrations/google-ads")({
   staticData: { width: "narrow" },
@@ -69,9 +71,11 @@ function GoogleAdsPage() {
   const disconnect = useServerFn(disconnectGoogleAds);
   const listCustomers = useServerFn(listGoogleAdsCustomers);
   const listActions = useServerFn(listGoogleAdsConversionActions);
+  const ensureActions = useServerFn(ensureGoogleAdsConversionActions);
   const startOAuth = useServerFn(startGoogleAdsOAuth);
   const readinessFn = useServerFn(getGoogleAdsReadiness);
   const testFn = useServerFn(testGoogleAdsConnection);
+  const [creatingActions, setCreatingActions] = useState(false);
   const [readiness, setReadiness] = useState<{
     connected: boolean; accountSelected: boolean; stagesMapped: number; stagesTotal: number;
     ready: boolean; enabled: boolean;
@@ -284,6 +288,48 @@ function GoogleAdsPage() {
       setTimeout(() => setSaved(false), 1800);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onCreateLeadlogrActions = async () => {
+    if (!form.customer_id) return;
+    setCreatingActions(true);
+    setError(null);
+    try {
+      const r = await ensureActions({
+        data: {
+          organizationId,
+          customerId: form.customer_id,
+          loginCustomerId: form.login_customer_id || undefined,
+        },
+      });
+      if (r.error) {
+        setError(humanError(r.error) || r.error);
+        toast.error(humanError(r.error) || r.error);
+        return;
+      }
+      setActions(r.actions as Action[]);
+      setUnusableActions(0);
+      setForm((f) => ({
+        ...f,
+        conversion_action_new: r.mapping.new || f.conversion_action_new,
+        conversion_action_qualified: r.mapping.qualified || f.conversion_action_qualified,
+        conversion_action_won: r.mapping.won || f.conversion_action_won,
+        conversion_action_lost: r.mapping.lost || f.conversion_action_lost,
+      }));
+      if (r.created.length > 0) {
+        toast.success(
+          `Created ${r.created.length} conversion action${r.created.length === 1 ? "" : "s"} in Google Ads. Review the mapping and save.`,
+        );
+      } else {
+        toast.message("Leadlogr conversion actions were already on this account. Mapping filled in — save to keep it.");
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not create conversion actions";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setCreatingActions(false);
     }
   };
 
@@ -537,10 +583,32 @@ function GoogleAdsPage() {
                   : actions.length > 0
                     ? `Pick which conversion action to fire at each stage. ${actions.length} available on this account.`
                     : unusableActions > 0
-                      ? `This account has ${unusableActions} conversion action${unusableActions === 1 ? "" : "s"}, but none of them can receive conversions sent from outside Google. Create one in Google Ads under Goals → Conversions → New conversion action → Import → Other data sources or CRM → Track conversions from clicks.`
-                      : "This account has no conversion actions yet. Create one in Google Ads under Goals → Conversions → New conversion action → Import → Other data sources or CRM → Track conversions from clicks."}
+                      ? `This account has ${unusableActions} conversion action${unusableActions === 1 ? "" : "s"}, but none can receive uploads from Leadlogr. Create the Leadlogr set below — no need to leave the app.`
+                      : "No uploadable conversion actions yet. Create the Leadlogr set in one click — we add them in Google Ads for you and map the stages."}
               </p>
             </header>
+
+            <div className="mb-4 rounded-md ring-1 ring-border bg-muted/30 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+              <p className="text-xs text-muted-foreground flex-1">
+                Creates four <strong className="text-foreground">Import → clicks</strong> actions in
+                this Google Ads account (New, Qualified, Won, Lost), reuses them if they already
+                exist, and fills the dropdowns. You still confirm with Save.
+              </p>
+              <button
+                type="button"
+                onClick={onCreateLeadlogrActions}
+                disabled={creatingActions || loadingActions || !form.customer_id}
+                className="inline-flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-md ring-1 ring-border bg-card hover:bg-muted/40 disabled:opacity-50 shrink-0"
+              >
+                {creatingActions ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="size-3.5" />
+                )}
+                {creatingActions ? "Creating…" : "Create Leadlogr conversions"}
+              </button>
+            </div>
+
             <div className="space-y-3">
               {STAGES.map((s) => (
                 <Field key={s.key} label={s.label} hint={s.hint}>
@@ -626,7 +694,7 @@ function GoogleAdsPage() {
             <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal pl-4">
               <li>Click <strong>Connect Google Ads</strong> and sign in with the Google account that manages your Ads accounts.</li>
               <li>Pick the Ads account that should receive conversions.</li>
-              <li>Pick a conversion action per pipeline stage (New / Qualified / Won / Lost).</li>
+              <li>Click <strong>Create Leadlogr conversions</strong> (or pick existing actions) for New / Qualified / Won / Lost, then Save.</li>
               <li>As leads move through stages, Leadlogr uploads to Google's <code>uploadClickConversions</code> with the matching gclid/wbraid/gbraid.</li>
               <li>If consent was granted, hashed email & phone are sent as Enhanced Conversions for Leads.</li>
             </ol>

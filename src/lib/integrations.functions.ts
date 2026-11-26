@@ -756,6 +756,61 @@ export const listGoogleAdsConversionActions = createServerFn({ method: "POST" })
     }
   });
 
+/**
+ * Creates the recommended Leadlogr UPLOAD_CLICKS conversion actions in Google
+ * Ads (or reuses them if the names already exist) and returns a stage → id map
+ * so the UI can preselect without sending the user to ads.google.com.
+ */
+export const ensureGoogleAdsConversionActions = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator(
+    (data: { organizationId: string; customerId: string; loginCustomerId?: string }) => {
+      if (!data?.organizationId || !data?.customerId) throw new Error("Invalid input");
+      return data;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const orgId = await requireOrganization(context.db, data.organizationId);
+    const { buildGoogleAdsCreds, ensureLeadlogrConversionActions } = await import(
+      "./google-ads.server"
+    );
+
+    const cred = await credentialFor(orgId, "google_ads");
+    const creds = buildGoogleAdsCreds(cred?.refresh_token);
+    if (!creds) {
+      return {
+        actions: [] as Array<{ id: string; name: string; category: string; status: string; type: string; uploadable: boolean }>,
+        created: [] as string[],
+        reused: [] as string[],
+        mapping: {} as Record<string, string>,
+        error: "not_connected" as string | null,
+      };
+    }
+
+    try {
+      const result = await ensureLeadlogrConversionActions(
+        creds,
+        data.customerId,
+        data.loginCustomerId,
+      );
+      return {
+        actions: result.actions.filter((a) => a.uploadable),
+        created: result.created,
+        reused: result.reused,
+        mapping: result.mapping,
+        error: null as string | null,
+      };
+    } catch (e) {
+      return {
+        actions: [],
+        created: [],
+        reused: [],
+        mapping: {},
+        error: e instanceof Error ? e.message : "create_failed",
+      };
+    }
+  });
+
 export type GoogleAdsReadiness = {
   connected: boolean;
   connectedEmail: string | null;

@@ -151,11 +151,13 @@ function PrivacyPage() {
         />
         <p>
           <strong>What we do not do.</strong> We do not read your campaigns, keywords, audiences,
-          creatives or billing details. We do not create, edit, pause or budget anything. We do not
-          read conversion data belonging to other tools. Nothing from your Google account is used to
-          build profiles, to target advertising, to train machine learning models, or for any
-          purpose other than the four above. It is never sold, and never shared with another
-          customer or with any third party, including our other providers.
+          creatives or billing details. We do not create, edit, pause or budget campaigns. When you
+          ask us to from the Google Ads settings, we may create the Leadlogr conversion actions used
+          to receive uploaded conversions — nothing else. We do not read conversion data belonging
+          to other tools. Nothing from your Google account is used to build profiles, to target
+          advertising, to train machine learning models, or for any purpose other than the four
+          above. It is never sold, and never shared with another customer or with any third party,
+          including our other providers.
         </p>
         <p>
           <strong>What we send back.</strong> Only the conversions you have configured: the click

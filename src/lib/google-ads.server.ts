@@ -646,3 +646,154 @@ export async function listConversionActions(
     ];
   });
 }
+
+/**
+ * Recommended Leadlogr conversion actions for pipeline stages.
+ *
+ * Created as UPLOAD_CLICKS so uploadClickConversions can send into them.
+ * Names are stable so a second click reuses existing actions instead of
+ * duplicating them.
+ */
+export const LEADLOGR_CONVERSION_TEMPLATES = [
+  {
+    stage: "qualified" as const,
+    name: "Leadlogr – Qualified lead",
+    /** Older / localised names already present on some accounts. */
+    aliases: ["Leadlogr – Gekwalificeerde lead"],
+    category: "QUALIFIED_LEAD",
+    primaryForGoal: true,
+  },
+  {
+    stage: "won" as const,
+    name: "Leadlogr – Won lead",
+    aliases: [] as string[],
+    category: "CONVERTED_LEAD",
+    primaryForGoal: true,
+  },
+  {
+    stage: "new" as const,
+    name: "Leadlogr – New lead",
+    aliases: [] as string[],
+    category: "SUBMIT_LEAD_FORM",
+    primaryForGoal: false,
+  },
+  {
+    stage: "lost" as const,
+    name: "Leadlogr – Lost lead",
+    aliases: [] as string[],
+    category: "DEFAULT",
+    primaryForGoal: false,
+  },
+] as const;
+
+export type LeadlogrConversionStage = (typeof LEADLOGR_CONVERSION_TEMPLATES)[number]["stage"];
+
+export type EnsureConversionActionsResult = {
+  actions: ConversionActionRow[];
+  created: string[];
+  reused: string[];
+  mapping: Record<LeadlogrConversionStage, string>;
+};
+
+/**
+ * Ensures the recommended Leadlogr UPLOAD_CLICKS actions exist on the account.
+ *
+ * Creates only what is missing (matched by exact name). Returns the full
+ * uploadable list plus a stage → action-id map for the UI to preselect.
+ */
+export async function ensureLeadlogrConversionActions(
+  creds: GoogleAdsCreds,
+  customerId: string,
+  loginCustomerId?: string,
+): Promise<EnsureConversionActionsResult> {
+  const existing = await listConversionActions(creds, customerId, loginCustomerId);
+  const byName = new Map(existing.map((a) => [a.name.toLowerCase(), a]));
+
+  function findExisting(
+    t: (typeof LEADLOGR_CONVERSION_TEMPLATES)[number],
+  ): ConversionActionRow | undefined {
+    const primary = byName.get(t.name.toLowerCase());
+    if (primary) return primary;
+    for (const alias of t.aliases) {
+      const hit = byName.get(alias.toLowerCase());
+      if (hit) return hit;
+    }
+    return undefined;
+  }
+
+  const toCreate = LEADLOGR_CONVERSION_TEMPLATES.filter((t) => !findExisting(t));
+  const created: string[] = [];
+  const reused: string[] = [];
+
+  if (toCreate.length > 0) {
+    const accessToken = await getAccessToken(creds);
+    const customer = customerId.replace(/\D/g, "");
+    const resp = await fetch(
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${customer}/conversionActions:mutate`,
+      {
+        method: "POST",
+        headers: gaHeaders(creds, accessToken, loginCustomerId),
+        body: JSON.stringify({
+          // One failure must not roll back the others: a name clash on one
+          // stage should not leave Qualified/Won missing.
+          partialFailure: true,
+          responseContentType: "MUTABLE_RESOURCE",
+          operations: toCreate.map((t) => ({
+            create: {
+              name: t.name,
+              type: "UPLOAD_CLICKS",
+              category: t.category,
+              status: "ENABLED",
+              primaryForGoal: t.primaryForGoal,
+              countingType: "ONE_PER_CLICK",
+              clickThroughLookbackWindowDays: "90",
+              valueSettings: {
+                defaultValue: 0,
+                alwaysUseDefaultValue: false,
+              },
+            },
+          })),
+        }),
+      },
+    );
+    const text = await resp.text();
+    if (!resp.ok) {
+      throw new Error(googleAdsError("create_conversion_actions_failed", resp.status, text));
+    }
+    let parsed: {
+      results?: Array<{ conversionAction?: { id?: string; name?: string; resourceName?: string } }>;
+      partialFailureError?: { message?: string };
+    } = {};
+    try {
+      parsed = JSON.parse(text) as typeof parsed;
+    } catch {
+      throw new Error(googleAdsError("create_conversion_actions_failed", resp.status, text));
+    }
+    if (parsed.partialFailureError?.message) {
+      // Some creates may still have succeeded; fall through to re-list.
+      console.warn(
+        `[google-ads] partial failure creating conversion actions: ${parsed.partialFailureError.message}`,
+      );
+    }
+    for (const r of parsed.results ?? []) {
+      const name = r.conversionAction?.name;
+      if (name) created.push(name);
+    }
+  }
+
+  for (const t of LEADLOGR_CONVERSION_TEMPLATES) {
+    if (findExisting(t)) reused.push(t.name);
+  }
+
+  const actions = await listConversionActions(creds, customerId, loginCustomerId);
+  const freshByName = new Map(actions.map((a) => [a.name.toLowerCase(), a]));
+  const mapping = {} as Record<LeadlogrConversionStage, string>;
+  for (const t of LEADLOGR_CONVERSION_TEMPLATES) {
+    const row =
+      freshByName.get(t.name.toLowerCase()) ||
+      t.aliases.map((a) => freshByName.get(a.toLowerCase())).find(Boolean);
+    if (row?.uploadable) mapping[t.stage] = row.id;
+  }
+
+  return { actions, created, reused, mapping };
+}
