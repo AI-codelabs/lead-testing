@@ -117,8 +117,10 @@ function PrivacyPage() {
 
       <Section id="google" heading="Data from the Google account you connect">
         <p>
-          A workspace can connect its Google Ads account so that outcomes are reported back to it.
-          Connecting uses Google's own sign-in, so we never see or hold a Google password. This
+          A workspace can connect its Google Ads account so that outcomes are reported back to it,
+          and, separately, its Google Tag Manager account so that Leadlogr can install its tracking
+          tag on the workspace's website. Each is its own Google sign-in and its own permission:
+          connecting one never grants the other. We never see or hold a Google password. This
           section describes what that permission gives us, because Google requires it to be stated
           plainly and because it is narrower than the permission screen suggests.
         </p>
@@ -191,9 +193,60 @@ function PrivacyPage() {
           , including its Limited Use requirements.
         </p>
         <p>
+          <strong>Google Tag Manager.</strong> If you choose to connect Tag Manager from the
+          Tracking page, Google asks you to allow Leadlogr to view your Tag Manager containers,
+          manage their workspaces, create container versions and publish them. We use that
+          permission only for the one task it was given for:
+        </p>
+        <List
+          items={[
+            <>
+              <strong>What we read:</strong> the names and identifiers of the Tag Manager accounts
+              and web containers the connected Google account can reach, so you can pick one, and
+              the tags and triggers in the workspace Leadlogr creates, so an existing Leadlogr tag
+              is updated rather than duplicated. We do not read, copy or store your other tags,
+              triggers, variables or their contents.
+            </>,
+            <>
+              <strong>What we write:</strong> only when you press <em>Install and publish</em>, we
+              create a new workspace in the container you chose, add one Custom HTML tag named
+              &ldquo;Leadlogr tracker&rdquo; (the same snippet shown on the Tracking page) and one
+              Page View trigger named &ldquo;Leadlogr - All Pages&rdquo;, and create a container
+              version from that workspace. We never change or delete anything else in your
+              container.
+            </>,
+            <>
+              <strong>Publishing:</strong> that version is published straight away, because the
+              purpose of the integration is to put the tracking tag live on your website without you
+              having to do it by hand. Nothing is published without you pressing the button, and
+              every version Leadlogr publishes is listed, labelled as Leadlogr&apos;s, in your
+              container&apos;s version history, where you can roll it back.
+            </>,
+            <>
+              <strong>What we keep:</strong> the email address of the connected Google account, the
+              account and container you chose, and the number and link of the last version we
+              published. The authorization itself is stored the same way as for Google Ads, in a
+              table the application&apos;s database role cannot read.
+            </>,
+          ]}
+        />
+        <p>
+          <strong>Taking it back.</strong> Disconnecting Tag Manager on the Tracking page deletes
+          the stored authorization and asks Google to revoke it. The one exception: Google keeps a
+          single permission per Google account for Leadlogr, so if the same Google account is still
+          connected to Google Ads (or to Tag Manager in another workspace), revoking at Google would
+          end that connection too. In that case we delete our copy (Leadlogr can no longer reach
+          your containers) and tell you so; you can then remove access entirely from your Google
+          account&apos;s third-party access page. The tag already published stays in your container
+          until you remove or pause it there, because it is part of your website.
+        </p>
+        <p>
           <strong>Taking it back.</strong> Disconnecting Google Ads in your settings deletes the
           stored authorization and tells Google to revoke it, so the permission ends rather than
-          merely being forgotten. You can also remove it yourself at any time from{" "}
+          merely being forgotten. The same exception applies as for Tag Manager: if that Google
+          account still backs another Leadlogr connection, we delete our copy and tell you, and the
+          permission is not revoked at Google until you remove it there. You can also remove it
+          yourself at any time from{" "}
           <a
             href="https://myaccount.google.com/permissions"
             className="underline underline-offset-2 hover:text-foreground"

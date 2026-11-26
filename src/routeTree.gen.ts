@@ -43,6 +43,7 @@ import { Route as ApiPublicLeadsCollectRouteImport } from './routes/api/public/l
 import { Route as ApiPublicTrackerV1RouteImport } from './routes/api/public/tracker.v1'
 import { Route as AppIntegrationsCrmProviderRouteImport } from './routes/app.integrations.crm.$provider'
 import { Route as ApiPublicOauthGoogleAdsCallbackRouteImport } from './routes/api/public/oauth/google-ads/callback'
+import { Route as ApiPublicOauthGoogleTagManagerCallbackRouteImport } from './routes/api/public/oauth/google-tag-manager/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -217,6 +218,12 @@ const ApiPublicOauthGoogleAdsCallbackRoute =
     path: '/api/public/oauth/google-ads/callback',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicOauthGoogleTagManagerCallbackRoute =
+  ApiPublicOauthGoogleTagManagerCallbackRouteImport.update({
+    id: '/api/public/oauth/google-tag-manager/callback',
+    path: '/api/public/oauth/google-tag-manager/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -253,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
   '/app/integrations/crm/$provider': typeof AppIntegrationsCrmProviderRoute
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
+  '/api/public/oauth/google-tag-manager/callback': typeof ApiPublicOauthGoogleTagManagerCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -287,6 +295,7 @@ export interface FileRoutesByTo {
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
   '/app/integrations/crm/$provider': typeof AppIntegrationsCrmProviderRoute
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
+  '/api/public/oauth/google-tag-manager/callback': typeof ApiPublicOauthGoogleTagManagerCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -324,6 +333,7 @@ export interface FileRoutesById {
   '/api/public/tracker/v1': typeof ApiPublicTrackerV1Route
   '/app/integrations/crm/$provider': typeof AppIntegrationsCrmProviderRoute
   '/api/public/oauth/google-ads/callback': typeof ApiPublicOauthGoogleAdsCallbackRoute
+  '/api/public/oauth/google-tag-manager/callback': typeof ApiPublicOauthGoogleTagManagerCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -362,6 +372,7 @@ export interface FileRouteTypes {
     | '/api/public/tracker/v1'
     | '/app/integrations/crm/$provider'
     | '/api/public/oauth/google-ads/callback'
+    | '/api/public/oauth/google-tag-manager/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -396,6 +407,7 @@ export interface FileRouteTypes {
     | '/api/public/tracker/v1'
     | '/app/integrations/crm/$provider'
     | '/api/public/oauth/google-ads/callback'
+    | '/api/public/oauth/google-tag-manager/callback'
   id:
     | '__root__'
     | '/'
@@ -432,6 +444,7 @@ export interface FileRouteTypes {
     | '/api/public/tracker/v1'
     | '/app/integrations/crm/$provider'
     | '/api/public/oauth/google-ads/callback'
+    | '/api/public/oauth/google-tag-manager/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -451,6 +464,7 @@ export interface RootRouteChildren {
   ApiPublicLeadsCollectRoute: typeof ApiPublicLeadsCollectRoute
   ApiPublicTrackerV1Route: typeof ApiPublicTrackerV1Route
   ApiPublicOauthGoogleAdsCallbackRoute: typeof ApiPublicOauthGoogleAdsCallbackRoute
+  ApiPublicOauthGoogleTagManagerCallbackRoute: typeof ApiPublicOauthGoogleTagManagerCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -693,6 +707,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicOauthGoogleAdsCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/oauth/google-tag-manager/callback': {
+      id: '/api/public/oauth/google-tag-manager/callback'
+      path: '/api/public/oauth/google-tag-manager/callback'
+      fullPath: '/api/public/oauth/google-tag-manager/callback'
+      preLoaderRoute: typeof ApiPublicOauthGoogleTagManagerCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -776,6 +797,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicLeadsCollectRoute: ApiPublicLeadsCollectRoute,
   ApiPublicTrackerV1Route: ApiPublicTrackerV1Route,
   ApiPublicOauthGoogleAdsCallbackRoute: ApiPublicOauthGoogleAdsCallbackRoute,
+  ApiPublicOauthGoogleTagManagerCallbackRoute:
+    ApiPublicOauthGoogleTagManagerCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

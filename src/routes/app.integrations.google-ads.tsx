@@ -37,6 +37,7 @@ type FormState = {
   customer_id: string;
   login_customer_id: string;
   default_currency: string;
+  account_timezone: string;
   conversion_action_new: string;
   conversion_action_qualified: string;
   conversion_action_won: string;
@@ -88,6 +89,7 @@ function GoogleAdsPage() {
     customer_id: "",
     login_customer_id: "",
     default_currency: "EUR",
+    account_timezone: "",
     conversion_action_new: "",
     conversion_action_qualified: "",
     conversion_action_won: "",
@@ -131,6 +133,7 @@ function GoogleAdsPage() {
         customer_id: s.settings.customer_id ?? "",
         login_customer_id: s.settings.login_customer_id ?? "",
         default_currency: s.settings.default_currency ?? "EUR",
+        account_timezone: s.settings.account_timezone ?? "",
         conversion_action_new: s.settings.conversion_action_new ?? "",
         conversion_action_qualified: s.settings.conversion_action_qualified ?? "",
         conversion_action_won: s.settings.conversion_action_won ?? "",
@@ -217,6 +220,13 @@ function GoogleAdsPage() {
         setCustomers(r.customers as Customer[]);
         setCustomersError(r.error ? humanError(r.error) : null);
         if (r.error) setError(humanError(r.error));
+        // Backfill timezone for an already-saved account so the next Save
+        // persists it without forcing the user to re-pick.
+        setForm((f) => {
+          if (!f.customer_id || f.account_timezone) return f;
+          const c = (r.customers as Customer[]).find((x) => x.id === f.customer_id);
+          return c?.timeZone ? { ...f, account_timezone: c.timeZone } : f;
+        });
       })
       .finally(() => setLoadingCustomers(false));
   }, [connection.connected, loadAccounts, organizationId, listCustomers]);
@@ -276,7 +286,10 @@ function GoogleAdsPage() {
 
   const onDisconnect = async () => {
     if (!confirm("Disconnect Google Ads? Conversion uploads will stop until you reconnect.")) return;
-    await disconnect({ data: { organizationId } });
+    const r = await disconnect({ data: { organizationId } });
+    // Set when the same Google account still backs another Leadlogr connection,
+    // so the grant was kept at Google.
+    if (r?.note) toast.message(r.note);
     await refresh();
   };
 
@@ -498,6 +511,9 @@ function GoogleAdsPage() {
                       // and nobody outside the Ads API knows what belongs here.
                       login_customer_id: c?.loginCustomerId ?? "",
                       default_currency: c?.currencyCode || f.default_currency,
+                      // Account IANA zone — used on every conversionDateTime so
+                      // Ads UI day buckets match the account (e.g. Pacific).
+                      account_timezone: c?.timeZone || f.account_timezone,
                     }));
                   }}
                   className="w-full text-sm px-3 py-2 rounded-md bg-card ring-1 ring-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
@@ -531,7 +547,14 @@ function GoogleAdsPage() {
                   </button>
                 )}
               </Field>
-              <Field label="Default currency" hint="Used for Won deal values when no per-lead currency is set.">
+              <Field
+                label="Default currency"
+                hint={
+                  form.account_timezone
+                    ? `Used for Won deal values when no per-lead currency is set. Conversion times use ${form.account_timezone}.`
+                    : "Used for Won deal values when no per-lead currency is set. Pick an account so we store its timezone for uploads."
+                }
+              >
                 <input
                   value={form.default_currency}
                   onChange={(e) => setForm((f) => ({ ...f, default_currency: e.target.value.toUpperCase().slice(0, 3) }))}

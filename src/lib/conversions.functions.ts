@@ -57,6 +57,7 @@ type SettingsForUpload = {
   account_id: string | null;
   secondary_id: string | null;
   default_currency: string;
+  account_timezone: string | null;
   test_event_code: string | null;
   action: string | null;
   refresh_token: string | null;
@@ -83,7 +84,8 @@ async function loadContext(leadId: string, network: AdUploadNetwork, stage: DbSt
 
     // Fixed CASE — no dynamic column names in SQL.
     const settings = await db.one<SettingsForUpload>(
-      `SELECT s.enabled, s.account_id, s.secondary_id, s.default_currency, s.test_event_code,
+      `SELECT s.enabled, s.account_id, s.secondary_id, s.default_currency,
+              s.account_timezone, s.test_event_code,
               CASE $3::text
                 WHEN 'action_new'        THEN s.action_new
                 WHEN 'action_qualified'  THEN s.action_qualified
@@ -211,6 +213,7 @@ async function uploadGoogleAds(leadId: string, stage: DbStage): Promise<UploadRe
       gbraid: !lead.gclid && !lead.wbraid && lead.gbraid ? lead.gbraid : undefined,
       conversionDateTime: formatConversionDateTime(
         new Date(lead.stage_changed_at || lead.updated_at || lead.created_at),
+        settings.account_timezone || "UTC",
       ),
       value,
       currencyCode: currency,
