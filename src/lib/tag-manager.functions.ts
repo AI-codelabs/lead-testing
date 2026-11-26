@@ -136,6 +136,14 @@ export const startTagManagerOAuth = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data, context }): Promise<{ url: string }> => {
+    // Hidden in the UI too; refusing here as well keeps a direct call from
+    // spending the unverified-app user cap. See feature-flags.ts.
+    const { GTM_AUTO_INSTALL_ENABLED } = await import("./feature-flags");
+    if (!GTM_AUTO_INSTALL_ENABLED) {
+      throw new Error(
+        "Automatic Tag Manager install is not available yet. Use the snippet instead.",
+      );
+    }
     const orgId = await requireAdmin(context, data.organizationId, "connect integrations");
 
     const clientId = process.env.GOOGLE_ADS_OAUTH_CLIENT_ID;

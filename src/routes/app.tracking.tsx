@@ -10,6 +10,7 @@ import { Check, Copy, ExternalLink, ShieldCheck, Sparkles, Zap, AlertCircle, Loa
 import { toast } from "sonner";
 import { buildGtmSnippet } from "@/lib/gtm-tag";
 import { GtmAutoInstall } from "@/components/leadlogr/gtm-auto-install";
+import { GTM_AUTO_INSTALL_ENABLED } from "@/lib/feature-flags";
 
 export const Route = createFileRoute("/app/tracking")({
   staticData: { width: "wide" },
@@ -286,7 +287,7 @@ window.Leadlogr.submitForm({
           */}
           {isScriptInstall ? (
             <div className="space-y-4">
-              {integrationId === "gtm" && (
+              {integrationId === "gtm" && GTM_AUTO_INSTALL_ENABLED && (
                 <>
                   <GtmAutoInstall
                     organizationId={organizationId}
