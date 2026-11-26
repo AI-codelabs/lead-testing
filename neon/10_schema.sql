@@ -448,6 +448,8 @@ CREATE TABLE public.ad_platform_settings (
   account_id       text,
   secondary_id     text,
   test_event_code  text,
+  -- IANA zone of the selected Google Ads customer (for conversionDateTime).
+  account_timezone text,
   -- stage -> conversion action (google) or event name (meta)
   action_new       text,
   action_qualified text,

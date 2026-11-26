@@ -167,16 +167,68 @@ export async function sha256Hex(input: string): Promise<string> {
   return hex;
 }
 
-export function formatConversionDateTime(date: Date, tzOffsetMinutes = 0): string {
+/**
+ * Formats a conversion timestamp for UploadClickConversions.
+ *
+ * Google requires `yyyy-mm-dd HH:mm:ss+|-HH:mm`. Any offset is accepted for
+ * validation; using the Ads account's IANA timezone keeps day buckets aligned
+ * with the Google Ads UI (important when the account is Pacific and the
+ * workspace is Amsterdam).
+ *
+ * `timeZone` is an IANA id (e.g. `America/Los_Angeles`). Invalid / empty values
+ * fall back to UTC. A numeric argument is still accepted as minutes east of
+ * UTC for older call sites and tests.
+ */
+export function formatConversionDateTime(
+  date: Date,
+  timeZone: string | number = "UTC",
+): string {
   const pad = (n: number) => String(n).padStart(2, "0");
-  const local = new Date(date.getTime() + tzOffsetMinutes * 60_000);
-  const sign = tzOffsetMinutes >= 0 ? "+" : "-";
-  const abs = Math.abs(tzOffsetMinutes);
-  return (
-    `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())} ` +
-    `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}` +
-    `${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
-  );
+
+  if (typeof timeZone === "number") {
+    const local = new Date(date.getTime() + timeZone * 60_000);
+    const sign = timeZone >= 0 ? "+" : "-";
+    const abs = Math.abs(timeZone);
+    return (
+      `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())} ` +
+      `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}:${pad(local.getUTCSeconds())}` +
+      `${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
+    );
+  }
+
+  let tz = String(timeZone || "UTC").trim() || "UTC";
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: tz });
+  } catch {
+    tz = "UTC";
+  }
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "00";
+
+  const offsetParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    timeZoneName: "longOffset",
+  }).formatToParts(date);
+  const rawOffset = offsetParts.find((p) => p.type === "timeZoneName")?.value ?? "GMT";
+  let offset = "+00:00";
+  if (rawOffset !== "GMT" && rawOffset !== "UTC") {
+    const m = rawOffset.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/);
+    if (m) offset = `${m[1]}${pad(Number(m[2]))}:${m[3] ?? "00"}`;
+  }
+
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}${offset}`;
 }
 
 function gaHeaders(creds: GoogleAdsCreds, accessToken: string, loginCustomerId?: string) {

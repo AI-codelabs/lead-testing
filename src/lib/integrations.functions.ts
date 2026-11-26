@@ -22,6 +22,8 @@ export type AdPlatformSettings = {
   secondaryId: string | null;
   testEventCode: string | null;
   defaultCurrency: string;
+  /** IANA timezone of the selected Google Ads customer, when known. */
+  accountTimezone: string | null;
   actionNew: string | null;
   actionQualified: string | null;
   actionWon: string | null;
@@ -39,6 +41,7 @@ type SettingsRow = {
   secondary_id: string | null;
   test_event_code: string | null;
   default_currency: string;
+  account_timezone: string | null;
   action_new: string | null;
   action_qualified: string | null;
   action_won: string | null;
@@ -55,6 +58,7 @@ const toSettings = (r: SettingsRow): AdPlatformSettings => ({
   secondaryId: r.secondary_id,
   testEventCode: r.test_event_code,
   defaultCurrency: r.default_currency,
+  accountTimezone: r.account_timezone,
   actionNew: r.action_new,
   actionQualified: r.action_qualified,
   actionWon: r.action_won,
@@ -68,7 +72,8 @@ const toSettings = (r: SettingsRow): AdPlatformSettings => ({
 // and app_user cannot read the credentials table anyway.
 const SETTINGS_SELECT = `
   s.network, s.enabled, s.account_id, s.secondary_id, s.test_event_code,
-  s.default_currency, s.action_new, s.action_qualified, s.action_won, s.action_lost,
+  s.default_currency, s.account_timezone,
+  s.action_new, s.action_qualified, s.action_won, s.action_lost,
   s.connected_email, s.connected_at,
   -- Not an EXISTS against ad_platform_credentials: app_user has no grant on
   -- that table, so the subquery made this whole SELECT fail with "permission
@@ -105,6 +110,7 @@ export const saveAdPlatformSettings = createServerFn({ method: "POST" })
       secondaryId?: string | null;
       testEventCode?: string | null;
       defaultCurrency?: string;
+      accountTimezone?: string | null;
       actionNew?: string | null;
       actionQualified?: string | null;
       actionWon?: string | null;
@@ -126,42 +132,18 @@ export const saveAdPlatformSettings = createServerFn({ method: "POST" })
 
     // The write policy requires owner or admin, so a plain member's update
     // affects no rows and this reports it rather than failing silently.
-    const rows = await context.db.sql<{ organization_id: string }>(
-      `INSERT INTO public.ad_platform_settings AS s
-         (organization_id, network, enabled, account_id, secondary_id, test_event_code,
-          default_currency, action_new, action_qualified, action_won, action_lost)
-       VALUES ($1, $2::ad_network, COALESCE($3, false), $4, $5, $6,
-               COALESCE($7, 'EUR'), $8, $9, $10, $11)
-       ON CONFLICT (organization_id, network) DO UPDATE SET
-         enabled          = COALESCE($3,  s.enabled),
-         account_id       = COALESCE($4,  s.account_id),
-         secondary_id     = COALESCE($5,  s.secondary_id),
-         test_event_code  = COALESCE($6,  s.test_event_code),
-         default_currency = COALESCE($7,  s.default_currency),
-         action_new       = COALESCE($8,  s.action_new),
-         action_qualified = COALESCE($9,  s.action_qualified),
-         action_won       = COALESCE($10, s.action_won),
-         action_lost      = COALESCE($11, s.action_lost)
-       RETURNING organization_id`,
-      [
-        organizationId,
-        data.network,
-        data.enabled ?? null,
-        data.accountId ?? null,
-        data.secondaryId ?? null,
-        data.testEventCode ?? null,
-        data.defaultCurrency ?? null,
-        data.actionNew ?? null,
-        data.actionQualified ?? null,
-        data.actionWon ?? null,
-        data.actionLost ?? null,
-      ],
-    );
-
-    if (rows.length === 0) {
-      throw new Error("Only owners and admins can change integrations");
-    }
-    return { ok: true };
+    return writeSettings(context.db, organizationId, data.network, {
+      enabled: data.enabled,
+      accountId: data.accountId,
+      secondaryId: data.secondaryId,
+      testEventCode: data.testEventCode,
+      defaultCurrency: data.defaultCurrency,
+      accountTimezone: data.accountTimezone,
+      actionNew: data.actionNew,
+      actionQualified: data.actionQualified,
+      actionWon: data.actionWon,
+      actionLost: data.actionLost,
+    });
   });
 
 /**
@@ -348,6 +330,7 @@ export type GoogleAdsSettingsView = {
   customer_id: string;
   login_customer_id: string | null;
   default_currency: string;
+  account_timezone: string | null;
   conversion_action_new: string | null;
   conversion_action_qualified: string | null;
   conversion_action_won: string | null;
@@ -375,6 +358,7 @@ const toGoogleView = (s: AdPlatformSettings): GoogleAdsSettingsView => ({
   customer_id: s.accountId,
   login_customer_id: s.secondaryId,
   default_currency: s.defaultCurrency,
+  account_timezone: s.accountTimezone,
   conversion_action_new: s.actionNew,
   conversion_action_qualified: s.actionQualified,
   conversion_action_won: s.actionWon,
@@ -431,6 +415,7 @@ export const saveGoogleAdsSettings = createServerFn({ method: "POST" })
       customer_id?: string;
       login_customer_id?: string | null;
       default_currency?: string;
+      account_timezone?: string | null;
       conversion_action_new?: string | null;
       conversion_action_qualified?: string | null;
       conversion_action_won?: string | null;
@@ -439,6 +424,13 @@ export const saveGoogleAdsSettings = createServerFn({ method: "POST" })
       if (!data?.organizationId) throw new Error("organizationId is required");
       if (data.customer_id && !/^\d{6,20}$/.test(data.customer_id.replace(/\D/g, ""))) {
         throw new Error("Customer id must be 6–20 digits");
+      }
+      if (data.account_timezone) {
+        try {
+          new Intl.DateTimeFormat("en", { timeZone: data.account_timezone });
+        } catch {
+          throw new Error("Unknown account timezone");
+        }
       }
       return data;
     },
@@ -472,6 +464,7 @@ export const saveGoogleAdsSettings = createServerFn({ method: "POST" })
       accountId: data.customer_id,
       secondaryId: data.login_customer_id,
       defaultCurrency: data.default_currency,
+      accountTimezone: data.account_timezone,
       actionNew: data.conversion_action_new,
       actionQualified: data.conversion_action_qualified,
       actionWon: data.conversion_action_won,
@@ -541,6 +534,7 @@ async function writeSettings(
     secondaryId?: string | null;
     testEventCode?: string | null;
     defaultCurrency?: string | null;
+    accountTimezone?: string | null;
     actionNew?: string | null;
     actionQualified?: string | null;
     actionWon?: string | null;
@@ -550,19 +544,21 @@ async function writeSettings(
   const rows = await db.sql<{ organization_id: string }>(
     `INSERT INTO public.ad_platform_settings AS s
        (organization_id, network, enabled, account_id, secondary_id, test_event_code,
-        default_currency, action_new, action_qualified, action_won, action_lost)
+        default_currency, account_timezone,
+        action_new, action_qualified, action_won, action_lost)
      VALUES ($1, $2::ad_network, COALESCE($3, false), $4, $5, $6,
-             COALESCE($7, 'EUR'), $8, $9, $10, $11)
+             COALESCE($7, 'EUR'), $8, $9, $10, $11, $12)
      ON CONFLICT (organization_id, network) DO UPDATE SET
        enabled          = COALESCE($3,  s.enabled),
        account_id       = COALESCE($4,  s.account_id),
        secondary_id     = COALESCE($5,  s.secondary_id),
        test_event_code  = COALESCE($6,  s.test_event_code),
        default_currency = COALESCE($7,  s.default_currency),
-       action_new       = COALESCE($8,  s.action_new),
-       action_qualified = COALESCE($9,  s.action_qualified),
-       action_won       = COALESCE($10, s.action_won),
-       action_lost      = COALESCE($11, s.action_lost)
+       account_timezone = COALESCE($8,  s.account_timezone),
+       action_new       = COALESCE($9,  s.action_new),
+       action_qualified = COALESCE($10, s.action_qualified),
+       action_won       = COALESCE($11, s.action_won),
+       action_lost      = COALESCE($12, s.action_lost)
      RETURNING organization_id`,
     [
       organizationId,
@@ -572,6 +568,7 @@ async function writeSettings(
       v.secondaryId ?? null,
       v.testEventCode ?? null,
       v.defaultCurrency ?? null,
+      v.accountTimezone ?? null,
       v.actionNew ?? null,
       v.actionQualified ?? null,
       v.actionWon ?? null,
@@ -926,7 +923,10 @@ export const testGoogleAdsConnection = createServerFn({ method: "POST" })
         // A click id that cannot match a real click: Google still checks the
         // account, the conversion action and the payload around it.
         gclid: "LEADLOGR_CONNECTION_TEST",
-        conversionDateTime: formatConversionDateTime(new Date()),
+        conversionDateTime: formatConversionDateTime(
+          new Date(),
+          row.accountTimezone || "UTC",
+        ),
         orderId: `leadlogr-test:${Date.now()}`,
         validateOnly: true,
       });
