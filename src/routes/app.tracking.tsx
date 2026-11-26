@@ -8,6 +8,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useLiveLeads } from "@/hooks/use-live-leads";
 import { Check, Copy, ExternalLink, ShieldCheck, Sparkles, Zap, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { buildGtmSnippet } from "@/lib/gtm-tag";
+import { GtmAutoInstall } from "@/components/leadlogr/gtm-auto-install";
 
 export const Route = createFileRoute("/app/tracking")({
   staticData: { width: "wide" },
@@ -178,25 +180,16 @@ function TrackingPage() {
     0,
   );
 
-  const gtmSnippet = `<!-- Leadlogr Tracker — Paste in GTM › Tags › New › Custom HTML
-     Trigger: All Pages (Page View) -->
-<script>
-(function () {
-  if (window.__LEADLOGR_LOADED__) return;
-  window.__LEADLOGR_LOADED__ = true;
-  window.LEADLOGR_CONFIG = {
-    ingestKey: ${JSON.stringify(ingestKey)},
-    endpoint:    ${JSON.stringify(effectiveEndpoint)},
-    integrationId: ${JSON.stringify(integrationId)},
-    debug:       ${flags.debug},
-    featureFlags: ${flagsJson}
-  };
-  var s = document.createElement('script');
-  s.async = true;
-  s.src = ${JSON.stringify(trackerSrc)};
-  document.head.appendChild(s);
-})();
-</script>`;
+  // Shared with the Tag Manager auto-install, so a published tag is exactly
+  // what this block shows.
+  const gtmSnippet = buildGtmSnippet({
+    ingestKey,
+    endpoint: effectiveEndpoint,
+    trackerSrc,
+    integrationId,
+    debug: flags.debug,
+    featureFlags: { allowDynamicForms: flags.allowDynamicForms },
+  });
 
   const directHtmlSnippet = `<!-- Leadlogr Tracker — Paste before </body> on every page -->
 <script
@@ -293,6 +286,20 @@ window.Leadlogr.submitForm({
           */}
           {isScriptInstall ? (
             <div className="space-y-4">
+              {integrationId === "gtm" && (
+                <>
+                  <GtmAutoInstall
+                    organizationId={organizationId}
+                    origin={BACKEND_ORIGIN}
+                    endpoint={endpoint}
+                    debug={flags.debug}
+                    allowDynamicForms={flags.allowDynamicForms}
+                    previewHtml={gtmSnippet}
+                    ready={workspaceReady}
+                  />
+                  <p className="text-sm font-medium pt-2">Or add it by hand</p>
+                </>
+              )}
               <CodeBlock code={integrationId === "gtm" ? gtmSnippet : directHtmlSnippet} />
               <p className="text-sm text-muted-foreground">
                 {integrationId === "gtm" ? (
